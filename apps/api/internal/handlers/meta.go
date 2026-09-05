@@ -39,12 +39,26 @@ func (h *MetaHandler) GetLeagues(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	rows, err := h.db.Pool.Query(ctx, `
-		SELECT external_id, name, country, COALESCE(country_flag_url,''), COALESCE(logo_url,''), COALESCE(season, 0), is_top_league
-		FROM leagues
-		WHERE sport_slug = 'football' AND is_active = true
-		ORDER BY country ASC, is_top_league DESC, sort_order ASC, name ASC
-	`)
+	live := r.URL.Query().Get("live") == "true"
+	days := r.URL.Query().Get("days")
+
+	// Base query
+	query := `
+		SELECT l.external_id, l.name, l.country, COALESCE(l.country_flag_url,''), COALESCE(l.logo_url,''), COALESCE(l.season, 0), l.is_top_league
+		FROM leagues l
+		WHERE l.sport_slug = 'football' AND l.is_active = true
+	`
+
+	if live {
+		query += ` AND EXISTS (SELECT 1 FROM fixtures f WHERE f.league_external_id = l.external_id AND f.is_live = true)`
+	} else if days != "" {
+		// Filter by days
+		query += fmt.Sprintf(` AND EXISTS (SELECT 1 FROM fixtures f WHERE f.league_external_id = l.external_id AND f.starts_at >= CURRENT_DATE AND f.starts_at < CURRENT_DATE + INTERVAL '%s days' + INTERVAL '1 day')`, days)
+	}
+
+	query += ` ORDER BY l.country ASC, l.is_top_league DESC, l.sort_order ASC, l.name ASC`
+
+	rows, err := h.db.Pool.Query(ctx, query)
 
 	if err == nil && rows != nil {
 		defer rows.Close()
@@ -73,14 +87,26 @@ func (h *MetaHandler) GetSports(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	rows, err := h.db.Pool.Query(ctx, `
+	live := r.URL.Query().Get("live") == "true"
+	days := r.URL.Query().Get("days")
+
+	fixtureJoin := "f.starts_at > NOW()"
+	if live {
+		fixtureJoin = "f.is_live = true"
+	} else if days != "" {
+		fixtureJoin = fmt.Sprintf("f.starts_at >= CURRENT_DATE AND f.starts_at < CURRENT_DATE + INTERVAL '%s days' + INTERVAL '1 day'", days)
+	}
+
+	query := fmt.Sprintf(`
 		SELECT s.slug, s.name, s.emoji, COUNT(f.id) as fixture_count
 		FROM sports s
-		LEFT JOIN fixtures f ON f.sport_slug = s.slug AND f.starts_at > NOW()
+		LEFT JOIN fixtures f ON f.sport_slug = s.slug AND %s
 		WHERE s.is_active = true
 		GROUP BY s.id, s.slug, s.name, s.emoji, s.sort_order
 		ORDER BY s.sort_order ASC
-	`)
+	`, fixtureJoin)
+
+	rows, err := h.db.Pool.Query(ctx, query)
 
 	if err != nil || rows == nil {
 		// Fallback static list if sports table not yet seeded
@@ -106,12 +132,12 @@ func (h *MetaHandler) GetSports(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var s SportResponse
 		if err := rows.Scan(&s.Slug, &s.Name, &s.Emoji, &s.FixtureCount); err == nil {
-			sports = append(sports, s)
+			// Only include sport if it has matching fixtures (or if we are just fetching the list)
+			// Actually the user wants to filter out sports that have 0 fixtures for that tab!
+			if s.FixtureCount > 0 || s.Slug == "football" {
+				sports = append(sports, s)
+			}
 		}
-	}
-
-	if len(sports) == 0 {
-		sports = []SportResponse{}
 	}
 
 	writeJSON(w, sports)
@@ -122,14 +148,25 @@ func (h *MetaHandler) GetTopLeagues(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
+	live := r.URL.Query().Get("live") == "true"
+	days := r.URL.Query().Get("days")
+
+	query := `
+		SELECT l.external_id, l.name, l.country, COALESCE(l.logo_url,''), COALESCE(l.season, 0), l.is_top_league
+		FROM leagues l
+		WHERE l.sport_slug = 'football' AND l.is_active = true
+	`
+
+	if live {
+		query += ` AND EXISTS (SELECT 1 FROM fixtures f WHERE f.league_external_id = l.external_id AND f.is_live = true)`
+	} else if days != "" {
+		query += fmt.Sprintf(` AND EXISTS (SELECT 1 FROM fixtures f WHERE f.league_external_id = l.external_id AND f.starts_at >= CURRENT_DATE AND f.starts_at < CURRENT_DATE + INTERVAL '%s days' + INTERVAL '1 day')`, days)
+	}
+
+	query += ` ORDER BY l.is_top_league DESC, l.sort_order ASC, l.name ASC LIMIT 15`
+
 	// Query DB — returns is_top_league rows first, then by sort_order
-	rows, err := h.db.Pool.Query(ctx, `
-		SELECT external_id, name, country, COALESCE(logo_url,''), COALESCE(season, 0), is_top_league
-		FROM leagues
-		WHERE sport_slug = 'football' AND is_active = true
-		ORDER BY is_top_league DESC, sort_order ASC, name ASC
-		LIMIT 15
-	`)
+	rows, err := h.db.Pool.Query(ctx, query)
 
 	if err == nil && rows != nil {
 		defer rows.Close()

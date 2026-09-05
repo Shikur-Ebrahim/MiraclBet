@@ -57,16 +57,22 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
 
   useEffect(() => {
     const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
+    let params = '?';
+    if (activeTab === 'live') {
+      params += 'live=true';
+    } else {
+      params += `days=${timeRange}`;
+    }
 
-    // Fetch ALL leagues from the new endpoint
-    fetch(`${API_BASE}/api/v1/meta/leagues`)
+    // Fetch filtered leagues from the new endpoint
+    fetch(`${API_BASE}/api/v1/meta/leagues${params}`)
       .then(r => r.json())
       .then(data => {
         if (Array.isArray(data) && data.length > 0) {
           setAllLeagues(data);
         } else {
-          // Fallback to top leagues if the new endpoint is not deployed yet
-          fetch(`${API_BASE}/api/v1/meta/leagues/top`)
+          // Fallback to top leagues if the new endpoint is not deployed yet or empty
+          fetch(`${API_BASE}/api/v1/meta/leagues/top${params}`)
             .then(r => r.json())
             .then(fallbackData => {
               if (Array.isArray(fallbackData)) setAllLeagues(fallbackData);
@@ -76,7 +82,7 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
       })
       .catch(() => {
         // Fallback on error
-        fetch(`${API_BASE}/api/v1/meta/leagues/top`)
+        fetch(`${API_BASE}/api/v1/meta/leagues/top${params}`)
           .then(r => r.json())
           .then(fallbackData => {
             if (Array.isArray(fallbackData)) setAllLeagues(fallbackData);
@@ -84,11 +90,11 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
           .catch(console.error);
       });
 
-    fetch(`${API_BASE}/api/v1/meta/sports`)
+    fetch(`${API_BASE}/api/v1/meta/sports${params}`)
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) setSportsList(data); })
       .catch(console.error);
-  }, []);
+  }, [activeTab, timeRange]);
 
   // Filter based on search query
   const filteredLeagues = useMemo(() => {
