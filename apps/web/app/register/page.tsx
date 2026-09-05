@@ -30,7 +30,7 @@ export default function RegisterPage() {
               <input 
                 type="text" 
                 required
-                className="w-full bg-dark border border-brand rounded px-4 py-2 text-white focus:outline-none focus:border-gold"
+                className="w-full bg-dark border border-brand rounded px-4 py-2 text-white focus:outline-none focus:border-primary"
                 placeholder="John Doe"
               />
             </div>
@@ -40,7 +40,7 @@ export default function RegisterPage() {
               <input 
                 type="email" 
                 required
-                className="w-full bg-dark border border-brand rounded px-4 py-2 text-white focus:outline-none focus:border-gold"
+                className="w-full bg-dark border border-brand rounded px-4 py-2 text-white focus:outline-none focus:border-primary"
                 placeholder="you@example.com"
               />
             </div>
@@ -51,7 +51,7 @@ export default function RegisterPage() {
                 <input 
                   type="password" 
                   required
-                  className="w-full bg-dark border border-brand rounded px-4 py-2 text-white focus:outline-none focus:border-gold"
+                  className="w-full bg-dark border border-brand rounded px-4 py-2 text-white focus:outline-none focus:border-primary"
                   placeholder="••••••••"
                 />
               </div>
@@ -60,7 +60,7 @@ export default function RegisterPage() {
                 <input 
                   type="password" 
                   required
-                  className="w-full bg-dark border border-brand rounded px-4 py-2 text-white focus:outline-none focus:border-gold"
+                  className="w-full bg-dark border border-brand rounded px-4 py-2 text-white focus:outline-none focus:border-primary"
                   placeholder="••••••••"
                 />
               </div>
@@ -71,14 +71,14 @@ export default function RegisterPage() {
               <input 
                 type="date" 
                 required
-                className="w-full bg-dark border border-brand rounded px-4 py-2 text-white focus:outline-none focus:border-gold"
+                className="w-full bg-dark border border-brand rounded px-4 py-2 text-white focus:outline-none focus:border-primary"
               />
             </div>
 
             <div className="flex items-start gap-3 mt-6">
               <input type="checkbox" id="terms" required className="mt-1" />
               <label htmlFor="terms" className="text-xs text-muted">
-                I confirm that I am over 18 years of age and accept the <a href="#" className="text-gold hover:underline">Terms & Conditions</a> and <a href="#" className="text-gold hover:underline">Privacy Policy</a>.
+                I confirm that I am over 18 years of age and accept the <a href="#" className="text-primary hover:underline">Terms & Conditions</a> and <a href="#" className="text-primary hover:underline">Privacy Policy</a>.
               </label>
             </div>
 
@@ -88,7 +88,7 @@ export default function RegisterPage() {
           </form>
 
           <p className="text-center text-sm text-muted mt-6">
-            Already have an account? <Link href="/login" className="text-gold hover:underline font-medium">Sign In</Link>
+            Already have an account? <Link href="/login" className="text-primary hover:underline font-medium">Sign In</Link>
           </p>
         </Card>
       </Container>

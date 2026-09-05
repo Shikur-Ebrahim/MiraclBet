@@ -13,7 +13,7 @@ export default async function SportCategoryPage({ params }: { params: Promise<{ 
     <div className="py-8">
       <Container>
         <div className="mb-8">
-          <Link href="/sports" className="inline-flex items-center text-sm text-muted hover:text-gold mb-4 transition-colors">
+          <Link href="/sports" className="inline-flex items-center text-sm text-muted hover:text-primary mb-4 transition-colors">
             <ChevronLeft className="w-4 h-4 mr-1" /> Back to all sports
           </Link>
           <h1 className="text-3xl font-bold text-white">{formattedName} Betting</h1>
@@ -23,7 +23,7 @@ export default async function SportCategoryPage({ params }: { params: Promise<{ 
           {/* Main Content */}
           <div className="flex-1">
             <div className="flex gap-4 border-b border-brand mb-6">
-              <button className="pb-3 text-sm font-medium border-b-2 border-gold text-gold">Today</button>
+              <button className="pb-3 text-sm font-medium border-b-2 border-primary text-primary">Today</button>
               <button className="pb-3 text-sm font-medium border-b-2 border-transparent text-muted hover:text-white transition-colors">Tomorrow</button>
               <button className="pb-3 text-sm font-medium border-b-2 border-transparent text-muted hover:text-white transition-colors">Future</button>
             </div>

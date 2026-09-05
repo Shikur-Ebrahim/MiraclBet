@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { Container } from '../ui/Container';
 import { Button } from '../ui/Button';
@@ -24,8 +25,16 @@ export function Header() {
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-8">
             <Link href="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gold rounded flex items-center justify-center text-dark font-black text-xl">M</div>
-              <span className="font-bold text-xl tracking-tight text-white hidden sm:block">MiraclBet</span>
+              <div className="flex items-center">
+                <Image 
+                  src="/logo.png" 
+                  alt="MiraclBet Logo" 
+                  width={140} 
+                  height={40} 
+                  className="object-contain max-h-10" 
+                  priority 
+                />
+              </div>
             </Link>
             <nav className="hidden md:flex gap-6">
               {navLinks.map((link) => (
@@ -34,7 +43,7 @@ export function Header() {
                   href={link.href}
                   className={clsx(
                     'text-sm font-medium transition-colors hover:text-white',
-                    pathname === link.href ? 'text-gold' : 'text-muted'
+                    pathname === link.href ? 'text-primary' : 'text-muted'
                   )}
                 >
                   {link.label}
@@ -79,7 +88,7 @@ export function Header() {
               <Button variant="secondary" className="w-full">Log In</Button>
             </Link>
             <Link href="/register" onClick={() => setIsMobileMenuOpen(false)}>
-              <Button variant="primary" className="w-full">Join Now</Button>
+              <Button variant="primary" className="w-full bg-primary text-dark border-none">Join Now</Button>
             </Link>
           </div>
         </div>

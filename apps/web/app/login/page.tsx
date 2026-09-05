@@ -20,7 +20,7 @@ export default function LoginPage() {
       <Container size="sm" className="max-w-md">
         <Card className="p-8 border border-brand">
           <div className="text-center mb-8">
-            <div className="w-12 h-12 bg-gold rounded mx-auto flex items-center justify-center text-dark font-black text-2xl mb-4">M</div>
+            <div className="w-12 h-12 bg-primary rounded mx-auto flex items-center justify-center text-dark font-black text-2xl mb-4">M</div>
             <h1 className="text-2xl font-bold text-white">Welcome Back</h1>
             <p className="text-muted text-sm mt-2">Sign in to your MiraclBet account</p>
           </div>
@@ -31,7 +31,7 @@ export default function LoginPage() {
               <input 
                 type="email" 
                 required
-                className="w-full bg-dark border border-brand rounded px-4 py-2 text-white focus:outline-none focus:border-gold"
+                className="w-full bg-dark border border-brand rounded px-4 py-2 text-white focus:outline-none focus:border-primary"
                 placeholder="you@example.com"
               />
             </div>
@@ -39,12 +39,12 @@ export default function LoginPage() {
             <div>
               <div className="flex justify-between items-center mb-1">
                 <label className="block text-sm font-medium text-muted">Password</label>
-                <Link href="/forgot-password" className="text-xs text-gold hover:underline">Forgot?</Link>
+                <Link href="/forgot-password" className="text-xs text-primary hover:underline">Forgot?</Link>
               </div>
               <input 
                 type="password" 
                 required
-                className="w-full bg-dark border border-brand rounded px-4 py-2 text-white focus:outline-none focus:border-gold"
+                className="w-full bg-dark border border-brand rounded px-4 py-2 text-white focus:outline-none focus:border-primary"
                 placeholder="••••••••"
               />
             </div>
@@ -55,7 +55,7 @@ export default function LoginPage() {
           </form>
 
           <p className="text-center text-sm text-muted mt-6">
-            Don&apos;t have an account? <Link href="/register" className="text-gold hover:underline font-medium">Register here</Link>
+            Don&apos;t have an account? <Link href="/register" className="text-primary hover:underline font-medium">Register here</Link>
           </p>
         </Card>
       </Container>

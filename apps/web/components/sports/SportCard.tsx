@@ -13,9 +13,9 @@ interface SportCardProps {
 export function SportCard({ name, icon, eventCount, href }: SportCardProps) {
   return (
     <Link href={href} className="block group">
-      <Card variant="hover" className="border border-brand p-4 flex items-center justify-between group-hover:border-gold/50">
+      <Card variant="hover" className="border border-brand p-4 flex items-center justify-between group-hover:border-primary/50">
         <div className="flex items-center gap-4">
-          <div className="text-gold group-hover:scale-110 transition-transform">
+          <div className="text-primary group-hover:scale-110 transition-transform">
             {icon}
           </div>
           <div>
@@ -23,7 +23,7 @@ export function SportCard({ name, icon, eventCount, href }: SportCardProps) {
             <p className="text-xs text-muted">{eventCount} Live Events</p>
           </div>
         </div>
-        <ChevronRight className="w-5 h-5 text-muted group-hover:text-gold transition-colors" />
+        <ChevronRight className="w-5 h-5 text-muted group-hover:text-primary transition-colors" />
       </Card>
     </Link>
   );

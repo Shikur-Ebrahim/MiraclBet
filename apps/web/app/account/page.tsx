@@ -34,19 +34,19 @@ export default function AccountPage() {
           <div className="w-full md:w-64 space-y-2">
             <button 
               onClick={() => setTab('profile')}
-              className={clsx('w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-colors', tab === 'profile' ? 'bg-surface text-gold border border-brand' : 'text-muted hover:bg-surface/50')}
+              className={clsx('w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-colors', tab === 'profile' ? 'bg-surface text-primary border border-brand' : 'text-muted hover:bg-surface/50')}
             >
               <User className="w-5 h-5" /> Profile
             </button>
             <button 
               onClick={() => setTab('security')}
-              className={clsx('w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-colors', tab === 'security' ? 'bg-surface text-gold border border-brand' : 'text-muted hover:bg-surface/50')}
+              className={clsx('w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-colors', tab === 'security' ? 'bg-surface text-primary border border-brand' : 'text-muted hover:bg-surface/50')}
             >
               <Lock className="w-5 h-5" /> Security
             </button>
             <button 
               onClick={() => setTab('preferences')}
-              className={clsx('w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-colors', tab === 'preferences' ? 'bg-surface text-gold border border-brand' : 'text-muted hover:bg-surface/50')}
+              className={clsx('w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-colors', tab === 'preferences' ? 'bg-surface text-primary border border-brand' : 'text-muted hover:bg-surface/50')}
             >
               <Settings className="w-5 h-5" /> Preferences
             </button>
@@ -76,11 +76,11 @@ export default function AccountPage() {
                   <div className="space-y-4 max-w-md">
                     <div>
                       <label className="block text-sm font-medium text-muted mb-1">Current Password</label>
-                      <input type="password" className="w-full bg-dark border border-brand rounded px-4 py-2 text-white focus:border-gold focus:outline-none" />
+                      <input type="password" className="w-full bg-dark border border-brand rounded px-4 py-2 text-white focus:border-primary focus:outline-none" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-muted mb-1">New Password</label>
-                      <input type="password" className="w-full bg-dark border border-brand rounded px-4 py-2 text-white focus:border-gold focus:outline-none" />
+                      <input type="password" className="w-full bg-dark border border-brand rounded px-4 py-2 text-white focus:border-primary focus:outline-none" />
                     </div>
                     <Button className="mt-4">Update Password</Button>
                   </div>
@@ -92,7 +92,7 @@ export default function AccountPage() {
                   <div className="space-y-6 max-w-md">
                     <div>
                       <label className="block text-sm font-medium text-muted mb-2">Odds Format</label>
-                      <select className="w-full bg-dark border border-brand rounded px-4 py-2 text-white focus:border-gold focus:outline-none">
+                      <select className="w-full bg-dark border border-brand rounded px-4 py-2 text-white focus:border-primary focus:outline-none">
                         <option value="decimal">Decimal (e.g. 1.50)</option>
                         <option value="fractional">Fractional (e.g. 1/2)</option>
                         <option value="american">American (e.g. -200)</option>

@@ -38,33 +38,33 @@ export function EventCard({ homeTeam, awayTeam, league, time, odds, isLive, scor
         <div className="flex flex-col gap-2 flex-1">
           <div className="flex justify-between items-center">
             <span className="font-semibold text-white">{homeTeam}</span>
-            {score && <span className="text-gold font-bold">{score.home}</span>}
+            {score && <span className="text-primary font-bold">{score.home}</span>}
           </div>
           <div className="flex justify-between items-center">
             <span className="font-semibold text-white">{awayTeam}</span>
-            {score && <span className="text-gold font-bold">{score.away}</span>}
+            {score && <span className="text-primary font-bold">{score.away}</span>}
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-3 gap-2">
-        <button className="bg-surface hover:bg-surface/80 border border-brand hover:border-gold transition-colors rounded p-2 flex flex-col items-center group">
+        <button className="bg-surface hover:bg-surface/80 border border-brand hover:border-primary transition-colors rounded p-2 flex flex-col items-center group">
           <span className="text-xs text-muted group-hover:text-white">1</span>
-          <span className="font-bold text-gold">{odds.home.toFixed(2)}</span>
+          <span className="font-bold text-primary">{odds.home.toFixed(2)}</span>
         </button>
         {odds.draw ? (
-          <button className="bg-surface hover:bg-surface/80 border border-brand hover:border-gold transition-colors rounded p-2 flex flex-col items-center group">
+          <button className="bg-surface hover:bg-surface/80 border border-brand hover:border-primary transition-colors rounded p-2 flex flex-col items-center group">
             <span className="text-xs text-muted group-hover:text-white">X</span>
-            <span className="font-bold text-gold">{odds.draw.toFixed(2)}</span>
+            <span className="font-bold text-primary">{odds.draw.toFixed(2)}</span>
           </button>
         ) : (
           <div className="bg-surface/50 border border-brand/50 rounded flex items-center justify-center opacity-50 cursor-not-allowed">
             <span className="text-muted">-</span>
           </div>
         )}
-        <button className="bg-surface hover:bg-surface/80 border border-brand hover:border-gold transition-colors rounded p-2 flex flex-col items-center group">
+        <button className="bg-surface hover:bg-surface/80 border border-brand hover:border-primary transition-colors rounded p-2 flex flex-col items-center group">
           <span className="text-xs text-muted group-hover:text-white">2</span>
-          <span className="font-bold text-gold">{odds.away.toFixed(2)}</span>
+          <span className="font-bold text-primary">{odds.away.toFixed(2)}</span>
         </button>
       </div>
     </Card>

@@ -17,19 +17,19 @@ export default function BetsPage() {
         
         <div className="flex gap-4 border-b border-brand mb-8">
           <button 
-            className={clsx('pb-3 text-sm font-medium border-b-2 transition-colors', tab === 'open' ? 'border-gold text-gold' : 'border-transparent text-muted hover:text-white')}
+            className={clsx('pb-3 text-sm font-medium border-b-2 transition-colors', tab === 'open' ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-white')}
             onClick={() => setTab('open')}
           >
             Open Bets
           </button>
           <button 
-            className={clsx('pb-3 text-sm font-medium border-b-2 transition-colors', tab === 'settled' ? 'border-gold text-gold' : 'border-transparent text-muted hover:text-white')}
+            className={clsx('pb-3 text-sm font-medium border-b-2 transition-colors', tab === 'settled' ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-white')}
             onClick={() => setTab('settled')}
           >
             Settled Bets
           </button>
           <button 
-            className={clsx('pb-3 text-sm font-medium border-b-2 transition-colors', tab === 'all' ? 'border-gold text-gold' : 'border-transparent text-muted hover:text-white')}
+            className={clsx('pb-3 text-sm font-medium border-b-2 transition-colors', tab === 'all' ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-white')}
             onClick={() => setTab('all')}
           >
             All Bets

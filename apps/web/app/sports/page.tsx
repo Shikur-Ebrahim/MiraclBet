@@ -30,7 +30,7 @@ export default function SportsPage() {
             <input 
               type="text" 
               placeholder="Search sports..." 
-              className="w-full bg-surface border border-brand rounded pl-10 pr-4 py-2 text-white placeholder:text-muted focus:outline-none focus:border-gold"
+              className="w-full bg-surface border border-brand rounded pl-10 pr-4 py-2 text-white placeholder:text-muted focus:outline-none focus:border-primary"
             />
           </div>
         </div>

@@ -10,7 +10,7 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
           <div className="col-span-1 md:col-span-1">
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-6 h-6 bg-gold rounded flex items-center justify-center text-dark font-black text-sm">M</div>
+              <div className="w-6 h-6 bg-primary rounded flex items-center justify-center text-dark font-black text-sm">M</div>
               <span className="font-bold text-lg tracking-tight text-white">MiraclBet</span>
             </div>
             <p className="text-sm text-muted mb-6">
@@ -26,29 +26,29 @@ export function Footer() {
           <div>
             <h4 className="font-semibold text-white mb-4">Sports</h4>
             <ul className="space-y-2 text-sm text-muted">
-              <li><Link href="/sports/football" className="hover:text-gold transition-colors">Football</Link></li>
-              <li><Link href="/sports/basketball" className="hover:text-gold transition-colors">Basketball</Link></li>
-              <li><Link href="/sports/tennis" className="hover:text-gold transition-colors">Tennis</Link></li>
-              <li><Link href="/sports/cricket" className="hover:text-gold transition-colors">Cricket</Link></li>
+              <li><Link href="/sports/football" className="hover:text-primary transition-colors">Football</Link></li>
+              <li><Link href="/sports/basketball" className="hover:text-primary transition-colors">Basketball</Link></li>
+              <li><Link href="/sports/tennis" className="hover:text-primary transition-colors">Tennis</Link></li>
+              <li><Link href="/sports/cricket" className="hover:text-primary transition-colors">Cricket</Link></li>
             </ul>
           </div>
           
           <div>
             <h4 className="font-semibold text-white mb-4">Help</h4>
             <ul className="space-y-2 text-sm text-muted">
-              <li><Link href="/faq" className="hover:text-gold transition-colors">FAQ</Link></li>
-              <li><Link href="/support" className="hover:text-gold transition-colors">Support Center</Link></li>
-              <li><Link href="/betting-rules" className="hover:text-gold transition-colors">Betting Rules</Link></li>
-              <li><Link href="/responsible-gaming" className="hover:text-gold transition-colors">Responsible Gaming</Link></li>
+              <li><Link href="/faq" className="hover:text-primary transition-colors">FAQ</Link></li>
+              <li><Link href="/support" className="hover:text-primary transition-colors">Support Center</Link></li>
+              <li><Link href="/betting-rules" className="hover:text-primary transition-colors">Betting Rules</Link></li>
+              <li><Link href="/responsible-gaming" className="hover:text-primary transition-colors">Responsible Gaming</Link></li>
             </ul>
           </div>
           
           <div>
             <h4 className="font-semibold text-white mb-4">Legal</h4>
             <ul className="space-y-2 text-sm text-muted">
-              <li><Link href="/terms" className="hover:text-gold transition-colors">Terms of Service</Link></li>
-              <li><Link href="/privacy" className="hover:text-gold transition-colors">Privacy Policy</Link></li>
-              <li><Link href="/cookies" className="hover:text-gold transition-colors">Cookie Policy</Link></li>
+              <li><Link href="/terms" className="hover:text-primary transition-colors">Terms of Service</Link></li>
+              <li><Link href="/privacy" className="hover:text-primary transition-colors">Privacy Policy</Link></li>
+              <li><Link href="/cookies" className="hover:text-primary transition-colors">Cookie Policy</Link></li>
             </ul>
           </div>
         </div>
