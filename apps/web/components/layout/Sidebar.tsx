@@ -98,15 +98,16 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
     });
   }, [allLeagues, searchQuery]);
 
-  // Separate Top Leagues (flat list)
+  // Separate Top Leagues (flat list, max 15)
   const topLeagues = useMemo(() => {
-    return filteredLeagues.filter(l => l.is_top_league);
+    return filteredLeagues.filter(l => l.is_top_league).slice(0, 15);
   }, [filteredLeagues]);
 
-  // Group all leagues by country (including top leagues within those countries)
+  // Group the REMAINING leagues by country
   const groupedByCountry = useMemo(() => {
+    const remaining = filteredLeagues.filter(l => !l.is_top_league);
     const groups: Record<string, LeagueInfo[]> = {};
-    for (const league of filteredLeagues) {
+    for (const league of remaining) {
       const country = league.country || 'World';
       if (!groups[country]) groups[country] = [];
       groups[country].push(league);
