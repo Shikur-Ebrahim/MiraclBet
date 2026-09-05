@@ -12,6 +12,7 @@ interface Fixture {
   country: string;
   kickoff_at: string;
   status: string;
+  elapsed?: number;
   home_score: number | null;
   away_score: number | null;
   is_live: boolean;
@@ -102,7 +103,7 @@ function MatchRow({ fix }: { fix: Fixture }) {
   );
 }
 
-function LeagueGroup({ league, fixtures, sport }: { league: string; fixtures: Fixture[]; sport: string }) {
+function LeagueGroup({ league, fixtures }: { league: string; fixtures: Fixture[] }) {
   const [expanded, setExpanded] = useState(true);
   const logoUrl = getLeagueLogo(league);
   
@@ -205,7 +206,7 @@ export function FixtureTabs({ sport = 'football', timeRange = 6, leagueId, activ
       ) : Object.keys(grouped).length > 0 ? (
         <div>
           {Object.entries(grouped).map(([league, leagueFixtures]) => (
-            <LeagueGroup key={league} league={league} fixtures={leagueFixtures} sport={sport} />
+            <LeagueGroup key={league} league={league} fixtures={leagueFixtures} />
           ))}
         </div>
       ) : (
