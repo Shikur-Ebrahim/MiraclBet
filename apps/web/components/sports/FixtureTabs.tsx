@@ -21,7 +21,8 @@ export function FixtureTabs() {
     async function fetchFixtures() {
       setLoading(true);
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'}/api/v1/fixtures?date=${selectedDate}`);
+        const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com';
+        const res = await fetch(`${API_BASE}/api/v1/fixtures?date=${selectedDate}`);
         const data = await res.json();
         setFixtures(data || []);
       } catch (err) {

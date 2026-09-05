@@ -54,17 +54,33 @@ func main() {
     ticker := time.NewTicker(10 * time.Minute)
     defer ticker.Stop()
 
-    log.Println("[worker] sync loop started (10 minute interval)")
+    log.Println("[worker] sync loop started")
+
+    // Run initial sync immediately
+    go func() {
+        log.Println("[worker] Running initial startup sync...")
+        _ = syncer.SyncLiveFixtures(ctx)
+        _ = syncer.SyncMultipleDays(ctx, 7) // Today + 6 days
+        log.Println("[worker] Initial startup sync complete!")
+    }()
+
+    liveTicker := time.NewTicker(5 * time.Minute)
+    defer liveTicker.Stop()
+
+    dailyTicker := time.NewTicker(2 * time.Hour)
+    defer dailyTicker.Stop()
+
     for {
         select {
         case <-ctx.Done():
             log.Println("[worker] shutting down")
             return
-        case t := <-ticker.C:
-            log.Printf("[worker] tick at %s", t.Format(time.RFC3339))
-            if err := syncer.SyncFixtures(ctx, time.Now().UTC()); err != nil {
-                log.Printf("[worker] sync error: %v", err)
-            }
+        case <-liveTicker.C:
+            log.Println("[worker] tick: syncing live fixtures...")
+            _ = syncer.SyncLiveFixtures(ctx)
+        case <-dailyTicker.C:
+            log.Println("[worker] tick: syncing 7-day fixtures...")
+            _ = syncer.SyncMultipleDays(ctx, 7)
         }
     }
 }
