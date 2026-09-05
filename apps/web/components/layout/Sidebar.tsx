@@ -58,21 +58,18 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
 
   return (
     <>
-      {/* Backdrop */}
+      {/* Sidebar Panel - Full screen on mobile */}
       <div 
-        className="fixed inset-0 bg-black/60 z-40 transition-opacity"
-        onClick={onClose}
-      />
-
-      {/* Sidebar Panel */}
-      <div 
-        className="fixed inset-y-0 left-0 w-full sm:w-96 z-50 overflow-y-auto shadow-2xl transition-transform"
+        className="fixed inset-0 z-50 overflow-y-auto shadow-2xl transition-transform"
         style={{ background: '#072414' }} // VikingBet dark green
       >
         <div className="p-4">
           {/* Header row (Logo + Close) */}
           <div className="flex items-center justify-between mb-6">
-            <Image src="/logo.png" alt="MiraclBet" width={120} height={40} className="object-contain" />
+            <div className="text-2xl font-bold tracking-tight">
+              <span className="text-white">Miracl</span>
+              <span className="text-primary">Bet</span>
+            </div>
             <button onClick={onClose} className="p-2 text-white hover:bg-white/10 rounded-full">
               <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M18 6L6 18M6 6l12 12" />
@@ -105,8 +102,8 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
             </button>
           </div>
 
-          {/* Time Slider */}
-          <div className="flex items-center gap-4 mb-6">
+          {/* Time Slider (No gear icon) */}
+          <div className="flex items-center gap-4 mb-6 pr-2">
             <div className="text-[11px] leading-[1.1] text-white font-medium whitespace-pre-wrap min-w-[40px]">
               {timeRange === 0 ? 'Today\nEvents' : timeRange === 6 ? 'All\nEvents' : `${timeRange + 1} Days\nEvents`}
             </div>
@@ -128,11 +125,6 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
                 style={{ left: `calc(${(timeRange / 6) * 100}% - ${(timeRange / 6) * 20}px)` }}
               />
             </div>
-            <button className="text-white/70 hover:text-white p-1">
-              <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/>
-              </svg>
-            </button>
           </div>
 
           {/* Search */}
