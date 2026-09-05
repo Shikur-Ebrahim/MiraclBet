@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { Container } from '../ui/Container';
 import { Button } from '../ui/Button';
@@ -24,16 +23,11 @@ export function Header() {
       <Container>
         <div className="flex items-center justify-between h-16 sm:h-20">
           <div className="flex items-center gap-8">
-            {/* Logo Section */}
-            <Link href="/" className="flex items-center -ml-2 sm:ml-0">
-              <Image 
-                src="/logo.png" 
-                alt="MiraclBet Logo" 
-                width={180} 
-                height={60} 
-                className="w-32 sm:w-44 h-auto object-contain mix-blend-screen" 
-                priority 
-              />
+            {/* Logo — bold text like Melbet */}
+            <Link href="/" className="flex items-center select-none">
+              <span className="text-2xl sm:text-3xl font-black tracking-tight leading-none uppercase">
+                <span style={{ color: '#F5F7F6' }}>Miracl</span><span style={{ color: '#19E66B' }}>Bet</span>
+              </span>
             </Link>
             
             {/* Desktop Navigation */}
