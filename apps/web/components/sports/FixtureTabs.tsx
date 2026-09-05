@@ -130,41 +130,37 @@ function LeagueGroup({ league, fixtures, sport }: { league: string; fixtures: Fi
 interface FixtureTabsProps {
   sport?: string;
   timeRange?: number; // 0 to 6
+  leagueId?: string;  // filter by specific league external_id
 }
 
-export function FixtureTabs({ sport = 'football', timeRange = 6 }: FixtureTabsProps) {
+export function FixtureTabs({ sport = 'football', timeRange = 6, leagueId }: FixtureTabsProps) {
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const fetchFixtures = useCallback(async (range: number, sportSlug: string) => {
+  const fetchFixtures = useCallback(async (range: number, sportSlug: string, lid?: string) => {
     setLoading(true);
     try {
       const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
-      
+
       const promises = [];
       const baseDate = new Date();
-      
-      // Fetch data for today up to 'range' days in the future
+
       for (let i = 0; i <= range; i++) {
         const d = new Date(baseDate);
         d.setDate(d.getDate() + i);
         const dateStr = d.toISOString().split('T')[0];
+        let url = `${API_BASE}/api/v1/fixtures?date=${dateStr}&sport=${sportSlug}`;
+        if (lid) url += `&league=${lid}`;
         promises.push(
-          fetch(`${API_BASE}/api/v1/fixtures?date=${dateStr}&sport=${sportSlug}`, { cache: 'no-store' })
-            .then(r => r.json())
+          fetch(url, { cache: 'no-store' }).then(r => r.json()).catch(() => [])
         );
       }
-      
+
       const results = await Promise.all(promises);
       const allData = results.flatMap(data => Array.isArray(data) ? data : []);
-      
-      // Deduplicate in case of overlaps
-      const uniqueFixtures = Array.from(new Map(allData.map(item => [item.id, item])).values());
-      
-      // Sort by kickoff time
-      uniqueFixtures.sort((a, b) => new Date(a.kickoff_at).getTime() - new Date(b.kickoff_at).getTime());
-      
-      setFixtures(uniqueFixtures);
+      const unique = Array.from(new Map(allData.map(item => [item.id, item])).values());
+      unique.sort((a, b) => new Date(a.kickoff_at).getTime() - new Date(b.kickoff_at).getTime());
+      setFixtures(unique);
     } catch {
       setFixtures([]);
     } finally {
@@ -173,8 +169,8 @@ export function FixtureTabs({ sport = 'football', timeRange = 6 }: FixtureTabsPr
   }, []);
 
   useEffect(() => {
-    fetchFixtures(timeRange, sport);
-  }, [timeRange, sport, fetchFixtures]);
+    fetchFixtures(timeRange, sport, leagueId);
+  }, [timeRange, sport, leagueId, fetchFixtures]);
 
   const grouped: Record<string, Fixture[]> = {};
   for (const fix of fixtures) {

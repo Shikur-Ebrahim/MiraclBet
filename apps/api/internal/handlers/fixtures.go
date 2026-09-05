@@ -78,7 +78,7 @@ func (h *FixturesHandler) Live(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, []FixtureResponse{})
 }
 
-// ByDate returns fixtures for ?date=YYYY-MM-DD&sport=football
+// ByDate returns fixtures for ?date=YYYY-MM-DD&sport=football&league=39
 func (h *FixturesHandler) ByDate(w http.ResponseWriter, r *http.Request) {
 	dateStr := r.URL.Query().Get("date")
 	date, err := time.Parse("2006-01-02", dateStr)
@@ -91,23 +91,44 @@ func (h *FixturesHandler) ByDate(w http.ResponseWriter, r *http.Request) {
 		sport = "football"
 	}
 
+	leagueID := r.URL.Query().Get("league") // optional league external_id filter
+
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
 	if h.db != nil {
-		fixtures := h.queryFixturesWithArgs(ctx, `
-			SELECT f.external_id, f.home_team_name, f.away_team_name,
-				COALESCE(l.name,'Unknown') as league, COALESCE(l.country,'') as country,
-				f.starts_at, f.status_short, f.score_home, f.score_away, f.is_live,
-				COALESCE(o.home,1.90), COALESCE(o.draw,3.20), COALESCE(o.away,1.90),
-				COALESCE(f.sport_slug,'football')
-			FROM fixtures f
-			LEFT JOIN leagues l ON f.league_id = l.id
-			LEFT JOIN odds o ON o.fixture_id = f.id
-			WHERE DATE(f.starts_at AT TIME ZONE 'UTC') = $1
-			  AND COALESCE(f.sport_slug,'football') = $2
-			ORDER BY f.starts_at ASC LIMIT 100`,
-			date.Format("2006-01-02"), sport)
+		var fixtures []FixtureResponse
+		if leagueID != "" {
+			// Filter by league
+			fixtures = h.queryFixturesWithArgs(ctx, `
+				SELECT f.external_id, f.home_team_name, f.away_team_name,
+					COALESCE(l.name,'Unknown') as league, COALESCE(l.country,'') as country,
+					f.starts_at, f.status_short, f.score_home, f.score_away, f.is_live,
+					COALESCE(o.home,1.90), COALESCE(o.draw,3.20), COALESCE(o.away,1.90),
+					COALESCE(f.sport_slug,'football')
+				FROM fixtures f
+				LEFT JOIN leagues l ON l.external_id = $3
+				LEFT JOIN odds o ON o.fixture_id = f.id
+				WHERE DATE(f.starts_at AT TIME ZONE 'UTC') = $1
+				  AND COALESCE(f.sport_slug,'football') = $2
+				  AND (f.league_external_id = $3 OR l.external_id = $3)
+				ORDER BY f.starts_at ASC LIMIT 100`,
+				date.Format("2006-01-02"), sport, leagueID)
+		} else {
+			fixtures = h.queryFixturesWithArgs(ctx, `
+				SELECT f.external_id, f.home_team_name, f.away_team_name,
+					COALESCE(l.name,'Unknown') as league, COALESCE(l.country,'') as country,
+					f.starts_at, f.status_short, f.score_home, f.score_away, f.is_live,
+					COALESCE(o.home,1.90), COALESCE(o.draw,3.20), COALESCE(o.away,1.90),
+					COALESCE(f.sport_slug,'football')
+				FROM fixtures f
+				LEFT JOIN leagues l ON f.league_id = l.id
+				LEFT JOIN odds o ON o.fixture_id = f.id
+				WHERE DATE(f.starts_at AT TIME ZONE 'UTC') = $1
+				  AND COALESCE(f.sport_slug,'football') = $2
+				ORDER BY f.starts_at ASC LIMIT 100`,
+				date.Format("2006-01-02"), sport)
+		}
 
 		if len(fixtures) > 0 {
 			writeJSON(w, fixtures)
@@ -116,7 +137,7 @@ func (h *FixturesHandler) ByDate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Football fallback to live API
-	if sport == "football" {
+	if sport == "football" && leagueID == "" {
 		pf, err := h.gateway.GetFixturesByDate(ctx, date)
 		if err != nil {
 			writeJSON(w, []FixtureResponse{})
