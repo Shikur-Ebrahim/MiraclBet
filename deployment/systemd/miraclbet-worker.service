@@ -1,0 +1,29 @@
+[Unit]
+Description=MiraclBet Football Worker
+After=network.target miraclbet-api.service
+Wants=network.target
+
+[Service]
+Type=simple
+User=miraclbet
+Group=miraclbet
+WorkingDirectory=/opt/miraclbet/api
+EnvironmentFile=/opt/miraclbet/api/.env
+ExecStart=/opt/miraclbet/api/bin/worker
+Restart=on-failure
+RestartSec=30s
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=miraclbet-worker
+
+# Security hardening
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths=/opt/miraclbet/api
+
+# Resource limits
+LimitNOFILE=4096
+
+[Install]
+WantedBy=multi-user.target

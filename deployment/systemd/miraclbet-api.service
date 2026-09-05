@@ -1,0 +1,30 @@
+[Unit]
+Description=MiraclBet API Server
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=miraclbet
+Group=miraclbet
+WorkingDirectory=/opt/miraclbet/api
+EnvironmentFile=/opt/miraclbet/api/.env
+ExecStart=/opt/miraclbet/api/bin/api
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5s
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=miraclbet-api
+
+# Security hardening
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths=/opt/miraclbet/api
+
+# Resource limits
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
