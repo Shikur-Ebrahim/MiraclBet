@@ -140,7 +140,7 @@ func (g *HTTPGateway) doRequest(ctx context.Context, path string, result interfa
 	if err != nil {
 		return fmt.Errorf("create request: %w", err)
 	}
-	req.Header.Set("X-Api-Key", g.apiKey)
+	req.Header.Set("x-apisports-key", g.apiKey)
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := g.httpClient.Do(req)
