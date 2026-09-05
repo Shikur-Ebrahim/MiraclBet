@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
 
 export interface ApiResponse<T> {
   data: T | null;
