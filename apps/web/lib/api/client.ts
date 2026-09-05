@@ -1,26 +1,42 @@
-import type { HealthResponse, Sport, ApiResponse } from '@/types/api';
-
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
 
-async function apiFetch<T>(path: string, options?: RequestInit): Promise<ApiResponse<T>> {
+export interface ApiResponse<T> {
+  data: T | null;
+  error: string | null;
+}
+
+export interface Fixture {
+  id: string;
+  home_team: string;
+  away_team: string;
+  league: string;
+  country: string;
+  kickoff_at: string;
+  status: string;
+  home_score: number | null;
+  away_score: number | null;
+  is_live: boolean;
+  odds_home: number;
+  odds_draw: number;
+  odds_away: number;
+}
+
+async function apiFetch<T>(path: string): Promise<ApiResponse<T>> {
   try {
     const res = await fetch(`${API_URL}${path}`, {
-      headers: { 'Content-Type': 'application/json', ...options?.headers },
-      ...options,
+      headers: { 'Content-Type': 'application/json' },
+      next: { revalidate: 30 }, // revalidate every 30 seconds
     });
-    if (!res.ok) {
-      const error = await res.text();
-      return { data: null, error, status: res.status };
-    }
+    if (!res.ok) return { data: null, error: `HTTP ${res.status}` };
     const data: T = await res.json();
-    return { data, error: null, status: res.status };
+    return { data, error: null };
   } catch (err) {
-    return { data: null, error: err instanceof Error ? err.message : 'Network error', status: 0 };
+    return { data: null, error: err instanceof Error ? err.message : 'Network error' };
   }
 }
 
 export const apiClient = {
-  getHealth: () => apiFetch<HealthResponse>('/health'),
-  getSports: () => apiFetch<Sport[]>('/api/v1/sports'),
-  getFixtures: (sportId?: string) => apiFetch<unknown[]>(`/api/v1/fixtures${sportId ? `?sport=${sportId}` : ''}`),
+  getLiveFixtures: () => apiFetch<Fixture[]>('/api/v1/fixtures/live'),
+  getTodayFixtures: () => apiFetch<Fixture[]>('/api/v1/fixtures/today'),
+  getSports: () => apiFetch<{ id: string; name: string; slug: string }[]>('/api/v1/sports'),
 };
