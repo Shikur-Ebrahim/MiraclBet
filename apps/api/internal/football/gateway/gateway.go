@@ -46,12 +46,20 @@ type apiFixtureResponse struct {
 			Date string `json:"date"`
 		} `json:"fixture"`
 		League struct {
+			ID      int    `json:"id"`
 			Name    string `json:"name"`
 			Country string `json:"country"`
+			Logo    string `json:"logo"`
 		} `json:"league"`
 		Teams struct {
-			Home struct{ Name string `json:"name"` } `json:"home"`
-			Away struct{ Name string `json:"name"` } `json:"away"`
+			Home struct {
+				Name string `json:"name"`
+				Logo string `json:"logo"`
+			} `json:"home"`
+			Away struct {
+				Name string `json:"name"`
+				Logo string `json:"logo"`
+			} `json:"away"`
 		} `json:"teams"`
 		Goals struct {
 			Home *int `json:"home"`
@@ -121,15 +129,19 @@ func (g *HTTPGateway) mapFixtures(raw apiFixtureResponse) []provider.ProviderFix
 	for _, f := range raw.Response {
 		kickoff, _ := time.Parse(time.RFC3339, f.Fixture.Date)
 		fixtures = append(fixtures, provider.ProviderFixture{
-			ExternalID:   fmt.Sprintf("%d", f.Fixture.ID),
-			HomeTeamName: f.Teams.Home.Name,
-			AwayTeamName: f.Teams.Away.Name,
-			LeagueName:   f.League.Name,
-			Country:      f.League.Country,
-			KickoffAt:    kickoff,
-			Status:       f.Fixture.Status.Short,
-			HomeScore:    f.Goals.Home,
-			AwayScore:    f.Goals.Away,
+			ExternalID:       fmt.Sprintf("%d", f.Fixture.ID),
+			HomeTeamName:     f.Teams.Home.Name,
+			AwayTeamName:     f.Teams.Away.Name,
+			HomeTeamLogo:     f.Teams.Home.Logo,
+			AwayTeamLogo:     f.Teams.Away.Logo,
+			LeagueExternalID: fmt.Sprintf("%d", f.League.ID),
+			LeagueName:       f.League.Name,
+			LeagueLogo:       f.League.Logo,
+			Country:          f.League.Country,
+			KickoffAt:        kickoff,
+			Status:           f.Fixture.Status.Short,
+			HomeScore:        f.Goals.Home,
+			AwayScore:        f.Goals.Away,
 		})
 	}
 	return fixtures

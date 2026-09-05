@@ -74,34 +74,47 @@ func (s *Syncer) saveFixtures(ctx context.Context, fixtures []provider.ProviderF
 		return nil
 	}
 
-	// Prepare batch upsert
-	query := `
-		INSERT INTO fixtures (
-			external_id, home_team_name, away_team_name,
-			starts_at, status_short, score_home, score_away, is_live, sport
-		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, 'football'
-		) ON CONFLICT (external_id) DO UPDATE SET
-			home_team_name = EXCLUDED.home_team_name,
-			away_team_name = EXCLUDED.away_team_name,
-			starts_at = EXCLUDED.starts_at,
-			status_short = EXCLUDED.status_short,
-			score_home = EXCLUDED.score_home,
-			score_away = EXCLUDED.score_away,
-			is_live = EXCLUDED.is_live,
-			updated_at = NOW()
-	`
-
 	liveStatuses := map[string]bool{
 		"1H": true, "HT": true, "2H": true, "ET": true, "P": true, "LIVE": true,
 	}
+
+	query := `
+		INSERT INTO fixtures (
+			external_id,
+			home_team_name, away_team_name,
+			home_team_logo, away_team_logo,
+			league_external_id, league_name, league_logo_url,
+			sport_slug,
+			starts_at, status_short,
+			score_home, score_away, is_live
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7, $8, 'football', $9, $10, $11, $12, $13
+		) ON CONFLICT (external_id) DO UPDATE SET
+			home_team_name    = EXCLUDED.home_team_name,
+			away_team_name    = EXCLUDED.away_team_name,
+			home_team_logo    = EXCLUDED.home_team_logo,
+			away_team_logo    = EXCLUDED.away_team_logo,
+			league_external_id = EXCLUDED.league_external_id,
+			league_name       = EXCLUDED.league_name,
+			league_logo_url   = EXCLUDED.league_logo_url,
+			sport_slug        = 'football',
+			starts_at         = EXCLUDED.starts_at,
+			status_short      = EXCLUDED.status_short,
+			score_home        = EXCLUDED.score_home,
+			score_away        = EXCLUDED.score_away,
+			is_live           = EXCLUDED.is_live
+	`
 
 	saved := 0
 	for _, f := range fixtures {
 		isLive := liveStatuses[f.Status]
 		_, err := s.db.Pool.Exec(ctx, query,
-			f.ExternalID, f.HomeTeamName, f.AwayTeamName,
-			f.KickoffAt, f.Status, f.HomeScore, f.AwayScore, isLive,
+			f.ExternalID,
+			f.HomeTeamName, f.AwayTeamName,
+			f.HomeTeamLogo, f.AwayTeamLogo,
+			f.LeagueExternalID, f.LeagueName, f.LeagueLogo,
+			f.KickoffAt, f.Status,
+			f.HomeScore, f.AwayScore, isLive,
 		)
 		if err != nil {
 			log.Printf("[sync] error saving fixture %s: %v", f.ExternalID, err)
@@ -110,6 +123,6 @@ func (s *Syncer) saveFixtures(ctx context.Context, fixtures []provider.ProviderF
 		}
 	}
 
-	log.Printf("[sync] Successfully saved/updated %d fixtures", saved)
+	log.Printf("[sync] Saved/updated %d/%d fixtures", saved, len(fixtures))
 	return nil
 }

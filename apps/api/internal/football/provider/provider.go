@@ -6,15 +6,19 @@ import (
 )
 
 type ProviderFixture struct {
-    ExternalID   string
-    HomeTeamName string
-    AwayTeamName string
-    LeagueName   string
-    Country      string
-    KickoffAt    time.Time
-    Status       string
-    HomeScore    *int
-    AwayScore    *int
+    ExternalID       string
+    HomeTeamName     string
+    AwayTeamName     string
+    HomeTeamLogo     string    // e.g. https://media.api-sports.io/football/teams/33.png
+    AwayTeamLogo     string
+    LeagueName       string
+    LeagueExternalID string    // API league ID e.g. "39"
+    LeagueLogo       string
+    Country          string
+    KickoffAt        time.Time
+    Status           string
+    HomeScore        *int
+    AwayScore        *int
 }
 
 type ProviderLeague struct {
