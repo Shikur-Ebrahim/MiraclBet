@@ -140,6 +140,7 @@ func (g *HTTPGateway) mapFixtures(raw apiFixtureResponse) []provider.ProviderFix
 			Country:          f.League.Country,
 			KickoffAt:        kickoff,
 			Status:           f.Fixture.Status.Short,
+			Elapsed:          f.Fixture.Status.Elapsed,
 			HomeScore:        f.Goals.Home,
 			AwayScore:        f.Goals.Away,
 		})

@@ -17,6 +17,7 @@ type ProviderFixture struct {
     Country          string
     KickoffAt        time.Time
     Status           string
+    Elapsed          *int
     HomeScore        *int
     AwayScore        *int
 }

@@ -85,10 +85,10 @@ func (s *Syncer) saveFixtures(ctx context.Context, fixtures []provider.ProviderF
 			home_team_logo, away_team_logo,
 			league_external_id, league_name, league_logo_url,
 			sport_slug,
-			starts_at, status_short,
+			starts_at, status_short, elapsed,
 			score_home, score_away, is_live
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, 'football', $9, $10, $11, $12, $13
+			$1, $2, $3, $4, $5, $6, $7, $8, 'football', $9, $10, $11, $12, $13, $14
 		) ON CONFLICT (external_id) DO UPDATE SET
 			home_team_name    = EXCLUDED.home_team_name,
 			away_team_name    = EXCLUDED.away_team_name,
@@ -100,6 +100,7 @@ func (s *Syncer) saveFixtures(ctx context.Context, fixtures []provider.ProviderF
 			sport_slug        = 'football',
 			starts_at         = EXCLUDED.starts_at,
 			status_short      = EXCLUDED.status_short,
+			elapsed           = EXCLUDED.elapsed,
 			score_home        = EXCLUDED.score_home,
 			score_away        = EXCLUDED.score_away,
 			is_live           = EXCLUDED.is_live
@@ -113,7 +114,7 @@ func (s *Syncer) saveFixtures(ctx context.Context, fixtures []provider.ProviderF
 			f.HomeTeamName, f.AwayTeamName,
 			f.HomeTeamLogo, f.AwayTeamLogo,
 			f.LeagueExternalID, f.LeagueName, f.LeagueLogo,
-			f.KickoffAt, f.Status,
+			f.KickoffAt, f.Status, f.Elapsed,
 			f.HomeScore, f.AwayScore, isLive,
 		)
 		if err != nil {

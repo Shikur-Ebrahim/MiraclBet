@@ -20,6 +20,7 @@ type FixtureResponse struct {
 	Country   string  `json:"country"`
 	KickoffAt string  `json:"kickoff_at"`
 	Status    string  `json:"status"`
+	Elapsed   *int    `json:"elapsed,omitempty"`
 	HomeScore *int    `json:"home_score"`
 	AwayScore *int    `json:"away_score"`
 	IsLive    bool    `json:"is_live"`
@@ -52,7 +53,7 @@ func (h *FixturesHandler) Live(w http.ResponseWriter, r *http.Request) {
 		fixtures := h.queryFixturesWithArg(ctx, `
 			SELECT f.external_id, f.home_team_name, f.away_team_name,
 				COALESCE(l.name,'Unknown') as league, COALESCE(l.country,'') as country,
-				f.starts_at, f.status_short, f.score_home, f.score_away, f.is_live,
+				f.starts_at, f.status_short, f.elapsed, f.score_home, f.score_away, f.is_live,
 				COALESCE(o.home,1.90), COALESCE(o.draw,3.20), COALESCE(o.away,1.90),
 				COALESCE(f.sport_slug,'football')
 			FROM fixtures f
@@ -103,7 +104,7 @@ func (h *FixturesHandler) ByDate(w http.ResponseWriter, r *http.Request) {
 			fixtures = h.queryFixturesWithArgs(ctx, `
 				SELECT f.external_id, f.home_team_name, f.away_team_name,
 					COALESCE(l.name,'Unknown') as league, COALESCE(l.country,'') as country,
-					f.starts_at, f.status_short, f.score_home, f.score_away, f.is_live,
+					f.starts_at, f.status_short, f.elapsed, f.score_home, f.score_away, f.is_live,
 					COALESCE(o.home,1.90), COALESCE(o.draw,3.20), COALESCE(o.away,1.90),
 					COALESCE(f.sport_slug,'football')
 				FROM fixtures f
@@ -118,7 +119,7 @@ func (h *FixturesHandler) ByDate(w http.ResponseWriter, r *http.Request) {
 			fixtures = h.queryFixturesWithArgs(ctx, `
 				SELECT f.external_id, f.home_team_name, f.away_team_name,
 					COALESCE(l.name,'Unknown') as league, COALESCE(l.country,'') as country,
-					f.starts_at, f.status_short, f.score_home, f.score_away, f.is_live,
+					f.starts_at, f.status_short, f.elapsed, f.score_home, f.score_away, f.is_live,
 					COALESCE(o.home,1.90), COALESCE(o.draw,3.20), COALESCE(o.away,1.90),
 					COALESCE(f.sport_slug,'football')
 				FROM fixtures f
@@ -188,7 +189,7 @@ func scanRows(rows rowScanner) []FixtureResponse {
 		_ = rows.Scan(
 			&fx.ID, &fx.HomeTeam, &fx.AwayTeam,
 			&fx.League, &fx.Country,
-			&kickoff, &fx.Status,
+			&kickoff, &fx.Status, &fx.Elapsed,
 			&fx.HomeScore, &fx.AwayScore, &fx.IsLive,
 			&fx.OddsHome, &fx.OddsDraw, &fx.OddsAway,
 			&fx.Sport,
@@ -217,6 +218,7 @@ func fromProvider(pf []provider.ProviderFixture, limit int, forceIsLive bool, sp
 			Country:   f.Country,
 			KickoffAt: f.KickoffAt.Format(time.RFC3339),
 			Status:    f.Status,
+			Elapsed:   f.Elapsed,
 			HomeScore: f.HomeScore,
 			AwayScore: f.AwayScore,
 			IsLive:    forceIsLive || liveStatuses[f.Status],
