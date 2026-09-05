@@ -26,11 +26,22 @@ interface SidebarProps {
   onSelectLeague: (leagueId: string, leagueName: string) => void;
 }
 
+function seasonLabel(season: number): string {
+  if (!season) return '';
+  // Football seasons span two years e.g. 2025/2026
+  if (season >= 2020) return `${season}/${season + 1}`;
+  return `${season}`;
+}
+
 export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: SidebarProps) {
   const [activeTab, setActiveTab] = useState<'prematch' | 'live'>('prematch');
   const [timeRange, setTimeRange] = useState(6);
   const [expandedSection, setExpandedSection] = useState<'leagues' | 'sports' | null>('leagues');
-  const [expandedCountries, setExpandedCountries] = useState<Set<string>>(new Set(['World', 'England', 'Spain', 'Germany', 'Italy', 'France']));
+  // All countries start collapsed; clicking opens them
+  const [expandedCountries, setExpandedCountries] = useState<Set<string>>(
+    new Set(['World', 'England', 'Spain', 'Germany', 'Italy', 'France', 'South America',
+             'Russia', 'Egypt', 'Netherlands', 'Portugal', 'Turkey'])
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const [countryFilter, setCountryFilter] = useState<string>('All');
 
@@ -43,7 +54,14 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
 
     fetch(`${API_BASE}/api/v1/meta/leagues/top`)
       .then(r => r.json())
-      .then(data => { if (Array.isArray(data)) setTopLeagues(data); })
+      .then(data => {
+        if (Array.isArray(data)) {
+          setTopLeagues(data);
+          // Auto-expand all countries that come from DB
+          const countries = new Set(data.map((l: LeagueInfo) => l.country || 'World'));
+          setExpandedCountries(countries);
+        }
+      })
       .catch(console.error);
 
     fetch(`${API_BASE}/api/v1/meta/sports`)
@@ -52,24 +70,29 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
       .catch(console.error);
   }, [isOpen]);
 
-  // Unique sorted countries
+  // Unique sorted countries from the fetched leagues
   const allCountries = useMemo(() => {
-    const countries = [...new Set(topLeagues.map(l => l.country || 'World'))].sort();
+    const countries = [...new Set(topLeagues.map(l => l.country || 'World'))].sort((a, b) => {
+      if (a === 'World') return -1;
+      if (b === 'World') return 1;
+      return a.localeCompare(b);
+    });
     return ['All', ...countries];
   }, [topLeagues]);
 
-  // Filter leagues by search + country
+  // Filter leagues by search + country pill
   const filteredLeagues = useMemo(() => {
     return topLeagues.filter(l => {
-      const matchesSearch = !searchQuery ||
-        l.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        l.country.toLowerCase().includes(searchQuery.toLowerCase());
+      const q = searchQuery.toLowerCase();
+      const matchesSearch = !q ||
+        l.name.toLowerCase().includes(q) ||
+        (l.country || '').toLowerCase().includes(q);
       const matchesCountry = countryFilter === 'All' || l.country === countryFilter;
       return matchesSearch && matchesCountry;
     });
   }, [topLeagues, searchQuery, countryFilter]);
 
-  // Group filtered leagues by country
+  // Group filtered leagues by country, World first then alphabetical
   const groupedLeagues = useMemo(() => {
     const groups: Record<string, LeagueInfo[]> = {};
     for (const league of filteredLeagues) {
@@ -78,7 +101,6 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
       groups[country].push(league);
     }
     return Object.entries(groups).sort(([a], [b]) => {
-      // World first, then alphabetical
       if (a === 'World') return -1;
       if (b === 'World') return 1;
       return a.localeCompare(b);
@@ -97,10 +119,7 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 overflow-y-auto"
-      style={{ background: '#072414' }}
-    >
+    <div className="fixed inset-0 z-50 overflow-y-auto" style={{ background: '#072414' }}>
       <div className="p-4 pb-24">
 
         {/* Header */}
@@ -122,15 +141,17 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={clsx(
-                'flex-1 py-2.5 text-sm font-bold rounded-lg capitalize transition-colors',
+              className={clsx('flex-1 py-2.5 text-sm font-bold rounded-lg capitalize transition-colors',
                 activeTab === tab ? 'text-[#072414]' : 'text-white/60 hover:text-white'
               )}
               style={activeTab === tab ? { background: '#19E66B' } : {}}
             >
               {tab === 'live' ? (
                 <span className="flex items-center justify-center gap-1.5">
-                  Live <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+                  Live
+                  <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="9 18 15 12 9 6"/>
+                  </svg>
                 </span>
               ) : 'Prematch'}
             </button>
@@ -139,7 +160,7 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
 
         {/* Time Slider */}
         <div className="flex items-center gap-3 mb-5">
-          <div className="text-[11px] leading-tight text-white font-medium min-w-[44px]">
+          <div className="text-[11px] leading-tight text-white font-medium min-w-[44px] whitespace-pre-wrap">
             {timeRange === 0 ? 'Today\nEvents' : timeRange === 6 ? 'All\nEvents' : `${timeRange + 1} Days\nEvents`}
           </div>
           <div
@@ -171,8 +192,8 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
             placeholder="Search leagues or countries..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="w-full py-3 pl-10 pr-4 rounded-xl text-sm text-white placeholder-white/40 outline-none focus:ring-1"
-            style={{ background: '#0A361E', focusRingColor: '#19E66B' }}
+            className="w-full py-3 pl-10 pr-4 rounded-xl text-sm text-white placeholder-white/40 outline-none border border-transparent focus:border-[#19E66B]"
+            style={{ background: '#0A361E' }}
           />
           {searchQuery && (
             <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white">
@@ -185,7 +206,7 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
         <div className="mb-3">
           <button
             onClick={() => setExpandedSection(expandedSection === 'leagues' ? null : 'leagues')}
-            className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition-colors"
+            className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition-colors mb-2"
           >
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#19E66B' }}>
@@ -194,7 +215,7 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
                 </svg>
               </div>
               <span className="font-bold text-white">Top Leagues</span>
-              <span className="text-xs text-white/40 font-normal">({filteredLeagues.length})</span>
+              <span className="text-xs text-white/30 font-normal ml-1">({filteredLeagues.length})</span>
             </div>
             <svg viewBox="0 0 24 24" className={clsx('w-5 h-5 text-white/50 transition-transform', expandedSection === 'leagues' ? 'rotate-180' : '')} fill="none" stroke="currentColor" strokeWidth="2">
               <polyline points="6 9 12 15 18 9"/>
@@ -202,20 +223,19 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
           </button>
 
           {expandedSection === 'leagues' && (
-            <div className="mt-1">
+            <div>
               {/* Country Filter Pills */}
-              <div className="flex gap-2 overflow-x-auto pb-2 mb-3 px-1" style={{ scrollbarWidth: 'none' }}>
+              <div className="flex gap-2 overflow-x-auto pb-3 mb-1 px-1" style={{ scrollbarWidth: 'none' }}>
                 {allCountries.map(country => (
                   <button
                     key={country}
                     onClick={() => setCountryFilter(country)}
-                    className={clsx(
-                      'whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold shrink-0 transition-colors',
+                    className={clsx('whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold shrink-0 transition-colors border',
                       countryFilter === country
-                        ? 'text-[#072414]'
-                        : 'text-white/60 hover:text-white'
+                        ? 'text-[#072414] border-transparent'
+                        : 'text-white/60 hover:text-white border-white/10'
                     )}
-                    style={countryFilter === country ? { background: '#19E66B' } : { background: '#0A361E' }}
+                    style={countryFilter === country ? { background: '#19E66B' } : { background: '#0D2018' }}
                   >
                     {country}
                   </button>
@@ -224,51 +244,60 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
 
               {/* Leagues grouped by country */}
               {groupedLeagues.length === 0 ? (
-                <div className="text-center text-sm text-white/40 py-6">No leagues found</div>
+                <div className="text-center text-sm text-white/40 py-8">No leagues found</div>
               ) : (
                 groupedLeagues.map(([country, leagues]) => (
                   <div key={country} className="mb-1">
-                    {/* Country header row */}
+                    {/* Country section header */}
                     <button
                       onClick={() => toggleCountry(country)}
-                      className="w-full flex items-center justify-between px-3 py-2 hover:bg-white/5 rounded-lg transition-colors"
+                      className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors"
+                      style={{ background: '#0D2018' }}
                     >
+                      <span className="text-xs font-bold tracking-widest uppercase" style={{ color: '#19E66B' }}>
+                        {country}
+                      </span>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-white/50 uppercase tracking-wider">{country}</span>
-                        <span className="text-[10px] text-white/30">({leagues.length})</span>
+                        <span className="text-[10px] text-white/30">{leagues.length}</span>
+                        <svg
+                          viewBox="0 0 24 24"
+                          className={clsx('w-3.5 h-3.5 text-white/40 transition-transform', expandedCountries.has(country) ? 'rotate-180' : '')}
+                          fill="none" stroke="currentColor" strokeWidth="2"
+                        >
+                          <polyline points="6 9 12 15 18 9"/>
+                        </svg>
                       </div>
-                      <svg
-                        viewBox="0 0 24 24"
-                        className={clsx('w-3.5 h-3.5 text-white/30 transition-transform', expandedCountries.has(country) ? 'rotate-180' : '')}
-                        fill="none" stroke="currentColor" strokeWidth="2"
-                      >
-                        <polyline points="6 9 12 15 18 9"/>
-                      </svg>
                     </button>
 
-                    {/* League rows inside country */}
-                    {expandedCountries.has(country) && leagues.map(league => (
-                      <button
-                        key={league.id}
-                        onClick={() => { onSelectLeague(league.id, league.name); onClose(); }}
-                        className="w-full flex items-center gap-3 pl-6 pr-3 py-2.5 hover:bg-white/5 transition-colors group rounded-lg"
-                      >
-                        <div className="w-6 h-6 shrink-0 flex items-center justify-center">
-                          {league.logo_url ? (
-                            <Image src={league.logo_url} alt={league.name} width={24} height={24} className="object-contain" unoptimized />
-                          ) : (
-                            <span className="text-sm">⚽</span>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0 text-left">
-                          <div className="text-sm font-medium text-white/90 group-hover:text-white truncate">{league.name}</div>
-                          <div className="text-[11px] text-white/40">{league.country}{league.season ? ` · ${league.season}` : ''}</div>
-                        </div>
-                        <svg viewBox="0 0 24 24" className="w-4 h-4 text-white/20 group-hover:text-white/50 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="9 18 15 12 9 6"/>
-                        </svg>
-                      </button>
-                    ))}
+                    {/* League rows under this country */}
+                    {expandedCountries.has(country) && (
+                      <div className="mb-1">
+                        {leagues.map(league => (
+                          <button
+                            key={league.id}
+                            onClick={() => { onSelectLeague(league.id, league.name); onClose(); }}
+                            className="w-full flex items-center gap-3 pl-5 pr-3 py-2.5 hover:bg-white/5 transition-colors group"
+                          >
+                            <div className="w-6 h-6 shrink-0 flex items-center justify-center rounded overflow-hidden">
+                              {league.logo_url ? (
+                                <Image src={league.logo_url} alt={league.name} width={24} height={24} className="object-contain" unoptimized />
+                              ) : (
+                                <span className="text-base">⚽</span>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0 text-left">
+                              <div className="text-sm font-medium text-white/90 group-hover:text-white truncate">{league.name}</div>
+                              <div className="text-[11px] text-white/35">
+                                {league.country}{league.season ? ` · ${seasonLabel(league.season)}` : ''}
+                              </div>
+                            </div>
+                            <svg viewBox="0 0 24 24" className="w-4 h-4 text-white/20 group-hover:text-white/50 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
+                              <polyline points="9 18 15 12 9 6"/>
+                            </svg>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))
               )}
@@ -284,8 +313,9 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
           >
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#19E66B' }}>
-                <svg viewBox="0 0 24 24" className="w-5 h-5 text-[#072414]" fill="currentColor">
+                <svg viewBox="0 0 24 24" className="w-5 h-5 text-[#072414]" fill="none" stroke="currentColor" strokeWidth="2">
                   <circle cx="12" cy="12" r="10"/>
+                  <path d="M12 8l1.5 3H17l-2.5 2 1 3.5L12 14.5l-3.5 2 1-3.5L7 11h3.5z" fill="currentColor" opacity="0.5"/>
                 </svg>
               </div>
               <span className="font-bold text-white">Sports</span>
