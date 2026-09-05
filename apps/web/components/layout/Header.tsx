@@ -25,7 +25,7 @@ export function Header() {
           <div className="flex items-center gap-8">
             {/* Logo — bold text like Melbet */}
             <Link href="/" className="flex items-center select-none">
-              <span className="text-2xl sm:text-3xl font-black tracking-tight leading-none uppercase">
+              <span className="text-2xl sm:text-3xl font-black tracking-tight leading-none">
                 <span style={{ color: '#F5F7F6' }}>Miracl</span><span style={{ color: '#19E66B' }}>Bet</span>
               </span>
             </Link>
