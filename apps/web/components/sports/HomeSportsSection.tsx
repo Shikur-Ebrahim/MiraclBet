@@ -4,16 +4,21 @@ import React, { useState } from 'react';
 import { Container } from '@/components/ui/Container';
 import { FixtureTabs } from '@/components/sports/FixtureTabs';
 import { SportsNav } from '@/components/sports/TopLeagues';
-import { Fixture } from '@/lib/api/client';
 import Link from 'next/link';
 
 export function HomeSportsSection() {
   const [activeSport, setActiveSport] = useState('football');
+  const [timeRange, setTimeRange] = useState(6); // 0 = Today, 6 = All Events (7 days)
 
   return (
     <div>
-      {/* ── Sports Navigation ── */}
-      <SportsNav activeSport={activeSport} onSportChange={setActiveSport} />
+      {/* ── Sports Navigation & Slider ── */}
+      <SportsNav 
+        activeSport={activeSport} 
+        onSportChange={setActiveSport} 
+        timeRange={timeRange}
+        onTimeRangeChange={setTimeRange}
+      />
 
       {/* ── Matches by Date ── */}
       <section className="py-4">
@@ -32,7 +37,8 @@ export function HomeSportsSection() {
             </h2>
             <Link href={`/sports/${activeSport}`} className="text-primary text-sm font-semibold">View All →</Link>
           </div>
-          <FixtureTabs sport={activeSport} />
+          
+          <FixtureTabs sport={activeSport} timeRange={timeRange} />
         </Container>
       </section>
     </div>

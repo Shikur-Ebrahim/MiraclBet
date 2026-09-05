@@ -21,23 +21,42 @@ const SPORTS = [
 interface SportNavProps {
   onSportChange?: (sport: string) => void;
   activeSport?: string;
+  onTimeRangeChange?: (range: number) => void;
+  timeRange?: number;
 }
 
-export function SportsNav({ onSportChange, activeSport = 'football' }: SportNavProps) {
-  const [selected, setSelected] = useState(activeSport);
+export function SportsNav({ 
+  onSportChange, 
+  activeSport = 'football',
+  onTimeRangeChange,
+  timeRange = 6
+}: SportNavProps) {
   const [showLive, setShowLive] = useState(false);
 
   const handleSelect = (key: string) => {
-    setSelected(key);
     onSportChange?.(key);
   };
 
+  const handleSliderClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const percentage = Math.max(0, Math.min(1, x / rect.width));
+    const step = Math.round(percentage * 6);
+    onTimeRangeChange?.(step);
+  };
+
+  const getLabel = () => {
+    if (timeRange === 0) return 'Today\nEvents';
+    if (timeRange === 6) return 'All\nEvents';
+    return `${timeRange + 1} Days\nEvents`;
+  };
+
   return (
-    <section style={{ background: '#0D1913' }} className="border-b border-brand">
+    <section style={{ background: '#0D1913' }} className="border-b border-brand pb-2">
       {/* Sports horizontal scroll */}
       <div className="flex overflow-x-auto gap-1 px-2 pt-3 pb-2" style={{ scrollbarWidth: 'none' }}>
         {SPORTS.map((sport) => {
-          const isActive = selected === sport.key;
+          const isActive = activeSport === sport.key;
           return (
             <button
               key={sport.key}
@@ -58,7 +77,7 @@ export function SportsNav({ onSportChange, activeSport = 'football' }: SportNavP
       </div>
 
       {/* All Sports | Open Live buttons */}
-      <div className="flex gap-2 px-3 pb-3 pt-1">
+      <div className="flex gap-2 px-3 pb-4 pt-1">
         <button
           onClick={() => setShowLive(false)}
           className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-colors"
@@ -78,13 +97,41 @@ export function SportsNav({ onSportChange, activeSport = 'football' }: SportNavP
         </button>
         <Link
           href="/sports"
-          className="flex items-center justify-center w-10 h-10 rounded-lg"
+          className="flex items-center justify-center w-10 h-10 rounded-lg shrink-0"
           style={{ background: '#132012', border: '1px solid #1C3026' }}
         >
           <svg viewBox="0 0 24 24" className="w-4 h-4 text-muted" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
           </svg>
         </Link>
+      </div>
+
+      {/* VikingBet Style Time Tracker / Slider */}
+      <div className="flex items-center gap-4 px-3 mb-1">
+        <div className="text-[11px] leading-[1.1] text-white font-medium whitespace-pre-wrap min-w-[40px]">
+          {getLabel()}
+        </div>
+        <div 
+          className="flex-1 relative h-6 flex items-center cursor-pointer select-none"
+          onClick={handleSliderClick}
+        >
+          {/* Segmented Track */}
+          <div className="absolute inset-x-0 h-1.5 flex gap-1 items-center">
+            {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+              <div 
+                key={i} 
+                className={`flex-1 h-full rounded-full transition-colors duration-300 ${i <= timeRange ? 'bg-gray-300' : 'bg-gray-700'}`} 
+              />
+            ))}
+          </div>
+          {/* Thumb */}
+          <div 
+            className="absolute h-5 w-5 rounded-full bg-gray-200 shadow-md transition-all duration-300 pointer-events-none"
+            style={{ 
+              left: `calc(${(timeRange / 6) * 100}% - ${(timeRange / 6) * 20}px)`, 
+            }}
+          />
+        </div>
       </div>
     </section>
   );
