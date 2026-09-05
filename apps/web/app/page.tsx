@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Container } from '@/components/ui/Container';
 import { Button } from '@/components/ui/Button';
 import { SportCard } from '@/components/sports/SportCard';
+import { FixtureTabs } from '@/components/sports/FixtureTabs';
 import { Trophy, Zap, Shield, Star, Activity, CircleDollarSign } from 'lucide-react';
 import { apiClient, type Fixture } from '@/lib/api/client';
 
@@ -155,25 +156,14 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* ── Today's Matches ── */}
+      {/* ── Upcoming Matches (Tabs) ── */}
       <section className="py-8 sm:py-12 bg-surface/20">
         <Container>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl sm:text-2xl font-bold">Today&apos;s Matches</h2>
+            <h2 className="text-xl sm:text-2xl font-bold">Upcoming Matches</h2>
             <Link href="/sports" className="text-primary text-sm font-semibold">View All →</Link>
           </div>
-          {todayFixtures.length > 0 ? (
-            <div className="flex flex-col gap-2">
-              {todayFixtures.slice(0, 10).map((fix) => (
-                <UpcomingRow key={fix.id} fix={fix} />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12 text-muted">
-              <p className="text-lg mb-2">No fixtures yet for today</p>
-              <p className="text-sm">Data syncs automatically once the Football API is active</p>
-            </div>
-          )}
+          <FixtureTabs />
         </Container>
       </section>
 

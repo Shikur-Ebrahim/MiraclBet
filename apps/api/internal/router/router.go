@@ -29,6 +29,7 @@ func New(cfg *config.Config, db *database.DB) http.Handler {
 		r.Get("/sports", sportsHandler.List)
 		r.Get("/fixtures/live", fixturesHandler.Live)
 		r.Get("/fixtures/today", fixturesHandler.Today)
+		r.Get("/fixtures", fixturesHandler.ByDate)
 	})
 
 	return r

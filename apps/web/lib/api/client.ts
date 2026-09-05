@@ -38,5 +38,6 @@ async function apiFetch<T>(path: string): Promise<ApiResponse<T>> {
 export const apiClient = {
   getLiveFixtures: () => apiFetch<Fixture[]>('/api/v1/fixtures/live'),
   getTodayFixtures: () => apiFetch<Fixture[]>('/api/v1/fixtures/today'),
+  getFixturesByDate: (date: string) => apiFetch<Fixture[]>(`/api/v1/fixtures?date=${date}`),
   getSports: () => apiFetch<{ id: string; name: string; slug: string }[]>('/api/v1/sports'),
 };
