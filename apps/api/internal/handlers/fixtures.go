@@ -13,21 +13,24 @@ import (
 )
 
 type FixtureResponse struct {
-	ID        string  `json:"id"`
-	HomeTeam  string  `json:"home_team"`
-	AwayTeam  string  `json:"away_team"`
-	League    string  `json:"league"`
-	Country   string  `json:"country"`
-	KickoffAt string  `json:"kickoff_at"`
-	Status    string  `json:"status"`
-	Elapsed   *int    `json:"elapsed,omitempty"`
-	HomeScore *int    `json:"home_score"`
-	AwayScore *int    `json:"away_score"`
-	IsLive    bool    `json:"is_live"`
-	OddsHome  float64 `json:"odds_home"`
-	OddsDraw  float64 `json:"odds_draw"`
-	OddsAway  float64 `json:"odds_away"`
-	Sport     string  `json:"sport"`
+	ID            string  `json:"id"`
+	HomeTeam      string  `json:"home_team"`
+	HomeTeamLogo  string  `json:"home_team_logo"`
+	AwayTeam      string  `json:"away_team"`
+	AwayTeamLogo  string  `json:"away_team_logo"`
+	League        string  `json:"league"`
+	LeagueLogoURL string  `json:"league_logo_url"`
+	Country       string  `json:"country"`
+	KickoffAt     string  `json:"kickoff_at"`
+	Status        string  `json:"status"`
+	Elapsed       *int    `json:"elapsed,omitempty"`
+	HomeScore     *int    `json:"home_score"`
+	AwayScore     *int    `json:"away_score"`
+	IsLive        bool    `json:"is_live"`
+	OddsHome      float64 `json:"odds_home"`
+	OddsDraw      float64 `json:"odds_draw"`
+	OddsAway      float64 `json:"odds_away"`
+	Sport         string  `json:"sport"`
 }
 
 type FixturesHandler struct {
@@ -51,8 +54,8 @@ func (h *FixturesHandler) Live(w http.ResponseWriter, r *http.Request) {
 
 	if h.db != nil {
 		fixtures := h.queryFixturesWithArg(ctx, `
-			SELECT f.external_id, f.home_team_name, f.away_team_name,
-				COALESCE(l.name,'Unknown') as league, COALESCE(l.country,'') as country,
+			SELECT f.external_id, f.home_team_name, COALESCE(f.home_team_logo,''), f.away_team_name, COALESCE(f.away_team_logo,''),
+				COALESCE(l.name,'Unknown') as league, COALESCE(f.league_logo_url,'') as league_logo_url, COALESCE(l.country,'') as country,
 				f.starts_at, f.status_short, f.elapsed, f.score_home, f.score_away, f.is_live,
 				COALESCE(o.home,1.90), COALESCE(o.draw,3.20), COALESCE(o.away,1.90),
 				COALESCE(f.sport_slug,'football')
@@ -60,7 +63,7 @@ func (h *FixturesHandler) Live(w http.ResponseWriter, r *http.Request) {
 			LEFT JOIN leagues l ON f.league_id = l.id
 			LEFT JOIN odds o ON o.fixture_id = f.id
 			WHERE f.is_live = true AND COALESCE(f.sport_slug,'football') = $1
-			ORDER BY f.starts_at DESC LIMIT 30`, sport)
+			ORDER BY f.starts_at DESC LIMIT 200`, sport)
 		if len(fixtures) > 0 {
 			writeJSON(w, fixtures)
 			return
@@ -73,7 +76,7 @@ func (h *FixturesHandler) Live(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, []FixtureResponse{})
 			return
 		}
-		writeJSON(w, fromProvider(pf, 30, true, sport))
+		writeJSON(w, fromProvider(pf, 200, true, sport))
 		return
 	}
 	writeJSON(w, []FixtureResponse{})
@@ -102,8 +105,8 @@ func (h *FixturesHandler) ByDate(w http.ResponseWriter, r *http.Request) {
 		if leagueID != "" {
 			// Filter by league
 			fixtures = h.queryFixturesWithArgs(ctx, `
-				SELECT f.external_id, f.home_team_name, f.away_team_name,
-					COALESCE(l.name,'Unknown') as league, COALESCE(l.country,'') as country,
+				SELECT f.external_id, f.home_team_name, COALESCE(f.home_team_logo,''), f.away_team_name, COALESCE(f.away_team_logo,''),
+					COALESCE(l.name,'Unknown') as league, COALESCE(f.league_logo_url,'') as league_logo_url, COALESCE(l.country,'') as country,
 					f.starts_at, f.status_short, f.elapsed, f.score_home, f.score_away, f.is_live,
 					COALESCE(o.home,1.90), COALESCE(o.draw,3.20), COALESCE(o.away,1.90),
 					COALESCE(f.sport_slug,'football')
@@ -113,12 +116,12 @@ func (h *FixturesHandler) ByDate(w http.ResponseWriter, r *http.Request) {
 				WHERE DATE(f.starts_at AT TIME ZONE 'UTC') = $1
 				  AND COALESCE(f.sport_slug,'football') = $2
 				  AND (f.league_external_id = $3 OR l.external_id = $3)
-				ORDER BY f.starts_at ASC LIMIT 100`,
+				ORDER BY f.starts_at ASC LIMIT 200`,
 				date.Format("2006-01-02"), sport, leagueID)
 		} else {
 			fixtures = h.queryFixturesWithArgs(ctx, `
-				SELECT f.external_id, f.home_team_name, f.away_team_name,
-					COALESCE(l.name,'Unknown') as league, COALESCE(l.country,'') as country,
+				SELECT f.external_id, f.home_team_name, COALESCE(f.home_team_logo,''), f.away_team_name, COALESCE(f.away_team_logo,''),
+					COALESCE(l.name,'Unknown') as league, COALESCE(f.league_logo_url,'') as league_logo_url, COALESCE(l.country,'') as country,
 					f.starts_at, f.status_short, f.elapsed, f.score_home, f.score_away, f.is_live,
 					COALESCE(o.home,1.90), COALESCE(o.draw,3.20), COALESCE(o.away,1.90),
 					COALESCE(f.sport_slug,'football')
@@ -127,7 +130,7 @@ func (h *FixturesHandler) ByDate(w http.ResponseWriter, r *http.Request) {
 				LEFT JOIN odds o ON o.fixture_id = f.id
 				WHERE DATE(f.starts_at AT TIME ZONE 'UTC') = $1
 				  AND COALESCE(f.sport_slug,'football') = $2
-				ORDER BY f.starts_at ASC LIMIT 100`,
+				ORDER BY f.starts_at ASC LIMIT 200`,
 				date.Format("2006-01-02"), sport)
 		}
 
@@ -144,7 +147,7 @@ func (h *FixturesHandler) ByDate(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, []FixtureResponse{})
 			return
 		}
-		writeJSON(w, fromProvider(pf, 100, false, sport))
+		writeJSON(w, fromProvider(pf, 200, false, sport))
 		return
 	}
 	writeJSON(w, []FixtureResponse{})
@@ -187,8 +190,8 @@ func scanRows(rows rowScanner) []FixtureResponse {
 		var fx FixtureResponse
 		var kickoff time.Time
 		_ = rows.Scan(
-			&fx.ID, &fx.HomeTeam, &fx.AwayTeam,
-			&fx.League, &fx.Country,
+			&fx.ID, &fx.HomeTeam, &fx.HomeTeamLogo, &fx.AwayTeam, &fx.AwayTeamLogo,
+			&fx.League, &fx.LeagueLogoURL, &fx.Country,
 			&kickoff, &fx.Status, &fx.Elapsed,
 			&fx.HomeScore, &fx.AwayScore, &fx.IsLive,
 			&fx.OddsHome, &fx.OddsDraw, &fx.OddsAway,
@@ -211,21 +214,24 @@ func fromProvider(pf []provider.ProviderFixture, limit int, forceIsLive bool, sp
 			break
 		}
 		out = append(out, FixtureResponse{
-			ID:        f.ExternalID,
-			HomeTeam:  f.HomeTeamName,
-			AwayTeam:  f.AwayTeamName,
-			League:    f.LeagueName,
-			Country:   f.Country,
-			KickoffAt: f.KickoffAt.Format(time.RFC3339),
-			Status:    f.Status,
-			Elapsed:   f.Elapsed,
-			HomeScore: f.HomeScore,
-			AwayScore: f.AwayScore,
-			IsLive:    forceIsLive || liveStatuses[f.Status],
-			OddsHome:  1.90,
-			OddsDraw:  3.20,
-			OddsAway:  1.90,
-			Sport:     sport,
+			ID:            f.ExternalID,
+			HomeTeam:      f.HomeTeamName,
+			HomeTeamLogo:  f.HomeTeamLogo,
+			AwayTeam:      f.AwayTeamName,
+			AwayTeamLogo:  f.AwayTeamLogo,
+			League:        f.LeagueName,
+			LeagueLogoURL: f.LeagueLogo,
+			Country:       f.Country,
+			KickoffAt:     f.KickoffAt.Format(time.RFC3339),
+			Status:        f.Status,
+			Elapsed:       f.Elapsed,
+			HomeScore:     f.HomeScore,
+			AwayScore:     f.AwayScore,
+			IsLive:        forceIsLive || liveStatuses[f.Status],
+			OddsHome:      1.90,
+			OddsDraw:      3.20,
+			OddsAway:      1.90,
+			Sport:         sport,
 		})
 	}
 	return out
