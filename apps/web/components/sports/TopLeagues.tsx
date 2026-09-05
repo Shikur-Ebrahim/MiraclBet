@@ -90,7 +90,7 @@ export function SportsNav({
             onOpenSidebar?.();
           }}
           className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-colors"
-          style={{ background: !isLive ? '#19E66B22' : '#132012', border: `1px solid ${!isLive ? '#19E66B55' : '#1C3026'}`, color: !isLive ? '#19E66B' : '#8D9B94' }}
+          style={{ background: '#19E66B22', border: '1px solid #19E66B55', color: '#19E66B' }}
         >
           <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
             <rect x="3" y="5" width="7" height="2"/><rect x="3" y="10" width="10" height="2"/><rect x="3" y="15" width="8" height="2"/>

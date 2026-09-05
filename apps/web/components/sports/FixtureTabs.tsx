@@ -45,7 +45,7 @@ function TeamLogo({ logo, name }: { logo?: string; name: string }) {
   if (logo) {
     return (
       <div className="w-5 h-5 flex items-center justify-center shrink-0">
-        <Image src={logo} alt={name} width={20} height={20} className="object-contain" unoptimized priority={false} />
+        <Image src={logo} alt={name} width={20} height={20} className="object-contain" unoptimized />
       </div>
     );
   }
@@ -108,26 +108,18 @@ function MatchRow({ fix }: { fix: Fixture }) {
   );
 }
 
-/**
- * LeagueGroup:
- * - defaultExpanded=true  → starts open immediately (first 200 matches)
- * - defaultExpanded=false → starts collapsed, auto-opens when scrolled into view
- */
 function LeagueGroup({
   league, fixtures, leagueLogoUrl, defaultExpanded,
 }: {
-  league: string;
-  fixtures: Fixture[];
-  leagueLogoUrl?: string;
-  defaultExpanded: boolean;
+  league: string; fixtures: Fixture[]; leagueLogoUrl?: string; defaultExpanded: boolean;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const headerRef = useRef<HTMLDivElement>(null);
   const logoUrl = getLeagueLogo(league, leagueLogoUrl);
 
-  // Auto-open when this section scrolls into view (only for collapsed sections)
+  // Auto-open when scrolled into view (for collapsed sections loaded via scroll)
   useEffect(() => {
-    if (defaultExpanded) return; // already open, no need to observe
+    if (defaultExpanded) return;
     const el = headerRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(
@@ -137,7 +129,7 @@ function LeagueGroup({
           observer.disconnect();
         }
       },
-      { threshold: 0.2, rootMargin: '0px 0px -50px 0px' }
+      { threshold: 0.15, rootMargin: '0px 0px -40px 0px' }
     );
     observer.observe(el);
     return () => observer.disconnect();
@@ -184,90 +176,100 @@ interface FixtureTabsProps {
   activeTab?: 'prematch' | 'live';
 }
 
-const PAGE_SIZE = 200;
-const PAGE_INCREMENT = 100;
-
 export function FixtureTabs({ sport = 'football', timeRange = 6, leagueId, activeTab = 'prematch' }: FixtureTabsProps) {
   const [allFixtures, setAllFixtures] = useState<Fixture[]>([]);
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [dayIndex, setDayIndex] = useState(0);          // which day we last loaded
+  const [hasMoreDays, setHasMoreDays] = useState(true);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
 
-  // Track which leagues were in the first 200 batch → these start open
+  // Which leagues were in the very first batch (shown expanded)
   const initialLeaguesRef = useRef<Set<string> | null>(null);
 
-  const fetchFixtures = useCallback(async () => {
-    setLoading(true);
-    setVisibleCount(PAGE_SIZE);
-    initialLeaguesRef.current = null; // reset on new fetch
+  // Fetch a single day's worth of fixtures
+  const fetchDay = useCallback(async (dayOffset: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + dayOffset);
+    const dateStr = d.toISOString().split('T')[0];
+    let url = `${API_BASE}/api/v1/fixtures?date=${dateStr}&sport=${sport}`;
+    if (leagueId) url += `&league=${leagueId}`;
     try {
-      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
-
-      if (activeTab === 'live') {
-        let url = `${API_BASE}/api/v1/fixtures/live?sport=${sport}`;
-        if (leagueId) url += `&league=${leagueId}`;
-        const data = await fetch(url, { cache: 'no-store' }).then(r => r.json());
-        setAllFixtures(Array.isArray(data) ? data : []);
-      } else {
-        const promises = [];
-        const baseDate = new Date();
-        for (let i = 0; i <= timeRange; i++) {
-          const d = new Date(baseDate);
-          d.setDate(d.getDate() + i);
-          const dateStr = d.toISOString().split('T')[0];
-          let url = `${API_BASE}/api/v1/fixtures?date=${dateStr}&sport=${sport}`;
-          if (leagueId) url += `&league=${leagueId}`;
-          promises.push(fetch(url, { cache: 'no-store' }).then(r => r.json()).catch(() => []));
-        }
-        const results = await Promise.all(promises);
-        const allData = results.flatMap(data => Array.isArray(data) ? data : []);
-        const unique = Array.from(new Map(allData.map(item => [item.id, item])).values());
-        unique.sort((a, b) => new Date(a.kickoff_at).getTime() - new Date(b.kickoff_at).getTime());
-        setAllFixtures(unique);
-      }
+      const data = await fetch(url, { cache: 'no-store' }).then(r => r.json());
+      return Array.isArray(data) ? data : [];
     } catch {
-      setAllFixtures([]);
-    } finally {
-      setLoading(false);
+      return [];
     }
-  }, [timeRange, sport, leagueId, activeTab]);
+  }, [API_BASE, sport, leagueId]);
 
+  // Initial load: today only
   useEffect(() => {
-    fetchFixtures();
-  }, [fetchFixtures]);
+    setAllFixtures([]);
+    setDayIndex(0);
+    setHasMoreDays(timeRange > 0);
+    initialLeaguesRef.current = null;
 
-  // After fixtures load, record which leagues are in the first PAGE_SIZE
-  useEffect(() => {
-    if (allFixtures.length > 0 && initialLeaguesRef.current === null) {
-      const first = allFixtures.slice(0, PAGE_SIZE);
-      initialLeaguesRef.current = new Set(first.map(f => f.league || 'Other'));
+    if (activeTab === 'live') {
+      setLoading(true);
+      let url = `${API_BASE}/api/v1/fixtures/live?sport=${sport}`;
+      if (leagueId) url += `&league=${leagueId}`;
+      fetch(url, { cache: 'no-store' })
+        .then(r => r.json())
+        .then(data => {
+          const fixtures = Array.isArray(data) ? data : [];
+          setAllFixtures(fixtures);
+          initialLeaguesRef.current = new Set(fixtures.map((f: Fixture) => f.league || 'Other'));
+          setHasMoreDays(false);
+        })
+        .catch(() => setAllFixtures([]))
+        .finally(() => setLoading(false));
+    } else {
+      setLoading(true);
+      fetchDay(0)
+        .then(fixtures => {
+          setAllFixtures(fixtures);
+          initialLeaguesRef.current = new Set(fixtures.map((f: Fixture) => f.league || 'Other'));
+        })
+        .finally(() => setLoading(false));
     }
-  }, [allFixtures]);
+  }, [sport, leagueId, activeTab, timeRange, fetchDay, API_BASE]);
 
-  // Infinite scroll sentinel: add PAGE_INCREMENT when visible
+  // Infinite scroll: when sentinel is visible and we have more days, load next day
   useEffect(() => {
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
-    const observer = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting) {
-        setVisibleCount(prev => prev + PAGE_INCREMENT);
+    const observer = new IntersectionObserver(async entries => {
+      if (entries[0].isIntersecting && !loadingMore && hasMoreDays && activeTab !== 'live') {
+        const nextDay = dayIndex + 1;
+        if (nextDay > timeRange) {
+          setHasMoreDays(false);
+          return;
+        }
+        setLoadingMore(true);
+        const newFixtures = await fetchDay(nextDay);
+        setAllFixtures(prev => {
+          const merged = [...prev, ...newFixtures];
+          const unique = Array.from(new Map(merged.map(f => [f.id, f])).values());
+          unique.sort((a, b) => new Date(a.kickoff_at).getTime() - new Date(b.kickoff_at).getTime());
+          return unique;
+        });
+        setDayIndex(nextDay);
+        if (nextDay >= timeRange) setHasMoreDays(false);
+        setLoadingMore(false);
       }
     }, { threshold: 0.1 });
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [allFixtures]);
+  }, [dayIndex, loadingMore, hasMoreDays, timeRange, activeTab, fetchDay]);
 
-  const visibleFixtures = allFixtures.slice(0, visibleCount);
-
-  // Group by league, keeping first-seen logo per league
+  // Group by league
   const grouped: Record<string, { fixtures: Fixture[]; logoUrl?: string }> = {};
-  for (const fix of visibleFixtures) {
+  for (const fix of allFixtures) {
     const key = fix.league || 'Other';
     if (!grouped[key]) grouped[key] = { fixtures: [], logoUrl: fix.league_logo_url };
     grouped[key].fixtures.push(fix);
   }
-
-  const hasMore = visibleCount < allFixtures.length;
 
   return (
     <div>
@@ -282,7 +284,7 @@ export function FixtureTabs({ sport = 'football', timeRange = 6, leagueId, activ
       ) : Object.keys(grouped).length > 0 ? (
         <div>
           {Object.entries(grouped).map(([league, { fixtures, logoUrl }]) => {
-            // If league was in the first 200 fetched → open by default
+            // Leagues from the first fetch are open, new ones from scroll start collapsed
             const isInitial = initialLeaguesRef.current?.has(league) ?? true;
             return (
               <LeagueGroup
@@ -295,14 +297,20 @@ export function FixtureTabs({ sport = 'football', timeRange = 6, leagueId, activ
             );
           })}
 
-          {/* Sentinel: triggers loading of next batch */}
-          {hasMore && (
-            <div ref={sentinelRef} className="py-4 flex items-center justify-center gap-2 text-muted text-sm">
-              <svg className="animate-spin h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
-              </svg>
-              Loading more matches...
+          {/* Scroll sentinel */}
+          {(hasMoreDays || loadingMore) && (
+            <div ref={sentinelRef} className="py-6 flex items-center justify-center gap-2 text-muted text-sm">
+              {loadingMore ? (
+                <>
+                  <svg className="animate-spin h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                  </svg>
+                  Loading more matches...
+                </>
+              ) : (
+                <span className="text-white/20 text-xs">↓ Scroll for more</span>
+              )}
             </div>
           )}
         </div>
