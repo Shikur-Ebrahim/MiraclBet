@@ -62,9 +62,27 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
     fetch(`${API_BASE}/api/v1/meta/leagues`)
       .then(r => r.json())
       .then(data => {
-        if (Array.isArray(data)) setAllLeagues(data);
+        if (Array.isArray(data) && data.length > 0) {
+          setAllLeagues(data);
+        } else {
+          // Fallback to top leagues if the new endpoint is not deployed yet
+          fetch(`${API_BASE}/api/v1/meta/leagues/top`)
+            .then(r => r.json())
+            .then(fallbackData => {
+              if (Array.isArray(fallbackData)) setAllLeagues(fallbackData);
+            })
+            .catch(console.error);
+        }
       })
-      .catch(console.error);
+      .catch(() => {
+        // Fallback on error
+        fetch(`${API_BASE}/api/v1/meta/leagues/top`)
+          .then(r => r.json())
+          .then(fallbackData => {
+            if (Array.isArray(fallbackData)) setAllLeagues(fallbackData);
+          })
+          .catch(console.error);
+      });
 
     fetch(`${API_BASE}/api/v1/meta/sports`)
       .then(r => r.json())
