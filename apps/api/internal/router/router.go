@@ -22,14 +22,20 @@ func New(cfg *config.Config, db *database.DB) http.Handler {
 	healthHandler := handlers.NewHealthHandler()
 	r.Get("/health", healthHandler.Health)
 
-	sportsHandler := handlers.NewSportsHandler()
 	fixturesHandler := handlers.NewFixturesHandler(db, cfg)
+	metaHandler := handlers.NewMetaHandler(db)
 
 	r.Route("/api/v1", func(r chi.Router) {
-		r.Get("/sports", sportsHandler.List)
+		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+			w.Write([]byte("OK"))
+		})
+
 		r.Get("/fixtures/live", fixturesHandler.Live)
 		r.Get("/fixtures/today", fixturesHandler.Today)
 		r.Get("/fixtures", fixturesHandler.ByDate)
+		
+		r.Get("/meta/sports", metaHandler.GetSports)
+		r.Get("/meta/leagues/top", metaHandler.GetTopLeagues)
 	})
 
 	return r

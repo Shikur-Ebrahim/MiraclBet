@@ -4,20 +4,33 @@ import React, { useState } from 'react';
 import { Container } from '@/components/ui/Container';
 import { FixtureTabs } from '@/components/sports/FixtureTabs';
 import { SportsNav } from '@/components/sports/TopLeagues';
+import { Sidebar } from '@/components/layout/Sidebar';
 import Link from 'next/link';
 
 export function HomeSportsSection() {
   const [activeSport, setActiveSport] = useState('football');
   const [timeRange, setTimeRange] = useState(6); // 0 = Today, 6 = All Events (7 days)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
     <div>
+      <Sidebar 
+        isOpen={isSidebarOpen} 
+        onClose={() => setIsSidebarOpen(false)}
+        onSelectSport={setActiveSport}
+        onSelectLeague={(leagueId) => {
+          // Future: Filter matches by league
+          console.log("Selected league:", leagueId);
+        }}
+      />
+
       {/* ── Sports Navigation & Slider ── */}
       <SportsNav 
         activeSport={activeSport} 
         onSportChange={setActiveSport} 
         timeRange={timeRange}
         onTimeRangeChange={setTimeRange}
+        onOpenSidebar={() => setIsSidebarOpen(true)}
       />
 
       {/* ── Matches by Date ── */}
