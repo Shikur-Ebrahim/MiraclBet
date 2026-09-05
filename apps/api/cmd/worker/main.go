@@ -59,6 +59,8 @@ func main() {
     // Run initial sync immediately
     go func() {
         log.Println("[worker] Running initial startup sync...")
+        // Sync leagues first so fixture inserts can link to league IDs
+        sync.SyncLeagues(db.Pool, cfg.FootballAPIKey)
         _ = syncer.SyncLiveFixtures(ctx)
         _ = syncer.SyncMultipleDays(ctx, 7) // Today + 6 days
         log.Println("[worker] Initial startup sync complete!")
@@ -79,7 +81,8 @@ func main() {
             log.Println("[worker] tick: syncing live fixtures...")
             _ = syncer.SyncLiveFixtures(ctx)
         case <-dailyTicker.C:
-            log.Println("[worker] tick: syncing 7-day fixtures...")
+            log.Println("[worker] tick: syncing 7-day fixtures and leagues...")
+            sync.SyncLeagues(db.Pool, cfg.FootballAPIKey)
             _ = syncer.SyncMultipleDays(ctx, 7)
         }
     }

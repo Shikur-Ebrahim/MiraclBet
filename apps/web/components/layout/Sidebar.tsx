@@ -15,6 +15,8 @@ interface LeagueInfo {
   id: string;
   name: string;
   country: string;
+  logo_url: string;
+  season: number;
 }
 
 interface SidebarProps {
@@ -168,17 +170,23 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
                     onClick={() => { onSelectLeague(league.id); onClose(); }}
                     className="w-full flex items-center gap-4 px-4 py-3 hover:bg-white/5 transition-colors group"
                   >
-                    <Image 
-                      src={`https://media.api-sports.io/football/leagues/${league.id}.png`} 
-                      alt={league.name} 
-                      width={24} 
-                      height={24} 
-                      className="object-contain opacity-90 group-hover:opacity-100"
-                      unoptimized
-                    />
-                    <span className="text-sm font-medium text-white/90 group-hover:text-white">
-                      {league.name.replace('Football. ', '')}
-                    </span>
+                    {league.logo_url ? (
+                      <Image
+                        src={league.logo_url}
+                        alt={league.name}
+                        width={24}
+                        height={24}
+                        className="object-contain opacity-90 group-hover:opacity-100 shrink-0"
+                        unoptimized
+                      />
+                    ) : (
+                      <span className="text-lg shrink-0">⚽</span>
+                    )}
+                    <div className="flex flex-col items-start min-w-0">
+                      <span className="text-sm font-medium text-white/90 group-hover:text-white truncate w-full">
+                        {league.country && league.country !== 'World' ? `${league.country}. ` : ''}{league.name}
+                      </span>
+                    </div>
                   </button>
                 ))}
               </div>

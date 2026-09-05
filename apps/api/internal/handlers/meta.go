@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -27,6 +28,8 @@ type LeagueResponse struct {
 	ID      string `json:"id"`
 	Name    string `json:"name"`
 	Country string `json:"country"`
+	LogoURL string `json:"logo_url"` // stored in DB — points to media.api-sports.io or R2
+	Season  int    `json:"season"`
 }
 
 // GetSports returns all active sports with their upcoming fixture counts
@@ -42,7 +45,7 @@ func (h *MetaHandler) GetSports(w http.ResponseWriter, r *http.Request) {
 		GROUP BY s.id, s.slug, s.name, s.emoji, s.sort_order
 		ORDER BY s.sort_order ASC
 	`)
-	
+
 	if err != nil || rows == nil {
 		// Fallback static list if sports table not yet seeded
 		writeJSON(w, []SportResponse{
@@ -70,7 +73,7 @@ func (h *MetaHandler) GetSports(w http.ResponseWriter, r *http.Request) {
 			sports = append(sports, s)
 		}
 	}
-	
+
 	if len(sports) == 0 {
 		sports = []SportResponse{}
 	}
@@ -78,29 +81,30 @@ func (h *MetaHandler) GetSports(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, sports)
 }
 
-// GetTopLeagues returns top 15 leagues from DB, falling back to well-known league seeds
+// GetTopLeagues returns top 15 leagues from DB with real logo URLs (API-Sports CDN)
 func (h *MetaHandler) GetTopLeagues(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	// Try DB-backed approach: leagues with most upcoming fixtures
+	// Query DB — returns is_top_league rows first, then by sort_order
 	rows, err := h.db.Pool.Query(ctx, `
-		SELECT l.external_id, l.name, l.country, COUNT(f.id) as cnt
-		FROM leagues l
-		LEFT JOIN fixtures f ON f.league_id = l.id AND f.starts_at > NOW()
-		WHERE l.sport_slug = 'football'
-		GROUP BY l.id, l.external_id, l.name, l.country
-		ORDER BY cnt DESC, l.name ASC
+		SELECT external_id, name, country, COALESCE(logo_url,''), COALESCE(season, 0)
+		FROM leagues
+		WHERE sport_slug = 'football' AND is_active = true
+		ORDER BY is_top_league DESC, sort_order ASC, name ASC
 		LIMIT 15
 	`)
 
-	if err == nil {
+	if err == nil && rows != nil {
 		defer rows.Close()
 		var leagues []LeagueResponse
 		for rows.Next() {
 			var l LeagueResponse
-			var cnt int
-			if err := rows.Scan(&l.ID, &l.Name, &l.Country, &cnt); err == nil {
+			if err := rows.Scan(&l.ID, &l.Name, &l.Country, &l.LogoURL, &l.Season); err == nil {
+				// Fallback logo from API-Sports CDN if logo_url is empty
+				if l.LogoURL == "" {
+					l.LogoURL = fmt.Sprintf("https://media.api-sports.io/football/leagues/%s.png", l.ID)
+				}
 				leagues = append(leagues, l)
 			}
 		}
@@ -110,22 +114,22 @@ func (h *MetaHandler) GetTopLeagues(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Fallback: well-known top leagues hardcoded as seed data
+	// Fallback: seeded well-known top leagues with CDN logos
 	writeJSON(w, []LeagueResponse{
-		{ID: "2",   Name: "UEFA Champions League",   Country: "World"},
-		{ID: "3",   Name: "UEFA Europa League",      Country: "World"},
-		{ID: "848", Name: "UEFA Conference League",  Country: "World"},
-		{ID: "5",   Name: "UEFA Nations League",     Country: "World"},
-		{ID: "39",  Name: "Premier League",          Country: "England"},
-		{ID: "140", Name: "La Liga",                 Country: "Spain"},
-		{ID: "135", Name: "Serie A",                 Country: "Italy"},
-		{ID: "78",  Name: "Bundesliga",              Country: "Germany"},
-		{ID: "61",  Name: "Ligue 1",                 Country: "France"},
-		{ID: "13",  Name: "Copa Libertadores",       Country: "South America"},
-		{ID: "235", Name: "Premier League",          Country: "Russia"},
-		{ID: "332", Name: "Premier League",          Country: "Egypt"},
-		{ID: "88",  Name: "Eredivisie",              Country: "Netherlands"},
-		{ID: "94",  Name: "Primeira Liga",           Country: "Portugal"},
-		{ID: "203", Name: "Süper Lig",               Country: "Turkey"},
+		{ID: "2",   Name: "UEFA Champions League",  Country: "World",         LogoURL: "https://media.api-sports.io/football/leagues/2.png",   Season: 2025},
+		{ID: "3",   Name: "UEFA Europa League",     Country: "World",         LogoURL: "https://media.api-sports.io/football/leagues/3.png",   Season: 2025},
+		{ID: "848", Name: "UEFA Conference League", Country: "World",         LogoURL: "https://media.api-sports.io/football/leagues/848.png", Season: 2025},
+		{ID: "5",   Name: "UEFA Nations League",    Country: "World",         LogoURL: "https://media.api-sports.io/football/leagues/5.png",   Season: 2025},
+		{ID: "39",  Name: "Premier League",         Country: "England",       LogoURL: "https://media.api-sports.io/football/leagues/39.png",  Season: 2025},
+		{ID: "140", Name: "La Liga",                Country: "Spain",         LogoURL: "https://media.api-sports.io/football/leagues/140.png", Season: 2025},
+		{ID: "135", Name: "Serie A",                Country: "Italy",         LogoURL: "https://media.api-sports.io/football/leagues/135.png", Season: 2025},
+		{ID: "78",  Name: "Bundesliga",             Country: "Germany",       LogoURL: "https://media.api-sports.io/football/leagues/78.png",  Season: 2025},
+		{ID: "61",  Name: "Ligue 1",               Country: "France",        LogoURL: "https://media.api-sports.io/football/leagues/61.png",  Season: 2025},
+		{ID: "13",  Name: "Copa Libertadores",      Country: "South America", LogoURL: "https://media.api-sports.io/football/leagues/13.png",  Season: 2025},
+		{ID: "235", Name: "Premier League",         Country: "Russia",        LogoURL: "https://media.api-sports.io/football/leagues/235.png", Season: 2025},
+		{ID: "332", Name: "Premier League",         Country: "Egypt",         LogoURL: "https://media.api-sports.io/football/leagues/332.png", Season: 2025},
+		{ID: "88",  Name: "Eredivisie",             Country: "Netherlands",   LogoURL: "https://media.api-sports.io/football/leagues/88.png",  Season: 2025},
+		{ID: "94",  Name: "Primeira Liga",          Country: "Portugal",      LogoURL: "https://media.api-sports.io/football/leagues/94.png",  Season: 2025},
+		{ID: "203", Name: "Süper Lig",              Country: "Turkey",        LogoURL: "https://media.api-sports.io/football/leagues/203.png", Season: 2025},
 	})
 }
