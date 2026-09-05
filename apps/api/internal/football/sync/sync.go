@@ -45,7 +45,7 @@ func (s *Syncer) SyncLiveFixtures(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("provider error: %w", err)
 	}
-	if err := s.quota.RecordUsage(ctx); err != nil {
+	if err := s.quota.Increment(ctx); err != nil {
 		log.Printf("[sync] warning: failed to record quota usage: %v", err)
 	}
 
@@ -62,7 +62,7 @@ func (s *Syncer) SyncFixtures(ctx context.Context, date time.Time) error {
 	if err != nil {
 		return fmt.Errorf("provider error: %w", err)
 	}
-	if err := s.quota.RecordUsage(ctx); err != nil {
+	if err := s.quota.Increment(ctx); err != nil {
 		log.Printf("[sync] warning: failed to record quota usage: %v", err)
 	}
 
