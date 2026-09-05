@@ -36,6 +36,7 @@ func New(cfg *config.Config, db *database.DB) http.Handler {
 		
 		r.Get("/meta/sports", metaHandler.GetSports)
 		r.Get("/meta/leagues/top", metaHandler.GetTopLeagues)
+		r.Get("/meta/leagues", metaHandler.GetLeagues)
 	})
 
 	return r
