@@ -77,6 +77,7 @@ type apiLeagueResponse struct {
 		} `json:"league"`
 		Country struct {
 			Name string `json:"name"`
+			Flag string `json:"flag"`
 		} `json:"country"`
 	} `json:"response"`
 }
@@ -115,10 +116,11 @@ func (g *HTTPGateway) GetLeagues(ctx context.Context) ([]provider.ProviderLeague
 	var leagues []provider.ProviderLeague
 	for _, l := range raw.Response {
 		leagues = append(leagues, provider.ProviderLeague{
-			ExternalID: fmt.Sprintf("%d", l.League.ID),
-			Name:       l.League.Name,
-			Country:    l.Country.Name,
-			LogoURL:    l.League.Logo,
+			ExternalID:      fmt.Sprintf("%d", l.League.ID),
+			Name:            l.League.Name,
+			Country:         l.Country.Name,
+			CountryFlagURL:  l.Country.Flag,
+			LogoURL:         l.League.Logo,
 		})
 	}
 	return leagues, nil

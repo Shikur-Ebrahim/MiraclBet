@@ -15,6 +15,7 @@ interface LeagueInfo {
   id: string;
   name: string;
   country: string;
+  country_flag_url?: string;
   logo_url: string;
   season: number;
   is_top_league: boolean;
@@ -278,7 +279,13 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
                   className="w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-white/5 transition-colors"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-xl">{getFlag(country)}</span>
+                    {leagues[0]?.country_flag_url ? (
+                      <div className="w-5 h-5 flex items-center justify-center shrink-0">
+                        <Image src={leagues[0].country_flag_url} alt={country} width={20} height={15} unoptimized className="object-cover rounded-sm shadow-sm" />
+                      </div>
+                    ) : (
+                      <span className="text-xl w-5 flex justify-center">{getFlag(country)}</span>
+                    )}
                     <span className="text-sm font-bold text-white/80">{country}</span>
                     <span className="text-[10px] text-white/30 px-1.5 py-0.5 rounded-full" style={{ background: '#0D2018' }}>
                       {leagues.length}

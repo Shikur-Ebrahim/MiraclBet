@@ -22,6 +22,7 @@ type leagueAPIResp struct {
 		Country struct {
 			Name string `json:"name"`
 			Code string `json:"code"`
+			Flag string `json:"flag"`
 		} `json:"country"`
 		Seasons []struct {
 			Year    int  `json:"year"`
@@ -31,7 +32,6 @@ type leagueAPIResp struct {
 }
 
 // SyncLeagues fetches leagues from API-Sports and saves/updates them in the DB.
-// It runs for football only (7500 req/day budget).
 func SyncLeagues(db *pgxpool.Pool, apiKey string) {
 	log.Println("[LeagueSync] Fetching football leagues from API-Sports...")
 
@@ -62,13 +62,28 @@ func SyncLeagues(db *pgxpool.Pool, apiKey string) {
 
 	log.Printf("[LeagueSync] Got %d leagues from API", len(data.Response))
 
+	query := `
+		INSERT INTO leagues (
+			external_id, sport_slug, name, country, country_flag_url, logo_url, season,
+			is_active, updated_at
+		) VALUES (
+			$1, 'football', $2, $3, $4, $5, $6, true, NOW()
+		) ON CONFLICT (external_id) DO UPDATE SET
+			name = EXCLUDED.name,
+			country = EXCLUDED.country,
+			country_flag_url = EXCLUDED.country_flag_url,
+			logo_url = EXCLUDED.logo_url,
+			season = EXCLUDED.season,
+			is_active = true,
+			updated_at = NOW()
+	`
+
 	saved := 0
 	for _, item := range data.Response {
 		if item.League.ID == 0 {
 			continue
 		}
 
-		// Find current season year
 		season := 0
 		for _, s := range item.Seasons {
 			if s.Current {
@@ -86,19 +101,12 @@ func SyncLeagues(db *pgxpool.Pool, apiKey string) {
 		if logoURL == "" {
 			logoURL = fmt.Sprintf("https://media.api-sports.io/football/leagues/%d.png", item.League.ID)
 		}
+		
+		flagURL := item.Country.Flag
 
-		// Upsert into leagues table
-		_, err := db.Exec(ctx, `
-			INSERT INTO leagues (external_id, sport_slug, name, country, logo_url, season, is_active, updated_at)
-			VALUES ($1, 'football', $2, $3, $4, $5, true, NOW())
-			ON CONFLICT (external_id) DO UPDATE SET
-				name       = EXCLUDED.name,
-				country    = EXCLUDED.country,
-				logo_url   = EXCLUDED.logo_url,
-				season     = EXCLUDED.season,
-				is_active  = true,
-				updated_at = NOW()
-		`, externalID, item.League.Name, country, logoURL, season)
+		_, err := db.Exec(ctx, query,
+			externalID, item.League.Name, country, flagURL, logoURL, season,
+		)
 
 		if err != nil {
 			log.Printf("[LeagueSync] Error saving league %s: %v", item.League.Name, err)

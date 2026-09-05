@@ -23,10 +23,11 @@ type ProviderFixture struct {
 }
 
 type ProviderLeague struct {
-    ExternalID string
-    Name       string
-    Country    string
-    LogoURL    string
+    ExternalID     string
+    Name           string
+    Country        string
+    CountryFlagURL string
+    LogoURL        string
 }
 
 type FootballProvider interface {

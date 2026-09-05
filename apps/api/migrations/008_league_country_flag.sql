@@ -1,0 +1,1 @@
+ALTER TABLE leagues ADD COLUMN IF NOT EXISTS country_flag_url TEXT DEFAULT '';

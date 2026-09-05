@@ -25,12 +25,13 @@ type SportResponse struct {
 }
 
 type LeagueResponse struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Country     string `json:"country"`
-	LogoURL     string `json:"logo_url"` // stored in DB — points to media.api-sports.io or R2
-	Season      int    `json:"season"`
-	IsTopLeague bool   `json:"is_top_league"`
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	Country        string `json:"country"`
+	CountryFlagURL string `json:"country_flag_url"`
+	LogoURL        string `json:"logo_url"` // stored in DB — points to media.api-sports.io or R2
+	Season         int    `json:"season"`
+	IsTopLeague    bool   `json:"is_top_league"`
 }
 
 // GetLeagues returns all active leagues grouped by country for the sidebar
@@ -39,7 +40,7 @@ func (h *MetaHandler) GetLeagues(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	rows, err := h.db.Pool.Query(ctx, `
-		SELECT external_id, name, country, COALESCE(logo_url,''), COALESCE(season, 0), is_top_league
+		SELECT external_id, name, country, COALESCE(country_flag_url,''), COALESCE(logo_url,''), COALESCE(season, 0), is_top_league
 		FROM leagues
 		WHERE sport_slug = 'football' AND is_active = true
 		ORDER BY country ASC, is_top_league DESC, sort_order ASC, name ASC
@@ -50,7 +51,7 @@ func (h *MetaHandler) GetLeagues(w http.ResponseWriter, r *http.Request) {
 		var leagues []LeagueResponse
 		for rows.Next() {
 			var l LeagueResponse
-			if err := rows.Scan(&l.ID, &l.Name, &l.Country, &l.LogoURL, &l.Season, &l.IsTopLeague); err == nil {
+			if err := rows.Scan(&l.ID, &l.Name, &l.Country, &l.CountryFlagURL, &l.LogoURL, &l.Season, &l.IsTopLeague); err == nil {
 				if l.LogoURL == "" {
 					l.LogoURL = fmt.Sprintf("https://media.api-sports.io/football/leagues/%s.png", l.ID)
 				}
