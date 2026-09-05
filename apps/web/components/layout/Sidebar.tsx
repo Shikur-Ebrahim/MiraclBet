@@ -56,7 +56,6 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
   const [sportsList, setSportsList] = useState<SportInfo[]>([]);
 
   useEffect(() => {
-    if (!isOpen) return;
     const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
 
     // Fetch ALL leagues from the new endpoint
@@ -89,7 +88,7 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) setSportsList(data); })
       .catch(console.error);
-  }, [isOpen]);
+  }, []);
 
   // Filter based on search query
   const filteredLeagues = useMemo(() => {
@@ -129,93 +128,111 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
     });
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto" style={{ background: '#072414' }}>
-      <div className="p-4 pb-24">
+    <>
+      {/* Backdrop overlay */}
+      <div 
+        className={clsx(
+          "fixed inset-0 bg-black/60 z-40 transition-opacity duration-300",
+          isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+        )} 
+        onClick={onClose}
+      />
 
-        {/* Header */}
-        <div className="flex items-center justify-between mb-5">
-          <div className="text-2xl font-bold tracking-tight">
-            <span className="text-white">Miracl</span>
-            <span style={{ color: '#19E66B' }}>Bet</span>
-          </div>
-          <button onClick={onClose} className="p-2 text-white hover:bg-white/10 rounded-full transition-colors">
-            <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Prematch / Live Toggle */}
-        <div className="flex rounded-xl p-1 mb-5" style={{ background: '#0A361E' }}>
-          {(['prematch', 'live'] as const).map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={clsx('flex-1 py-2.5 text-sm font-bold rounded-lg capitalize transition-colors',
-                activeTab === tab ? 'text-[#072414]' : 'text-white/60 hover:text-white'
-              )}
-              style={activeTab === tab ? { background: '#19E66B' } : {}}
-            >
-              {tab === 'live' ? (
-                <span className="flex items-center justify-center gap-1.5">
-                  Live
-                  <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="9 18 15 12 9 6"/>
-                  </svg>
-                </span>
-              ) : 'Prematch'}
+      {/* Sidebar drawer */}
+      <div 
+        className={clsx(
+          "fixed top-0 left-0 bottom-0 z-50 w-[85vw] max-w-sm flex flex-col shadow-2xl transition-transform duration-300",
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+        style={{ background: '#072414' }}
+      >
+        {/* ── STICKY HEADER ── */}
+        <div className="shrink-0 pt-4 px-4 pb-2 z-10" style={{ background: '#072414' }}>
+          {/* Header */}
+          <div className="flex items-center justify-between mb-5">
+            <div className="text-2xl font-bold tracking-tight">
+              <span className="text-white">Miracl</span>
+              <span style={{ color: '#19E66B' }}>Bet</span>
+            </div>
+            <button onClick={onClose} className="p-2 text-white hover:bg-white/10 rounded-full transition-colors">
+              <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
             </button>
-          ))}
-        </div>
-
-        {/* Time Slider */}
-        <div className="flex items-center gap-3 mb-5">
-          <div className="text-[11px] leading-tight text-white font-medium min-w-[44px] whitespace-pre-wrap">
-            {timeRange === 0 ? 'Today\nEvents' : timeRange === 6 ? 'All\nEvents' : `${timeRange + 1} Days\nEvents`}
           </div>
-          <div
-            className="flex-1 relative h-6 flex items-center cursor-pointer"
-            onClick={e => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              setTimeRange(Math.round(Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)) * 6));
-            }}
-          >
-            <div className="absolute inset-x-0 flex gap-[3px]">
-              {[0,1,2,3,4,5,6].map(i => (
-                <div key={i} className={`flex-1 h-1.5 rounded-full transition-colors ${i <= timeRange ? 'bg-gray-300' : 'bg-gray-600'}`} />
-              ))}
+
+          {/* Prematch / Live Toggle */}
+          <div className="flex rounded-xl p-1 mb-5" style={{ background: '#0A361E' }}>
+            {(['prematch', 'live'] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={clsx('flex-1 py-2.5 text-sm font-bold rounded-lg capitalize transition-colors',
+                  activeTab === tab ? 'text-[#072414]' : 'text-white/60 hover:text-white'
+                )}
+                style={activeTab === tab ? { background: '#19E66B' } : {}}
+              >
+                {tab === 'live' ? (
+                  <span className="flex items-center justify-center gap-1.5">
+                    Live
+                    <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="9 18 15 12 9 6"/>
+                    </svg>
+                  </span>
+                ) : 'Prematch'}
+              </button>
+            ))}
+          </div>
+
+          {/* Time Slider */}
+          <div className="flex items-center gap-3 mb-5">
+            <div className="text-[11px] leading-tight text-white font-medium min-w-[44px] whitespace-pre-wrap">
+              {timeRange === 0 ? 'Today\nEvents' : timeRange === 6 ? 'All\nEvents' : `${timeRange + 1} Days\nEvents`}
             </div>
             <div
-              className="absolute h-5 w-5 rounded-full bg-gray-200 shadow-md transition-all pointer-events-none"
-              style={{ left: `calc(${(timeRange/6)*100}% - ${(timeRange/6)*20}px)` }}
+              className="flex-1 relative h-6 flex items-center cursor-pointer"
+              onClick={e => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setTimeRange(Math.round(Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)) * 6));
+              }}
+            >
+              <div className="absolute inset-x-0 flex gap-[3px]">
+                {[0,1,2,3,4,5,6].map(i => (
+                  <div key={i} className={`flex-1 h-1.5 rounded-full transition-colors ${i <= timeRange ? 'bg-gray-300' : 'bg-gray-600'}`} />
+                ))}
+              </div>
+              <div
+                className="absolute h-5 w-5 rounded-full bg-gray-200 shadow-md transition-all pointer-events-none"
+                style={{ left: `calc(${(timeRange/6)*100}% - ${(timeRange/6)*20}px)` }}
+              />
+            </div>
+          </div>
+
+          {/* Search Bar */}
+          <div className="relative">
+            <svg viewBox="0 0 24 24" className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-white/40" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+            </svg>
+            <input
+              type="text"
+              placeholder="Search leagues..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full py-3 pl-10 pr-4 rounded-xl text-sm text-white placeholder-white/40 outline-none border border-transparent focus:border-[#19E66B]"
+              style={{ background: '#0A361E' }}
             />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white">
+                <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Search Bar */}
-        <div className="relative mb-4">
-          <svg viewBox="0 0 24 24" className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-white/40" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
-          </svg>
-          <input
-            type="text"
-            placeholder="Search leagues or countries..."
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="w-full py-3 pl-10 pr-4 rounded-xl text-sm text-white placeholder-white/40 outline-none border border-transparent focus:border-[#19E66B]"
-            style={{ background: '#0A361E' }}
-          />
-          {searchQuery && (
-            <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white">
-              <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-            </button>
-          )}
-        </div>
-
-        {/* ── TOP LEAGUES SECTION (Flat) ── */}
+        {/* ── SCROLLABLE LIST ── */}
+        <div className="flex-1 overflow-y-auto px-4 pb-24 pt-2">
+          {/* ── TOP LEAGUES SECTION ── */}
         <div className="mb-3">
           <button
             onClick={() => setExpandedSection(expandedSection === 'leagues' ? null : 'leagues')}
@@ -378,5 +395,6 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
 
       </div>
     </div>
+    </>
   );
 }
