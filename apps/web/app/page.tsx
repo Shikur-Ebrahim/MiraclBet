@@ -2,7 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import { Container } from '@/components/ui/Container';
 import { FixtureTabs } from '@/components/sports/FixtureTabs';
-import { TopLeagues } from '@/components/sports/TopLeagues';
+import { SportsNav } from '@/components/sports/TopLeagues';
 import { HeroBanner } from '@/components/layout/HeroBanner';
 import { apiClient, type Fixture } from '@/lib/api/client';
 
@@ -50,8 +50,8 @@ export default async function HomePage() {
       {/* ── Hero Banner ── */}
       <HeroBanner />
 
-      {/* ── Top Leagues ── */}
-      <TopLeagues />
+      {/* ── Sports Navigation ── */}
+      <SportsNav />
 
       {/* ── Live Matches ── */}
       {liveFixtures.length > 0 && (
