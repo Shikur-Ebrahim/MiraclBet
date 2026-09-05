@@ -16,6 +16,7 @@ const SPORT_EMOJI: Record<string, string> = {
 export function HomeSportsSection() {
   const [activeSport, setActiveSport] = useState('football');
   const [timeRange, setTimeRange] = useState(6);
+  const [activeTab, setActiveTab] = useState<'prematch' | 'live'>('prematch');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [selectedLeagueId, setSelectedLeagueId] = useState<string | null>(null);
   const [selectedLeagueName, setSelectedLeagueName] = useState<string | null>(null);
@@ -49,6 +50,8 @@ export function HomeSportsSection() {
         onSportChange={(sport) => { setActiveSport(sport); clearLeagueFilter(); }}
         timeRange={timeRange}
         onTimeRangeChange={setTimeRange}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
         onOpenSidebar={() => setIsSidebarOpen(true)}
       />
 
@@ -79,7 +82,7 @@ export function HomeSportsSection() {
               View All →
             </Link>
           </div>
-          <FixtureTabs sport={activeSport} timeRange={timeRange} leagueId={selectedLeagueId ?? undefined} />
+          <FixtureTabs sport={activeSport} timeRange={timeRange} leagueId={selectedLeagueId ?? undefined} activeTab={activeTab} />
         </Container>
       </section>
     </div>

@@ -23,6 +23,8 @@ interface SportNavProps {
   activeSport?: string;
   onTimeRangeChange?: (range: number) => void;
   timeRange?: number;
+  activeTab?: 'prematch' | 'live';
+  onTabChange?: (tab: 'prematch' | 'live') => void;
   onOpenSidebar?: () => void;
 }
 
@@ -31,10 +33,10 @@ export function SportsNav({
   activeSport = 'football',
   onTimeRangeChange,
   timeRange = 6,
+  activeTab = 'prematch',
+  onTabChange,
   onOpenSidebar
 }: SportNavProps) {
-  const [showLive, setShowLive] = useState(false);
-
   const handleSelect = (key: string) => {
     onSportChange?.(key);
   };
@@ -52,6 +54,8 @@ export function SportsNav({
     if (timeRange === 6) return 'All\nEvents';
     return `${timeRange + 1} Days\nEvents`;
   };
+
+  const isLive = activeTab === 'live';
 
   return (
     <section style={{ background: '#0D1913' }} className="border-b border-brand pb-2">
@@ -82,11 +86,11 @@ export function SportsNav({
       <div className="flex gap-2 px-3 pb-4 pt-1">
         <button
           onClick={() => {
-            setShowLive(false);
+            onTabChange?.('prematch');
             onOpenSidebar?.();
           }}
           className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-colors"
-          style={{ background: !showLive ? '#19E66B22' : '#132012', border: `1px solid ${!showLive ? '#19E66B55' : '#1C3026'}`, color: !showLive ? '#19E66B' : '#8D9B94' }}
+          style={{ background: !isLive ? '#19E66B22' : '#132012', border: `1px solid ${!isLive ? '#19E66B55' : '#1C3026'}`, color: !isLive ? '#19E66B' : '#8D9B94' }}
         >
           <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
             <rect x="3" y="5" width="7" height="2"/><rect x="3" y="10" width="10" height="2"/><rect x="3" y="15" width="8" height="2"/>
@@ -94,11 +98,11 @@ export function SportsNav({
           All Sports
         </button>
         <button
-          onClick={() => setShowLive(true)}
+          onClick={() => onTabChange?.(isLive ? 'prematch' : 'live')}
           className="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors"
-          style={{ background: showLive ? '#19E66B22' : '#132012', border: `1px solid ${showLive ? '#19E66B55' : '#1C3026'}`, color: showLive ? '#19E66B' : '#8D9B94' }}
+          style={{ background: isLive ? '#19E66B22' : '#132012', border: `1px solid ${isLive ? '#19E66B55' : '#1C3026'}`, color: isLive ? '#19E66B' : '#8D9B94' }}
         >
-          Open Live
+          {isLive ? 'Open Prematch' : 'Open Live'}
         </button>
         <Link
           href="/sports"

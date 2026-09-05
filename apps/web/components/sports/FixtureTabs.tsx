@@ -42,38 +42,49 @@ function MatchRow({ fix }: { fix: Fixture }) {
   const dateStr = kickoff.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
 
   return (
-    <div className="border-b border-brand/30 px-3 py-3 hover:bg-white/5 transition-colors">
-      <div className="flex items-center gap-2 mb-2">
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <div className="w-7 h-7 rounded-full bg-surface border border-brand flex items-center justify-center shrink-0 text-sm">
-            {fix.sport === 'hockey' ? '🏒' : fix.sport === 'basketball' ? '🏀' : fix.sport === 'tennis' ? '🎾' : '⚽'}
-          </div>
-          <span className="text-sm font-semibold text-white truncate">{fix.home_team}</span>
-        </div>
-        <div className="shrink-0 text-center min-w-[64px]">
-          {fix.is_live ? (
-            <div>
-              <div className="text-base font-black text-primary">{fix.home_score ?? 0} - {fix.away_score ?? 0}</div>
-              <div className="text-xs text-red-400 flex items-center justify-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse inline-block"/>
-                {fix.status}
-              </div>
-            </div>
-          ) : (
-            <div>
-              <div className="text-sm font-black text-white">{timeStr}</div>
-              <div className="text-xs text-muted">{dateStr}</div>
-            </div>
-          )}
-        </div>
-        <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
-          <span className="text-sm font-semibold text-white truncate text-right">{fix.away_team}</span>
-          <div className="w-7 h-7 rounded-full bg-surface border border-brand flex items-center justify-center shrink-0 text-sm">
-            {fix.sport === 'hockey' ? '🏒' : fix.sport === 'basketball' ? '🏀' : fix.sport === 'tennis' ? '🎾' : '⚽'}
-          </div>
-        </div>
+    <div className="bg-white border-b border-gray-100 last:border-b-0 px-3 py-3">
+      {/* Time and Date */}
+      <div className="text-[13px] font-bold text-gray-800 mb-2 flex items-center gap-2">
+        {fix.is_live ? (
+          <span className="text-red-500 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"/>
+            {fix.elapsed ? `${fix.elapsed}'` : fix.status}
+          </span>
+        ) : (
+          <span>{timeStr} {dateStr.replace(/\//g, '.')}</span>
+        )}
       </div>
-      <div className="grid grid-cols-3 gap-1.5">
+
+      {/* Teams (Stacked) */}
+      <div className="flex justify-between items-start mb-3">
+        <div className="flex flex-col gap-2">
+          {/* Home Team */}
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 flex items-center justify-center shrink-0">
+              <span className="text-sm">⚽</span>
+            </div>
+            <span className="text-[14px] font-medium text-gray-900 leading-tight">{fix.home_team}</span>
+          </div>
+          {/* Away Team */}
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 flex items-center justify-center shrink-0">
+              <span className="text-sm">⚽</span>
+            </div>
+            <span className="text-[14px] font-medium text-gray-900 leading-tight">{fix.away_team}</span>
+          </div>
+        </div>
+
+        {/* Score (if live) */}
+        {fix.is_live && (
+          <div className="flex flex-col gap-2 items-end justify-center pr-2">
+            <span className="text-[14px] font-bold text-gray-900">{fix.home_score ?? 0}</span>
+            <span className="text-[14px] font-bold text-gray-900">{fix.away_score ?? 0}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Odds Buttons */}
+      <div className="grid grid-cols-3 gap-1">
         {[
           { label: '1', val: fix.odds_home },
           { label: 'X', val: fix.odds_draw },
@@ -81,10 +92,9 @@ function MatchRow({ fix }: { fix: Fixture }) {
         ].map(({ label, val }) => (
           <button
             key={label}
-            className="bg-surface border border-brand hover:border-primary hover:bg-primary/10 rounded-lg py-2 text-center transition-colors group"
+            className="bg-[#E4E9F2] hover:bg-[#D5DCE8] active:bg-[#C6CFDE] rounded-md py-2.5 px-3 flex items-center justify-between transition-colors"
           >
-            <div className="text-xs text-muted group-hover:text-primary">{label}</div>
-            <div className="text-sm font-bold text-primary">{(val || 1.9).toFixed(2)}</div>
+            <div className="text-[14px] font-semibold text-gray-900">{(val || 1.9).toFixed(2)}</div>
           </button>
         ))}
       </div>
@@ -96,30 +106,29 @@ function LeagueGroup({ league, fixtures, sport }: { league: string; fixtures: Fi
   const [expanded, setExpanded] = useState(true);
   const logoUrl = getLeagueLogo(league);
   
-  const defaultEmoji = sport === 'hockey' ? '🏒' : sport === 'basketball' ? '🏀' : sport === 'tennis' ? '🎾' : '⚽';
-
   return (
-    <div className="mb-2 rounded-xl overflow-hidden border border-brand/50">
+    <div className="mb-4 rounded-xl overflow-hidden shadow-sm">
+      {/* Green League Header (VikingBet Style) */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-white/5 transition-colors"
-        style={{ background: '#0D2018' }}
+        className="w-full flex items-center gap-2 px-3 py-2 text-left transition-colors"
+        style={{ background: 'linear-gradient(90deg, #0A5F38 0%, #11834F 100%)' }}
       >
-        <div className="w-5 h-5 shrink-0 flex items-center justify-center">
-          {logoUrl ? (
-            <Image src={logoUrl} alt={league} width={20} height={20} className="object-contain" unoptimized />
-          ) : (
-            <span className="text-sm">{defaultEmoji}</span>
-          )}
-        </div>
-        <span className="text-sm font-bold text-white flex-1 truncate">{league}</span>
-        <span className="text-xs text-muted">{fixtures.length}</span>
-        <svg viewBox="0 0 24 24" className={clsx('w-4 h-4 text-muted transition-transform shrink-0', expanded ? 'rotate-180' : '')} fill="none" stroke="currentColor" strokeWidth="2">
+        <svg viewBox="0 0 24 24" className={clsx('w-4 h-4 text-white transition-transform shrink-0', expanded ? '' : '-rotate-90')} fill="none" stroke="currentColor" strokeWidth="2.5">
           <polyline points="6 9 12 15 18 9"/>
         </svg>
+        <div className="w-5 h-5 shrink-0 flex items-center justify-center bg-white rounded-full p-0.5">
+          {logoUrl ? (
+            <Image src={logoUrl} alt={league} width={16} height={16} className="object-contain" unoptimized />
+          ) : (
+            <span className="text-[10px]">⚽</span>
+          )}
+        </div>
+        <span className="text-[13px] font-bold text-white flex-1 truncate uppercase">{league}</span>
       </button>
+      
       {expanded && (
-        <div style={{ background: '#0A1810' }}>
+        <div className="bg-white">
           {fixtures.map((fix) => <MatchRow key={fix.id} fix={fix} />)}
         </div>
       )}
@@ -131,46 +140,50 @@ interface FixtureTabsProps {
   sport?: string;
   timeRange?: number; // 0 to 6
   leagueId?: string;  // filter by specific league external_id
+  activeTab?: 'prematch' | 'live';
 }
 
-export function FixtureTabs({ sport = 'football', timeRange = 6, leagueId }: FixtureTabsProps) {
+export function FixtureTabs({ sport = 'football', timeRange = 6, leagueId, activeTab = 'prematch' }: FixtureTabsProps) {
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const fetchFixtures = useCallback(async (range: number, sportSlug: string, lid?: string) => {
+  const fetchFixtures = useCallback(async () => {
     setLoading(true);
     try {
       const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
 
-      const promises = [];
-      const baseDate = new Date();
-
-      for (let i = 0; i <= range; i++) {
-        const d = new Date(baseDate);
-        d.setDate(d.getDate() + i);
-        const dateStr = d.toISOString().split('T')[0];
-        let url = `${API_BASE}/api/v1/fixtures?date=${dateStr}&sport=${sportSlug}`;
-        if (lid) url += `&league=${lid}`;
-        promises.push(
-          fetch(url, { cache: 'no-store' }).then(r => r.json()).catch(() => [])
-        );
+      if (activeTab === 'live') {
+        let url = `${API_BASE}/api/v1/fixtures/live?sport=${sport}`;
+        if (leagueId) url += `&league=${leagueId}`;
+        const data = await fetch(url, { cache: 'no-store' }).then(r => r.json());
+        setFixtures(Array.isArray(data) ? data : []);
+      } else {
+        const promises = [];
+        const baseDate = new Date();
+        for (let i = 0; i <= timeRange; i++) {
+          const d = new Date(baseDate);
+          d.setDate(d.getDate() + i);
+          const dateStr = d.toISOString().split('T')[0];
+          let url = `${API_BASE}/api/v1/fixtures?date=${dateStr}&sport=${sport}`;
+          if (leagueId) url += `&league=${leagueId}`;
+          promises.push(fetch(url, { cache: 'no-store' }).then(r => r.json()).catch(() => []));
+        }
+        const results = await Promise.all(promises);
+        const allData = results.flatMap(data => Array.isArray(data) ? data : []);
+        const unique = Array.from(new Map(allData.map(item => [item.id, item])).values());
+        unique.sort((a, b) => new Date(a.kickoff_at).getTime() - new Date(b.kickoff_at).getTime());
+        setFixtures(unique);
       }
-
-      const results = await Promise.all(promises);
-      const allData = results.flatMap(data => Array.isArray(data) ? data : []);
-      const unique = Array.from(new Map(allData.map(item => [item.id, item])).values());
-      unique.sort((a, b) => new Date(a.kickoff_at).getTime() - new Date(b.kickoff_at).getTime());
-      setFixtures(unique);
     } catch {
       setFixtures([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [timeRange, sport, leagueId, activeTab]);
 
   useEffect(() => {
-    fetchFixtures(timeRange, sport, leagueId);
-  }, [timeRange, sport, leagueId, fetchFixtures]);
+    fetchFixtures();
+  }, [fetchFixtures]);
 
   const grouped: Record<string, Fixture[]> = {};
   for (const fix of fixtures) {
@@ -181,8 +194,6 @@ export function FixtureTabs({ sport = 'football', timeRange = 6, leagueId }: Fix
 
   return (
     <div>
-      {/* Note: The date tabs have been replaced by the VikingBet time slider in the SportsNav! */}
-      
       {loading ? (
         <div className="py-12 flex items-center justify-center gap-2 text-muted">
           <svg className="animate-spin h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24">
