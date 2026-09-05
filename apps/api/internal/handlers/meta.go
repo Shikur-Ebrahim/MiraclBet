@@ -43,8 +43,22 @@ func (h *MetaHandler) GetSports(w http.ResponseWriter, r *http.Request) {
 		ORDER BY s.sort_order ASC
 	`)
 	
-	if err != nil {
-		writeJSON(w, []SportResponse{})
+	if err != nil || rows == nil {
+		// Fallback static list if sports table not yet seeded
+		writeJSON(w, []SportResponse{
+			{Slug: "football",   Name: "Football",   Emoji: "⚽", FixtureCount: 0},
+			{Slug: "hockey",     Name: "Hockey",     Emoji: "🏒", FixtureCount: 0},
+			{Slug: "tennis",     Name: "Tennis",     Emoji: "🎾", FixtureCount: 0},
+			{Slug: "basketball", Name: "Basketball", Emoji: "🏀", FixtureCount: 0},
+			{Slug: "baseball",   Name: "Baseball",   Emoji: "⚾", FixtureCount: 0},
+			{Slug: "volleyball", Name: "Volleyball", Emoji: "🏐", FixtureCount: 0},
+			{Slug: "rugby",      Name: "Rugby",      Emoji: "🏉", FixtureCount: 0},
+			{Slug: "handball",   Name: "Handball",   Emoji: "🤾", FixtureCount: 0},
+			{Slug: "mma",        Name: "MMA",        Emoji: "🥊", FixtureCount: 0},
+			{Slug: "nba",        Name: "NBA",        Emoji: "🏀", FixtureCount: 0},
+			{Slug: "nfl",        Name: "NFL",        Emoji: "🏈", FixtureCount: 0},
+			{Slug: "formula-1",  Name: "Formula 1",  Emoji: "🏎️", FixtureCount: 0},
+		})
 		return
 	}
 	defer rows.Close()
@@ -58,43 +72,60 @@ func (h *MetaHandler) GetSports(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	if len(sports) == 0 {
-		// Fallback empty list if DB query fails/empty
 		sports = []SportResponse{}
 	}
 
 	writeJSON(w, sports)
 }
 
-// GetTopLeagues returns the top 15 leagues dynamically based on upcoming fixture count
+// GetTopLeagues returns top 15 leagues from DB, falling back to well-known league seeds
 func (h *MetaHandler) GetTopLeagues(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	// Dynamic: Get leagues with the most upcoming fixtures
+	// Try DB-backed approach: leagues with most upcoming fixtures
 	rows, err := h.db.Pool.Query(ctx, `
-		SELECT l.external_id, l.name, l.country, COUNT(f.id) as fixture_count
+		SELECT l.external_id, l.name, l.country, COUNT(f.id) as cnt
 		FROM leagues l
-		JOIN fixtures f ON f.league_id = l.id
-		WHERE f.starts_at > NOW()
+		LEFT JOIN fixtures f ON f.league_id = l.id AND f.starts_at > NOW()
+		WHERE l.sport_slug = 'football'
 		GROUP BY l.id, l.external_id, l.name, l.country
-		ORDER BY fixture_count DESC
+		ORDER BY cnt DESC, l.name ASC
 		LIMIT 15
 	`)
-	
-	if err != nil {
-		writeJSON(w, []LeagueResponse{})
-		return
-	}
-	defer rows.Close()
 
-	var leagues []LeagueResponse
-	for rows.Next() {
-		var l LeagueResponse
-		var count int
-		if err := rows.Scan(&l.ID, &l.Name, &l.Country, &count); err == nil {
-			leagues = append(leagues, l)
+	if err == nil {
+		defer rows.Close()
+		var leagues []LeagueResponse
+		for rows.Next() {
+			var l LeagueResponse
+			var cnt int
+			if err := rows.Scan(&l.ID, &l.Name, &l.Country, &cnt); err == nil {
+				leagues = append(leagues, l)
+			}
+		}
+		if len(leagues) > 0 {
+			writeJSON(w, leagues)
+			return
 		}
 	}
 
-	writeJSON(w, leagues)
+	// Fallback: well-known top leagues hardcoded as seed data
+	writeJSON(w, []LeagueResponse{
+		{ID: "2",   Name: "UEFA Champions League",   Country: "World"},
+		{ID: "3",   Name: "UEFA Europa League",      Country: "World"},
+		{ID: "848", Name: "UEFA Conference League",  Country: "World"},
+		{ID: "5",   Name: "UEFA Nations League",     Country: "World"},
+		{ID: "39",  Name: "Premier League",          Country: "England"},
+		{ID: "140", Name: "La Liga",                 Country: "Spain"},
+		{ID: "135", Name: "Serie A",                 Country: "Italy"},
+		{ID: "78",  Name: "Bundesliga",              Country: "Germany"},
+		{ID: "61",  Name: "Ligue 1",                 Country: "France"},
+		{ID: "13",  Name: "Copa Libertadores",       Country: "South America"},
+		{ID: "235", Name: "Premier League",          Country: "Russia"},
+		{ID: "332", Name: "Premier League",          Country: "Egypt"},
+		{ID: "88",  Name: "Eredivisie",              Country: "Netherlands"},
+		{ID: "94",  Name: "Primeira Liga",           Country: "Portugal"},
+		{ID: "203", Name: "Süper Lig",               Country: "Turkey"},
+	})
 }
