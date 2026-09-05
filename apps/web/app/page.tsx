@@ -1,9 +1,8 @@
 import React from 'react';
 import Link from 'next/link';
 import { Container } from '@/components/ui/Container';
-import { FixtureTabs } from '@/components/sports/FixtureTabs';
-import { SportsNav } from '@/components/sports/TopLeagues';
 import { HeroBanner } from '@/components/layout/HeroBanner';
+import { HomeSportsSection } from '@/components/sports/HomeSportsSection';
 import { apiClient, type Fixture } from '@/lib/api/client';
 
 function LiveCard({ fix }: { fix: Fixture }) {
@@ -50,46 +49,8 @@ export default async function HomePage() {
       {/* ── Hero Banner ── */}
       <HeroBanner />
 
-      {/* ── Sports Navigation ── */}
-      <SportsNav />
-
-      {/* ── Live Matches ── */}
-      {liveFixtures.length > 0 && (
-        <section className="py-6">
-          <Container>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-bold flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
-                Live Now
-                <span className="text-xs text-red-400 font-normal">({liveFixtures.length})</span>
-              </h2>
-              <Link href="/sports" className="text-primary text-sm font-semibold">View All →</Link>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {liveFixtures.slice(0, 8).map((fix) => (
-                <LiveCard key={fix.id} fix={fix} />
-              ))}
-            </div>
-          </Container>
-        </section>
-      )}
-
-      {/* ── Football Matches by Date ── */}
-      <section className="py-4">
-        <Container>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-bold flex items-center gap-2">
-              <svg viewBox="0 0 24 24" className="w-5 h-5 text-primary" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10"/>
-                <path d="M12 8l1.5 3H17l-2.5 2 1 3.5L12 14.5l-3.5 2 1-3.5L7 11h3.5z"/>
-              </svg>
-              Football
-            </h2>
-            <Link href="/sports" className="text-primary text-sm font-semibold">View All →</Link>
-          </div>
-          <FixtureTabs />
-        </Container>
-      </section>
+      {/* ── Interactive Sports Section (Nav + Matches) ── */}
+      <HomeSportsSection />
     </div>
   );
 }
