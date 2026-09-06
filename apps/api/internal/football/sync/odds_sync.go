@@ -1,4 +1,4 @@
-﻿package sync
+package sync
 
 import (
 	"context"
@@ -93,14 +93,14 @@ func (s *Syncer) saveOdds(ctx context.Context, odds []provider.ProviderOdd) erro
 			// API-Sports v3 market IDs:
 			// 1  = Match Winner (1X2)
 			// 5  = Goals Over/Under
-			// 11 = Both Teams To Score
+			// 8  = Both Teams To Score (BTTS)  ← correct ID (NOT 11)
 			// 12 = Double Chance
 			switch m.ID {
 			case 1:
 				advOdds.MatchWinner = vals
 			case 5:
 				advOdds.OverUnder = vals
-			case 11:
+			case 8:
 				advOdds.BTTS = vals
 			case 12:
 				advOdds.DoubleChance = vals
