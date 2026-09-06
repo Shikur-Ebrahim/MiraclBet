@@ -112,7 +112,7 @@ func (h *FixturesHandler) ByDate(w http.ResponseWriter, r *http.Request) {
 					f.starts_at, f.status_short, f.elapsed, f.score_home, f.score_away, f.is_live,
 					COALESCE(o.home,1.90), COALESCE(o.draw,3.20), COALESCE(o.away,1.90),
 					COALESCE(f.sport_slug,'football'),
-					f.advanced_odds
+					COALESCE(f.advanced_odds,'{}')::text
 				FROM fixtures f
 				LEFT JOIN leagues l ON l.external_id = $3
 				LEFT JOIN odds o ON o.fixture_id = f.id
@@ -128,7 +128,7 @@ func (h *FixturesHandler) ByDate(w http.ResponseWriter, r *http.Request) {
 					f.starts_at, f.status_short, f.elapsed, f.score_home, f.score_away, f.is_live,
 					COALESCE(o.home,1.90), COALESCE(o.draw,3.20), COALESCE(o.away,1.90),
 					COALESCE(f.sport_slug,'football'),
-					f.advanced_odds
+					COALESCE(f.advanced_odds,'{}')::text
 				FROM fixtures f
 				LEFT JOIN leagues l ON f.league_id = l.id
 				LEFT JOIN odds o ON o.fixture_id = f.id
@@ -193,7 +193,7 @@ func scanRows(rows rowScanner) []FixtureResponse {
 	for rows.Next() {
 		var fx FixtureResponse
 		var kickoff time.Time
-		var advancedOdds []byte // Raw json bytes from DB
+		var advancedOddsStr string // Scanned as text (from ::text cast in SQL)
 		_ = rows.Scan(
 			&fx.ID, &fx.HomeTeam, &fx.HomeTeamLogo, &fx.AwayTeam, &fx.AwayTeamLogo,
 			&fx.League, &fx.LeagueLogoURL, &fx.Country,
@@ -201,11 +201,12 @@ func scanRows(rows rowScanner) []FixtureResponse {
 			&fx.HomeScore, &fx.AwayScore, &fx.IsLive,
 			&fx.OddsHome, &fx.OddsDraw, &fx.OddsAway,
 			&fx.Sport,
-			&advancedOdds,
+			&advancedOddsStr,
 		)
 		fx.KickoffAt = kickoff.Format(time.RFC3339)
-		if len(advancedOdds) > 0 {
-			fx.AdvancedOdds = advancedOdds
+		// Only include advanced_odds if it has real data (more than just "{}")
+		if len(advancedOddsStr) > 2 {
+			fx.AdvancedOdds = json.RawMessage(advancedOddsStr)
 		}
 		out = append(out, fx)
 	}
