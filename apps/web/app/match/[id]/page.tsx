@@ -46,12 +46,12 @@ export default function MatchPage() {
     const findMatch = async () => {
       try {
         const liveRes = await fetch(`${API_BASE}/api/v1/fixtures/live`).then(r => r.json());
-        let found = liveRes.find((f: any) => f.id === id);
+        let found = liveRes.find((f: MatchDetails) => f.id === id);
         
         if (!found) {
            const today = new Date().toISOString().split('T')[0];
            const todayRes = await fetch(`${API_BASE}/api/v1/fixtures?date=${today}`).then(r => r.json());
-           found = (Array.isArray(todayRes) ? todayRes : []).find((f: any) => f.id === id);
+           found = (Array.isArray(todayRes) ? todayRes : []).find((f: MatchDetails) => f.id === id);
         }
 
         if (!found) {
@@ -60,7 +60,7 @@ export default function MatchPage() {
            tmrw.setDate(tmrw.getDate() + 1);
            const tDate = tmrw.toISOString().split('T')[0];
            const tomorrowRes = await fetch(`${API_BASE}/api/v1/fixtures?date=${tDate}`).then(r => r.json());
-           found = (Array.isArray(tomorrowRes) ? tomorrowRes : []).find((f: any) => f.id === id);
+           found = (Array.isArray(tomorrowRes) ? tomorrowRes : []).find((f: MatchDetails) => f.id === id);
         }
 
         if (found) {
