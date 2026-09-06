@@ -112,7 +112,7 @@ func (h *FixturesHandler) ByDate(w http.ResponseWriter, r *http.Request) {
 					f.starts_at, f.status_short, f.elapsed, f.score_home, f.score_away, f.is_live,
 					COALESCE(o.home,1.90), COALESCE(o.draw,3.20), COALESCE(o.away,1.90),
 					COALESCE(f.sport_slug,'football'),
-					COALESCE(f.advanced_odds,'{}')::text
+					f.advanced_odds
 				FROM fixtures f
 				LEFT JOIN leagues l ON l.external_id = $3
 				LEFT JOIN odds o ON o.fixture_id = f.id
@@ -128,7 +128,7 @@ func (h *FixturesHandler) ByDate(w http.ResponseWriter, r *http.Request) {
 					f.starts_at, f.status_short, f.elapsed, f.score_home, f.score_away, f.is_live,
 					COALESCE(o.home,1.90), COALESCE(o.draw,3.20), COALESCE(o.away,1.90),
 					COALESCE(f.sport_slug,'football'),
-					COALESCE(f.advanced_odds,'{}')::text
+					f.advanced_odds
 				FROM fixtures f
 				LEFT JOIN leagues l ON f.league_id = l.id
 				LEFT JOIN odds o ON o.fixture_id = f.id
@@ -193,20 +193,25 @@ func scanRows(rows rowScanner) []FixtureResponse {
 	for rows.Next() {
 		var fx FixtureResponse
 		var kickoff time.Time
-		var advancedOddsStr string // Scanned as text (from ::text cast in SQL)
-		_ = rows.Scan(
+		var advancedOddsRaw interface{} // pgx v5 decodes JSONB into map/slice natively
+		err := rows.Scan(
 			&fx.ID, &fx.HomeTeam, &fx.HomeTeamLogo, &fx.AwayTeam, &fx.AwayTeamLogo,
 			&fx.League, &fx.LeagueLogoURL, &fx.Country,
 			&kickoff, &fx.Status, &fx.Elapsed,
 			&fx.HomeScore, &fx.AwayScore, &fx.IsLive,
 			&fx.OddsHome, &fx.OddsDraw, &fx.OddsAway,
 			&fx.Sport,
-			&advancedOddsStr,
+			&advancedOddsRaw,
 		)
+		if err != nil {
+			// Log scan error but continue — don't drop the fixture
+			_ = err
+		}
 		fx.KickoffAt = kickoff.Format(time.RFC3339)
-		// Only include advanced_odds if it has real data (more than just "{}")
-		if len(advancedOddsStr) > 2 {
-			fx.AdvancedOdds = json.RawMessage(advancedOddsStr)
+		if advancedOddsRaw != nil {
+			if b, e := json.Marshal(advancedOddsRaw); e == nil && len(b) > 2 {
+				fx.AdvancedOdds = b
+			}
 		}
 		out = append(out, fx)
 	}
