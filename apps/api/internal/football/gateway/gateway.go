@@ -94,8 +94,8 @@ type apiPrematchOddResponse struct {
 				ID     int    `json:"id"`
 				Name   string `json:"name"`
 				Values []struct {
-					Value string `json:"value"`
-					Odd   string `json:"odd"`
+					Value interface{} `json:"value"` // API returns string OR number depending on market
+					Odd   string      `json:"odd"`
 				} `json:"values"`
 			} `json:"bets"`
 		} `json:"bookmakers"`
@@ -111,8 +111,8 @@ type apiLiveOddResponse struct {
 			ID     int    `json:"id"`
 			Name   string `json:"name"`
 			Values []struct {
-				Value string `json:"value"`
-				Odd   string `json:"odd"`
+				Value interface{} `json:"value"` // API returns string OR number depending on market
+				Odd   string      `json:"odd"`
 			} `json:"values"`
 		} `json:"odds"`
 	} `json:"response"`
@@ -179,12 +179,17 @@ func (g *HTTPGateway) GetOddsByDate(ctx context.Context, date time.Time) ([]prov
 		if len(f.Bookmakers) == 0 {
 			continue
 		}
-		bm := f.Bookmakers[0] // Since we filter by bookmaker=8, it will be index 0
+		bm := f.Bookmakers[0]
 		var markets []provider.ProviderMarket
 		for _, m := range bm.Bets {
 			var vals []provider.ProviderMarketValue
 			for _, v := range m.Values {
-				vals = append(vals, provider.ProviderMarketValue{Value: v.Value, Odd: v.Odd})
+				// API-Sports returns value as string ("Home","Draw") OR number (2.5 for Over/Under)
+				// fmt.Sprintf("%v", ...) safely converts both to a clean string
+				vals = append(vals, provider.ProviderMarketValue{
+					Value: fmt.Sprintf("%v", v.Value),
+					Odd:   v.Odd,
+				})
 			}
 			markets = append(markets, provider.ProviderMarket{
 				ID:     m.ID,
@@ -216,7 +221,10 @@ func (g *HTTPGateway) GetLiveOdds(ctx context.Context) ([]provider.ProviderOdd, 
 		for _, m := range f.Odds {
 			var vals []provider.ProviderMarketValue
 			for _, v := range m.Values {
-				vals = append(vals, provider.ProviderMarketValue{Value: v.Value, Odd: v.Odd})
+				vals = append(vals, provider.ProviderMarketValue{
+					Value: fmt.Sprintf("%v", v.Value),
+					Odd:   v.Odd,
+				})
 			}
 			markets = append(markets, provider.ProviderMarket{
 				ID:     m.ID,
