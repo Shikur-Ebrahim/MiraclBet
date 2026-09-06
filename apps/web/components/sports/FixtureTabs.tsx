@@ -60,22 +60,39 @@ function TeamLogo({ logo, name }: { logo?: string; name: string }) {
   return <div className="w-5 h-5 flex items-center justify-center shrink-0 text-sm">⚽</div>;
 }
 
-// Extract a specific 1X2 odd from advanced_odds — supports both new {markets:[]} and old {match_winner:[]} format
+// Extract 1X2 odds - search by market ID=1 OR by common names
 function getMatchWinnerOdd(advanced_odds: Fixture['advanced_odds'], targetValue: 'Home' | 'Draw' | 'Away'): string | null {
   if (!advanced_odds) return null;
-  // New format: find market ID 1 (Match Winner)
-  if (advanced_odds.markets) {
-    const mw = advanced_odds.markets.find(m => m.id === 1);
+
+  // New format: search markets array
+  if (advanced_odds.markets && advanced_odds.markets.length > 0) {
+    // Try by ID=1 first
+    let mw = advanced_odds.markets.find(m => m.id === 1);
+    // Fallback: search by name (Match Winner / 1X2 / Home/Draw/Away)
+    if (!mw) {
+      mw = advanced_odds.markets.find(m => {
+        const n = m.name.toLowerCase();
+        return n.includes('match winner') || n === '1x2' || n.includes('home/draw/away') || n.includes('result');
+      });
+    }
     if (mw) {
-      const val = mw.values.find(v => v.value === targetValue);
+      // value from API can be "Home"/"Away"/"Draw" or "1"/"X"/"2"
+      const valueMap: Record<string, string[]> = {
+        Home: ['Home', '1', 'home'],
+        Draw: ['Draw', 'X', 'draw'],
+        Away: ['Away', '2', 'away'],
+      };
+      const val = mw.values.find(v => valueMap[targetValue]?.includes(v.value));
       return val ? val.odd : null;
     }
   }
+
   // Old format fallback
   if (advanced_odds.match_winner) {
     const val = advanced_odds.match_winner.find(v => v.value === targetValue);
     return val ? val.odd : null;
   }
+
   return null;
 }
 
@@ -119,19 +136,28 @@ function MatchRow({ fix }: { fix: Fixture }) {
 
       <div className="grid grid-cols-3 gap-1">
         {[
-          { label: '1', default: fix.odds_home, val: getMatchWinnerOdd(fix.advanced_odds, 'Home') },
-          { label: 'X', default: fix.odds_draw, val: getMatchWinnerOdd(fix.advanced_odds, 'Draw') },
-          { label: '2', default: fix.odds_away, val: getMatchWinnerOdd(fix.advanced_odds, 'Away') },
-        ].map(({ label, default: def, val }) => (
-          <button
-            key={label}
-            onClick={(e) => { e.preventDefault(); }}
-            className="bg-[#E4E9F2] hover:bg-[#D5DCE8] active:bg-[#C6CFDE] rounded-md py-2.5 px-3 flex flex-col items-center justify-center transition-colors gap-0.5"
-          >
-            <span className="text-[10px] text-gray-500">{label}</span>
-            <span className="text-[13px] font-bold text-gray-900">{val ?? def.toFixed(2)}</span>
-          </button>
-        ))}
+          { label: '1', val: getMatchWinnerOdd(fix.advanced_odds, 'Home') },
+          { label: 'X', val: getMatchWinnerOdd(fix.advanced_odds, 'Draw') },
+          { label: '2', val: getMatchWinnerOdd(fix.advanced_odds, 'Away') },
+        ].map(({ label, val }) => {
+          const hasReal = val !== null;
+          return (
+            <button
+              key={label}
+              onClick={(e) => { e.preventDefault(); }}
+              className={`rounded-md py-2 px-2 flex flex-col items-center justify-center transition-colors gap-0.5 ${
+                hasReal
+                  ? 'bg-[#E4F4EC] hover:bg-[#D0EAD9] border border-[#19E66B]/30'
+                  : 'bg-[#E4E9F2] hover:bg-[#D5DCE8]'
+              }`}
+            >
+              <span className="text-[10px] text-gray-400">{label}</span>
+              <span className={`text-[13px] font-bold ${hasReal ? 'text-[#0D8A3C]' : 'text-gray-400'}`}>
+                {val ?? '—'}
+              </span>
+            </button>
+          );
+        })}
       </div>
     </Link>
   );
