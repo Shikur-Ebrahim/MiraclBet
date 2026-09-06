@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 
 const SPORTS = [
   { key: 'football',   label: 'Football',  icon: '⚽' },
@@ -26,6 +25,7 @@ interface SportNavProps {
   activeTab?: 'prematch' | 'live';
   onTabChange?: (tab: 'prematch' | 'live') => void;
   onOpenSidebar?: () => void;
+  onOpenSearch?: () => void;
 }
 
 export function SportsNav({ 
@@ -35,7 +35,8 @@ export function SportsNav({
   timeRange = 6,
   activeTab = 'prematch',
   onTabChange,
-  onOpenSidebar
+  onOpenSidebar,
+  onOpenSearch,
 }: SportNavProps) {
   const handleSelect = (key: string) => {
     onSportChange?.(key);
@@ -84,6 +85,7 @@ export function SportsNav({
 
       {/* All Sports | Open Live buttons */}
       <div className="flex gap-2 px-3 pb-4 pt-1">
+        {/* All Sports — always green */}
         <button
           onClick={() => {
             onTabChange?.('prematch');
@@ -97,22 +99,27 @@ export function SportsNav({
           </svg>
           All Sports
         </button>
+
+        {/* Open Live / Open Prematch — always dark, red pulse when live */}
         <button
           onClick={() => onTabChange?.(isLive ? 'prematch' : 'live')}
-          className="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors"
-          style={{ background: isLive ? '#19E66B22' : '#132012', border: `1px solid ${isLive ? '#19E66B55' : '#1C3026'}`, color: isLive ? '#19E66B' : '#8D9B94' }}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-sm font-semibold transition-colors"
+          style={{ background: '#132012', border: '1px solid #1C3026', color: isLive ? '#FF4444' : '#8D9B94' }}
         >
+          {isLive && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0"/>}
           {isLive ? 'Open Prematch' : 'Open Live'}
         </button>
-        <Link
-          href="/sports"
-          className="flex items-center justify-center w-10 h-10 rounded-lg shrink-0"
+
+        {/* Search button */}
+        <button
+          onClick={() => onOpenSearch?.()}
+          className="flex items-center justify-center w-10 h-10 rounded-lg shrink-0 transition-colors hover:bg-white/10"
           style={{ background: '#132012', border: '1px solid #1C3026' }}
         >
           <svg viewBox="0 0 24 24" className="w-4 h-4 text-muted" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
           </svg>
-        </Link>
+        </button>
       </div>
 
       {/* VikingBet Style Time Tracker / Slider */}

@@ -6,6 +6,7 @@ import { FixtureTabs } from '@/components/sports/FixtureTabs';
 import { SportsNav } from '@/components/sports/TopLeagues';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { FilterPanel, FilterState } from '@/components/sports/FilterPanel';
+import { SearchOverlay } from '@/components/sports/SearchOverlay';
 
 const SPORT_EMOJI: Record<string, string> = {
   football: '⚽', hockey: '🏒', tennis: '🎾', basketball: '🏀',
@@ -21,6 +22,7 @@ export function HomeSportsSection() {
   const [activeTab, setActiveTab] = useState<'prematch' | 'live'>('prematch');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [selectedLeagueId, setSelectedLeagueId] = useState<string | null>(null);
   const [selectedLeagueName, setSelectedLeagueName] = useState<string | null>(null);
   const [advancedFilter, setAdvancedFilter] = useState<FilterState>(EMPTY_FILTER);
@@ -70,6 +72,11 @@ export function HomeSportsSection() {
         onApply={handleApplyFilter}
       />
 
+      <SearchOverlay
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+      />
+
       {/* Sports Navigation & Slider */}
       <SportsNav
         activeSport={activeSport}
@@ -79,6 +86,7 @@ export function HomeSportsSection() {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         onOpenSidebar={() => setIsSidebarOpen(true)}
+        onOpenSearch={() => setIsSearchOpen(true)}
       />
 
       {/* Active filter badges */}
