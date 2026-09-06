@@ -174,24 +174,25 @@ interface FixtureTabsProps {
   timeRange?: number;
   leagueId?: string;
   activeTab?: 'prematch' | 'live';
+  filterDate?: string;    // specific date override from FilterPanel
+  filterCountry?: string; // country filter from FilterPanel
 }
 
-export function FixtureTabs({ sport = 'football', timeRange = 6, leagueId, activeTab = 'prematch' }: FixtureTabsProps) {
+export function FixtureTabs({ sport = 'football', timeRange = 6, leagueId, activeTab = 'prematch', filterDate, filterCountry }: FixtureTabsProps) {
   const [allFixtures, setAllFixtures] = useState<Fixture[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [dayIndex, setDayIndex] = useState(0);          // which day we last loaded
+  const [dayIndex, setDayIndex] = useState(0);
   const [hasMoreDays, setHasMoreDays] = useState(true);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
 
-  // Which leagues were in the very first batch (shown expanded)
   const initialLeaguesRef = useRef<Set<string> | null>(null);
 
-  // Fetch a single day's worth of fixtures
   const fetchDay = useCallback(async (dayOffset: number) => {
-    const d = new Date();
-    d.setDate(d.getDate() + dayOffset);
+    // If filterDate is set, only fetch that specific date (ignore dayOffset)
+    const d = filterDate ? new Date(filterDate + 'T00:00:00') : new Date();
+    if (!filterDate) d.setDate(d.getDate() + dayOffset);
     const dateStr = d.toISOString().split('T')[0];
     let url = `${API_BASE}/api/v1/fixtures?date=${dateStr}&sport=${sport}`;
     if (leagueId) url += `&league=${leagueId}`;
@@ -201,13 +202,13 @@ export function FixtureTabs({ sport = 'football', timeRange = 6, leagueId, activ
     } catch {
       return [];
     }
-  }, [API_BASE, sport, leagueId]);
+  }, [API_BASE, sport, leagueId, filterDate]);
 
-  // Initial load: today only
   useEffect(() => {
     setAllFixtures([]);
     setDayIndex(0);
-    setHasMoreDays(timeRange > 0);
+    // If filterDate is set, there's only 1 day to load
+    setHasMoreDays(!filterDate && timeRange > 0);
     initialLeaguesRef.current = null;
 
     if (activeTab === 'live') {
@@ -233,19 +234,15 @@ export function FixtureTabs({ sport = 'football', timeRange = 6, leagueId, activ
         })
         .finally(() => setLoading(false));
     }
-  }, [sport, leagueId, activeTab, timeRange, fetchDay, API_BASE]);
+  }, [sport, leagueId, activeTab, timeRange, fetchDay, API_BASE, filterDate]);
 
-  // Infinite scroll: when sentinel is visible and we have more days, load next day
   useEffect(() => {
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
     const observer = new IntersectionObserver(async entries => {
-      if (entries[0].isIntersecting && !loadingMore && hasMoreDays && activeTab !== 'live') {
+      if (entries[0].isIntersecting && !loadingMore && hasMoreDays && activeTab !== 'live' && !filterDate) {
         const nextDay = dayIndex + 1;
-        if (nextDay > timeRange) {
-          setHasMoreDays(false);
-          return;
-        }
+        if (nextDay > timeRange) { setHasMoreDays(false); return; }
         setLoadingMore(true);
         const newFixtures = await fetchDay(nextDay);
         setAllFixtures(prev => {
@@ -261,11 +258,16 @@ export function FixtureTabs({ sport = 'football', timeRange = 6, leagueId, activ
     }, { threshold: 0.1 });
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [dayIndex, loadingMore, hasMoreDays, timeRange, activeTab, fetchDay]);
+  }, [dayIndex, loadingMore, hasMoreDays, timeRange, activeTab, fetchDay, filterDate]);
+
+  // Apply country filter client-side
+  const displayFixtures = filterCountry
+    ? allFixtures.filter(f => f.country === filterCountry || f.league?.toLowerCase().includes(filterCountry.toLowerCase()))
+    : allFixtures;
 
   // Group by league
   const grouped: Record<string, { fixtures: Fixture[]; logoUrl?: string }> = {};
-  for (const fix of allFixtures) {
+  for (const fix of displayFixtures) {
     const key = fix.league || 'Other';
     if (!grouped[key]) grouped[key] = { fixtures: [], logoUrl: fix.league_logo_url };
     grouped[key].fixtures.push(fix);
