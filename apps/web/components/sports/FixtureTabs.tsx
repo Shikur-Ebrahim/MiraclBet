@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { clsx } from 'clsx';
 import { FullPageLoader } from '@/components/ui/Loader';
@@ -115,29 +115,11 @@ function LeagueGroup({
   league: string; fixtures: Fixture[]; leagueLogoUrl?: string; defaultExpanded: boolean;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
-  const headerRef = useRef<HTMLDivElement>(null);
   const logoUrl = getLeagueLogo(league, leagueLogoUrl);
 
-  // Auto-open when scrolled into view (for collapsed sections loaded via scroll)
-  useEffect(() => {
-    if (defaultExpanded) return;
-    const el = headerRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          setExpanded(true);
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.15, rootMargin: '0px 0px -40px 0px' }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [defaultExpanded]);
-
+  // No auto-open effect. User must explicitly click to expand.
   return (
-    <div className="mb-4 rounded-xl overflow-hidden shadow-sm" ref={headerRef}>
+    <div className="mb-4 rounded-xl overflow-hidden shadow-sm">
       <button
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center gap-2 px-3 py-2 text-left transition-colors"
@@ -182,96 +164,67 @@ interface FixtureTabsProps {
 export function FixtureTabs({ sport = 'football', timeRange = 6, leagueId, activeTab = 'prematch', filterDate, filterCountry }: FixtureTabsProps) {
   const [allFixtures, setAllFixtures] = useState<Fixture[]>([]);
   const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [dayIndex, setDayIndex] = useState(0);
-  const [hasMoreDays, setHasMoreDays] = useState(true);
-  const sentinelRef = useRef<HTMLDivElement>(null);
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
-
-  const initialLeaguesRef = useRef<Set<string> | null>(null);
-
-  const fetchDay = useCallback(async (dayOffset: number) => {
-    // If filterDate is set, only fetch that specific date (ignore dayOffset)
-    const d = filterDate ? new Date(filterDate + 'T00:00:00') : new Date();
-    if (!filterDate) d.setDate(d.getDate() + dayOffset);
-    const dateStr = d.toISOString().split('T')[0];
-    let url = `${API_BASE}/api/v1/fixtures?date=${dateStr}&sport=${sport}`;
-    if (leagueId) url += `&league=${leagueId}`;
-    try {
-      const data = await fetch(url, { cache: 'no-store' }).then(r => r.json());
-      return Array.isArray(data) ? data : [];
-    } catch {
-      return [];
-    }
-  }, [API_BASE, sport, leagueId, filterDate]);
 
   useEffect(() => {
     setAllFixtures([]);
-    setDayIndex(0);
-    // If filterDate is set, there's only 1 day to load
-    setHasMoreDays(!filterDate && timeRange > 0);
-    initialLeaguesRef.current = null;
+    setLoading(true);
 
     if (activeTab === 'live') {
-      setLoading(true);
       let url = `${API_BASE}/api/v1/fixtures/live?sport=${sport}`;
       if (leagueId) url += `&league=${leagueId}`;
       fetch(url, { cache: 'no-store' })
         .then(r => r.json())
         .then(data => {
-          const fixtures = Array.isArray(data) ? data : [];
-          setAllFixtures(fixtures);
-          initialLeaguesRef.current = new Set(fixtures.map((f: Fixture) => f.league || 'Other'));
-          setHasMoreDays(false);
+          setAllFixtures(Array.isArray(data) ? data : []);
         })
         .catch(() => setAllFixtures([]))
         .finally(() => setLoading(false));
     } else {
-      setLoading(true);
-      fetchDay(0)
-        .then(fixtures => {
-          setAllFixtures(fixtures);
-          initialLeaguesRef.current = new Set(fixtures.map((f: Fixture) => f.league || 'Other'));
-        })
-        .finally(() => setLoading(false));
-    }
-  }, [sport, leagueId, activeTab, timeRange, fetchDay, API_BASE, filterDate]);
+      const promises = [];
+      // If filterDate is set, just load that date. Otherwise, load timeRange days.
+      const daysToLoad = filterDate ? 0 : timeRange;
+      const baseDate = filterDate ? new Date(filterDate + 'T00:00:00') : new Date();
 
-  useEffect(() => {
-    const sentinel = sentinelRef.current;
-    if (!sentinel) return;
-    const observer = new IntersectionObserver(async entries => {
-      if (entries[0].isIntersecting && !loadingMore && hasMoreDays && activeTab !== 'live' && !filterDate) {
-        const nextDay = dayIndex + 1;
-        if (nextDay > timeRange) { setHasMoreDays(false); return; }
-        setLoadingMore(true);
-        const newFixtures = await fetchDay(nextDay);
-        setAllFixtures(prev => {
-          const merged = [...prev, ...newFixtures];
-          const unique = Array.from(new Map(merged.map(f => [f.id, f])).values());
-          unique.sort((a, b) => new Date(a.kickoff_at).getTime() - new Date(b.kickoff_at).getTime());
-          return unique;
-        });
-        setDayIndex(nextDay);
-        if (nextDay >= timeRange) setHasMoreDays(false);
-        setLoadingMore(false);
+      for (let i = 0; i <= daysToLoad; i++) {
+        const d = new Date(baseDate);
+        if (!filterDate) d.setDate(d.getDate() + i);
+        const dateStr = d.toISOString().split('T')[0];
+        let url = `${API_BASE}/api/v1/fixtures?date=${dateStr}&sport=${sport}`;
+        if (leagueId) url += `&league=${leagueId}`;
+        promises.push(fetch(url, { cache: 'no-store' }).then(r => r.json()).catch(() => []));
       }
-    }, { threshold: 0.1 });
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [dayIndex, loadingMore, hasMoreDays, timeRange, activeTab, fetchDay, filterDate]);
+
+      Promise.all(promises).then(results => {
+        const flat = results.flatMap(data => Array.isArray(data) ? data : []);
+        const unique = Array.from(new Map(flat.map(f => [f.id, f])).values());
+        unique.sort((a, b) => new Date(a.kickoff_at).getTime() - new Date(b.kickoff_at).getTime());
+        setAllFixtures(unique);
+      }).finally(() => setLoading(false));
+    }
+  }, [sport, leagueId, activeTab, timeRange, API_BASE, filterDate]);
 
   // Apply country filter client-side
   const displayFixtures = filterCountry
     ? allFixtures.filter(f => f.country === filterCountry || f.league?.toLowerCase().includes(filterCountry.toLowerCase()))
     : allFixtures;
 
-  // Group by league
+  // Group by league and maintain order
   const grouped: Record<string, { fixtures: Fixture[]; logoUrl?: string }> = {};
   for (const fix of displayFixtures) {
     const key = fix.league || 'Other';
     if (!grouped[key]) grouped[key] = { fixtures: [], logoUrl: fix.league_logo_url };
     grouped[key].fixtures.push(fix);
+  }
+
+  // Determine which leagues are in the first 200 matches to set defaultExpanded
+  let matchesCount = 0;
+  const initialLeagues = new Set<string>();
+  for (const [league, { fixtures }] of Object.entries(grouped)) {
+    if (matchesCount < 200) {
+      initialLeagues.add(league);
+    }
+    matchesCount += fixtures.length;
   }
 
   return (
@@ -280,36 +233,15 @@ export function FixtureTabs({ sport = 'football', timeRange = 6, leagueId, activ
         <FullPageLoader />
       ) : Object.keys(grouped).length > 0 ? (
         <div>
-          {Object.entries(grouped).map(([league, { fixtures, logoUrl }]) => {
-            // Leagues from the first fetch are open, new ones from scroll start collapsed
-            const isInitial = initialLeaguesRef.current?.has(league) ?? true;
-            return (
-              <LeagueGroup
-                key={league}
-                league={league}
-                fixtures={fixtures}
-                leagueLogoUrl={logoUrl}
-                defaultExpanded={isInitial}
-              />
-            );
-          })}
-
-          {/* Scroll sentinel */}
-          {(hasMoreDays || loadingMore) && (
-            <div ref={sentinelRef} className="py-6 flex items-center justify-center gap-2 text-muted text-sm">
-              {loadingMore ? (
-                <>
-                  <svg className="animate-spin h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
-                  </svg>
-                  Loading more matches...
-                </>
-              ) : (
-                <span className="text-white/20 text-xs">↓ Scroll for more</span>
-              )}
-            </div>
-          )}
+          {Object.entries(grouped).map(([league, { fixtures, logoUrl }]) => (
+            <LeagueGroup
+              key={league}
+              league={league}
+              fixtures={fixtures}
+              leagueLogoUrl={logoUrl}
+              defaultExpanded={initialLeagues.has(league)}
+            />
+          ))}
         </div>
       ) : (
         <div className="text-center py-12 text-muted bg-surface/30 rounded-xl border border-brand">
