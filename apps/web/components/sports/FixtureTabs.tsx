@@ -26,10 +26,10 @@ interface Fixture {
   odds_away: number;
   sport: string;
   advanced_odds?: {
+    // New format: flat markets array
+    markets?: { id: number; name: string; values: { value: string; odd: string }[] }[];
+    // Old format (backwards compat)
     match_winner?: { value: string; odd: string }[];
-    over_under?: { value: string; odd: string }[];
-    btts?: { value: string; odd: string }[];
-    double_chance?: { value: string; odd: string }[];
   };
 }
 
@@ -60,10 +60,23 @@ function TeamLogo({ logo, name }: { logo?: string; name: string }) {
   return <div className="w-5 h-5 flex items-center justify-center shrink-0 text-sm">⚽</div>;
 }
 
-function getOddValue(markets: { value: string; odd: string }[] | undefined, targetValue: string) {
-  if (!markets) return null;
-  const match = markets.find(m => m.value === targetValue);
-  return match ? match.odd : null;
+// Extract a specific 1X2 odd from advanced_odds — supports both new {markets:[]} and old {match_winner:[]} format
+function getMatchWinnerOdd(advanced_odds: Fixture['advanced_odds'], targetValue: 'Home' | 'Draw' | 'Away'): string | null {
+  if (!advanced_odds) return null;
+  // New format: find market ID 1 (Match Winner)
+  if (advanced_odds.markets) {
+    const mw = advanced_odds.markets.find(m => m.id === 1);
+    if (mw) {
+      const val = mw.values.find(v => v.value === targetValue);
+      return val ? val.odd : null;
+    }
+  }
+  // Old format fallback
+  if (advanced_odds.match_winner) {
+    const val = advanced_odds.match_winner.find(v => v.value === targetValue);
+    return val ? val.odd : null;
+  }
+  return null;
 }
 
 function MatchRow({ fix }: { fix: Fixture }) {
@@ -106,16 +119,17 @@ function MatchRow({ fix }: { fix: Fixture }) {
 
       <div className="grid grid-cols-3 gap-1">
         {[
-          { label: '1', default: fix.odds_home, val: getOddValue(fix.advanced_odds?.match_winner, 'Home') },
-          { label: 'X', default: fix.odds_draw, val: getOddValue(fix.advanced_odds?.match_winner, 'Draw') },
-          { label: '2', default: fix.odds_away, val: getOddValue(fix.advanced_odds?.match_winner, 'Away') },
+          { label: '1', default: fix.odds_home, val: getMatchWinnerOdd(fix.advanced_odds, 'Home') },
+          { label: 'X', default: fix.odds_draw, val: getMatchWinnerOdd(fix.advanced_odds, 'Draw') },
+          { label: '2', default: fix.odds_away, val: getMatchWinnerOdd(fix.advanced_odds, 'Away') },
         ].map(({ label, default: def, val }) => (
           <button
             key={label}
-            onClick={(e) => { e.preventDefault(); /* Prevent link click */ }}
-            className="bg-[#E4E9F2] hover:bg-[#D5DCE8] active:bg-[#C6CFDE] rounded-md py-2.5 px-3 flex items-center justify-center transition-colors"
+            onClick={(e) => { e.preventDefault(); }}
+            className="bg-[#E4E9F2] hover:bg-[#D5DCE8] active:bg-[#C6CFDE] rounded-md py-2.5 px-3 flex flex-col items-center justify-center transition-colors gap-0.5"
           >
-            <div className="text-[14px] font-semibold text-gray-900">{val || def.toFixed(2)}</div>
+            <span className="text-[10px] text-gray-500">{label}</span>
+            <span className="text-[13px] font-bold text-gray-900">{val ?? def.toFixed(2)}</span>
           </button>
         ))}
       </div>
