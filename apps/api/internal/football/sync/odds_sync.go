@@ -30,8 +30,11 @@ func (s *Syncer) SyncLiveOdds(ctx context.Context) error {
 
 	odds, err := s.provider.GetLiveOdds(ctx)
 	if err != nil {
+		log.Printf("[sync] Error fetching live odds: %v", err)
 		return fmt.Errorf("provider error: %w", err)
 	}
+	log.Printf("[sync] Fetched %d live odds from provider", len(odds))
+	
 	if err := s.quota.Increment(ctx); err != nil {
 		log.Printf("[sync] warning: failed to record quota usage: %v", err)
 	}
@@ -47,8 +50,11 @@ func (s *Syncer) SyncOddsByDate(ctx context.Context, date time.Time) error {
 
 	odds, err := s.provider.GetOddsByDate(ctx, date)
 	if err != nil {
+		log.Printf("[sync] Error fetching odds for date %s: %v", date.Format("2006-01-02"), err)
 		return fmt.Errorf("provider error: %w", err)
 	}
+	log.Printf("[sync] Fetched %d prematch odds for date %s", len(odds), date.Format("2006-01-02"))
+	
 	if err := s.quota.Increment(ctx); err != nil {
 		log.Printf("[sync] warning: failed to record quota usage: %v", err)
 	}
@@ -63,7 +69,7 @@ func (s *Syncer) saveOdds(ctx context.Context, odds []provider.ProviderOdd) erro
 
 	query := `
 		UPDATE fixtures 
-		SET advanced_odds = $1, odds_updated_at = NOW()
+		SET advanced_odds = $1::jsonb, odds_updated_at = NOW()
 		WHERE external_id = $2
 	`
 	updated := 0
