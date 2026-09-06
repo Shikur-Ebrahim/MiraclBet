@@ -166,13 +166,7 @@ func (g *HTTPGateway) GetOddsByDate(ctx context.Context, date time.Time) ([]prov
 	if g.baseURL == "" || g.apiKey == "" {
 		return nil, fmt.Errorf("football API credentials not configured")
 	}
-	// Fetching page 1 for now (ideally we should handle pagination if > 1 page)
 	dateStr := date.Format("2006-01-02")
-	var raw apiPrematchOddResponse
-	// We use bet365 (bookmaker=8) for standard markets
-	if err := g.doRequest(ctx, fmt.Sprintf("/odds?date=%s&bookmaker=8", dateStr), &raw); err != nil {
-		return nil, err
-	}
 
 	var allOdds []provider.ProviderOdd
 	page := 1
