@@ -204,7 +204,7 @@ func scanRows(rows rowScanner) []FixtureResponse {
 			&advancedOddsStr,
 		)
 		if err != nil {
-			_ = err
+			fmt.Printf("SCAN ERROR: %v\n", err)
 		}
 		fx.KickoffAt = kickoff.Format(time.RFC3339)
 		if advancedOddsStr != nil && len(*advancedOddsStr) > 2 {
