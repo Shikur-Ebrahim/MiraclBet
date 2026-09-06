@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { clsx } from 'clsx';
 import { FullPageLoader } from '@/components/ui/Loader';
 
@@ -24,6 +25,12 @@ interface Fixture {
   odds_draw: number;
   odds_away: number;
   sport: string;
+  advanced_odds?: {
+    match_winner?: { value: string; odd: string }[];
+    over_under?: { value: string; odd: string }[];
+    btts?: { value: string; odd: string }[];
+    double_chance?: { value: string; odd: string }[];
+  };
 }
 
 const LEAGUE_LOGO_MAP: Record<string, string> = {
@@ -53,13 +60,19 @@ function TeamLogo({ logo, name }: { logo?: string; name: string }) {
   return <div className="w-5 h-5 flex items-center justify-center shrink-0 text-sm">⚽</div>;
 }
 
+function getOddValue(markets: { value: string; odd: string }[] | undefined, targetValue: string) {
+  if (!markets) return null;
+  const match = markets.find(m => m.value === targetValue);
+  return match ? match.odd : null;
+}
+
 function MatchRow({ fix }: { fix: Fixture }) {
   const kickoff = new Date(fix.kickoff_at);
   const timeStr = kickoff.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const dateStr = kickoff.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
 
   return (
-    <div className="bg-white border-b border-gray-100 last:border-b-0 px-3 py-3">
+    <Link href={`/match/${fix.id}`} className="block bg-white border-b border-gray-100 last:border-b-0 px-3 py-3 hover:bg-gray-50 transition-colors">
       <div className="text-[13px] font-bold text-gray-800 mb-2 flex items-center gap-2">
         {fix.is_live ? (
           <span className="text-red-500 flex items-center gap-1">
@@ -93,19 +106,20 @@ function MatchRow({ fix }: { fix: Fixture }) {
 
       <div className="grid grid-cols-3 gap-1">
         {[
-          { label: '1', val: fix.odds_home },
-          { label: 'X', val: fix.odds_draw },
-          { label: '2', val: fix.odds_away },
-        ].map(({ label, val }) => (
+          { label: '1', default: fix.odds_home, val: getOddValue(fix.advanced_odds?.match_winner, 'Home') },
+          { label: 'X', default: fix.odds_draw, val: getOddValue(fix.advanced_odds?.match_winner, 'Draw') },
+          { label: '2', default: fix.odds_away, val: getOddValue(fix.advanced_odds?.match_winner, 'Away') },
+        ].map(({ label, default: def, val }) => (
           <button
             key={label}
+            onClick={(e) => { e.preventDefault(); /* Prevent link click */ }}
             className="bg-[#E4E9F2] hover:bg-[#D5DCE8] active:bg-[#C6CFDE] rounded-md py-2.5 px-3 flex items-center justify-center transition-colors"
           >
-            <div className="text-[14px] font-semibold text-gray-900">{(val || 1.9).toFixed(2)}</div>
+            <div className="text-[14px] font-semibold text-gray-900">{val || def.toFixed(2)}</div>
           </button>
         ))}
       </div>
-    </div>
+    </Link>
   );
 }
 

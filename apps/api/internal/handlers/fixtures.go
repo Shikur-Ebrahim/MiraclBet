@@ -13,24 +13,25 @@ import (
 )
 
 type FixtureResponse struct {
-	ID            string  `json:"id"`
-	HomeTeam      string  `json:"home_team"`
-	HomeTeamLogo  string  `json:"home_team_logo"`
-	AwayTeam      string  `json:"away_team"`
-	AwayTeamLogo  string  `json:"away_team_logo"`
-	League        string  `json:"league"`
-	LeagueLogoURL string  `json:"league_logo_url"`
-	Country       string  `json:"country"`
-	KickoffAt     string  `json:"kickoff_at"`
-	Status        string  `json:"status"`
-	Elapsed       *int    `json:"elapsed,omitempty"`
-	HomeScore     *int    `json:"home_score"`
-	AwayScore     *int    `json:"away_score"`
-	IsLive        bool    `json:"is_live"`
-	OddsHome      float64 `json:"odds_home"`
-	OddsDraw      float64 `json:"odds_draw"`
-	OddsAway      float64 `json:"odds_away"`
-	Sport         string  `json:"sport"`
+	ID            string          `json:"id"`
+	HomeTeam      string          `json:"home_team"`
+	HomeTeamLogo  string          `json:"home_team_logo"`
+	AwayTeam      string          `json:"away_team"`
+	AwayTeamLogo  string          `json:"away_team_logo"`
+	League        string          `json:"league"`
+	LeagueLogoURL string          `json:"league_logo_url"`
+	Country       string          `json:"country"`
+	KickoffAt     string          `json:"kickoff_at"`
+	Status        string          `json:"status"`
+	Elapsed       *int            `json:"elapsed,omitempty"`
+	HomeScore     *int            `json:"home_score"`
+	AwayScore     *int            `json:"away_score"`
+	IsLive        bool            `json:"is_live"`
+	OddsHome      float64         `json:"odds_home"` // Legacy
+	OddsDraw      float64         `json:"odds_draw"` // Legacy
+	OddsAway      float64         `json:"odds_away"` // Legacy
+	Sport         string          `json:"sport"`
+	AdvancedOdds  json.RawMessage `json:"advanced_odds,omitempty"`
 }
 
 type FixturesHandler struct {
@@ -58,7 +59,8 @@ func (h *FixturesHandler) Live(w http.ResponseWriter, r *http.Request) {
 				COALESCE(l.name,'Unknown') as league, COALESCE(f.league_logo_url,'') as league_logo_url, COALESCE(l.country,'') as country,
 				f.starts_at, f.status_short, f.elapsed, f.score_home, f.score_away, f.is_live,
 				COALESCE(o.home,1.90), COALESCE(o.draw,3.20), COALESCE(o.away,1.90),
-				COALESCE(f.sport_slug,'football')
+				COALESCE(f.sport_slug,'football'),
+				f.advanced_odds
 			FROM fixtures f
 			LEFT JOIN leagues l ON f.league_id = l.id
 			LEFT JOIN odds o ON o.fixture_id = f.id
@@ -109,7 +111,8 @@ func (h *FixturesHandler) ByDate(w http.ResponseWriter, r *http.Request) {
 					COALESCE(l.name,'Unknown') as league, COALESCE(f.league_logo_url,'') as league_logo_url, COALESCE(l.country,'') as country,
 					f.starts_at, f.status_short, f.elapsed, f.score_home, f.score_away, f.is_live,
 					COALESCE(o.home,1.90), COALESCE(o.draw,3.20), COALESCE(o.away,1.90),
-					COALESCE(f.sport_slug,'football')
+					COALESCE(f.sport_slug,'football'),
+					f.advanced_odds
 				FROM fixtures f
 				LEFT JOIN leagues l ON l.external_id = $3
 				LEFT JOIN odds o ON o.fixture_id = f.id
@@ -124,7 +127,8 @@ func (h *FixturesHandler) ByDate(w http.ResponseWriter, r *http.Request) {
 					COALESCE(l.name,'Unknown') as league, COALESCE(f.league_logo_url,'') as league_logo_url, COALESCE(l.country,'') as country,
 					f.starts_at, f.status_short, f.elapsed, f.score_home, f.score_away, f.is_live,
 					COALESCE(o.home,1.90), COALESCE(o.draw,3.20), COALESCE(o.away,1.90),
-					COALESCE(f.sport_slug,'football')
+					COALESCE(f.sport_slug,'football'),
+					f.advanced_odds
 				FROM fixtures f
 				LEFT JOIN leagues l ON f.league_id = l.id
 				LEFT JOIN odds o ON o.fixture_id = f.id
@@ -189,6 +193,7 @@ func scanRows(rows rowScanner) []FixtureResponse {
 	for rows.Next() {
 		var fx FixtureResponse
 		var kickoff time.Time
+		var advancedOdds []byte // Raw json bytes from DB
 		_ = rows.Scan(
 			&fx.ID, &fx.HomeTeam, &fx.HomeTeamLogo, &fx.AwayTeam, &fx.AwayTeamLogo,
 			&fx.League, &fx.LeagueLogoURL, &fx.Country,
@@ -196,8 +201,12 @@ func scanRows(rows rowScanner) []FixtureResponse {
 			&fx.HomeScore, &fx.AwayScore, &fx.IsLive,
 			&fx.OddsHome, &fx.OddsDraw, &fx.OddsAway,
 			&fx.Sport,
+			&advancedOdds,
 		)
 		fx.KickoffAt = kickoff.Format(time.RFC3339)
+		if len(advancedOdds) > 0 {
+			fx.AdvancedOdds = advancedOdds
+		}
 		out = append(out, fx)
 	}
 	return out

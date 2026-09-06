@@ -62,14 +62,20 @@ func main() {
         // Sync leagues first so fixture inserts can link to league IDs
         sync.SyncLeagues(db.Pool, cfg.FootballAPIKey)
         _ = syncer.SyncLiveFixtures(ctx)
+        _ = syncer.SyncLiveOdds(ctx)
         _ = syncer.SyncMultipleDays(ctx, 7) // Today + 6 days
+        today := time.Now().UTC()
+        for i := 0; i < 7; i++ {
+            _ = syncer.SyncOddsByDate(ctx, today.AddDate(0, 0, i))
+            time.Sleep(1 * time.Second)
+        }
         log.Println("[worker] Initial startup sync complete!")
     }()
 
-    liveTicker := time.NewTicker(5 * time.Minute)
+    liveTicker := time.NewTicker(1 * time.Minute)
     defer liveTicker.Stop()
 
-    dailyTicker := time.NewTicker(2 * time.Hour)
+    dailyTicker := time.NewTicker(3 * time.Hour)
     defer dailyTicker.Stop()
 
     for {
@@ -78,12 +84,18 @@ func main() {
             log.Println("[worker] shutting down")
             return
         case <-liveTicker.C:
-            log.Println("[worker] tick: syncing live fixtures...")
+            log.Println("[worker] tick: syncing live fixtures & live odds...")
             _ = syncer.SyncLiveFixtures(ctx)
+            _ = syncer.SyncLiveOdds(ctx)
         case <-dailyTicker.C:
-            log.Println("[worker] tick: syncing 7-day fixtures and leagues...")
+            log.Println("[worker] tick: syncing 7-day fixtures, odds and leagues...")
             sync.SyncLeagues(db.Pool, cfg.FootballAPIKey)
             _ = syncer.SyncMultipleDays(ctx, 7)
+            today := time.Now().UTC()
+            for i := 0; i < 7; i++ {
+                _ = syncer.SyncOddsByDate(ctx, today.AddDate(0, 0, i))
+                time.Sleep(1 * time.Second)
+            }
         }
     }
 }
