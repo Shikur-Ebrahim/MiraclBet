@@ -174,36 +174,54 @@ func (g *HTTPGateway) GetOddsByDate(ctx context.Context, date time.Time) ([]prov
 		return nil, err
 	}
 
-	var odds []provider.ProviderOdd
-	for _, f := range raw.Response {
-		if len(f.Bookmakers) == 0 {
-			continue
+	var allOdds []provider.ProviderOdd
+	page := 1
+
+	for {
+		var raw apiPrematchOddResponse
+		endpoint := fmt.Sprintf("/odds?date=%s&bookmaker=8&page=%d", dateStr, page)
+		if err := g.doRequest(ctx, endpoint, &raw); err != nil {
+			return nil, err
 		}
-		bm := f.Bookmakers[0]
-		var markets []provider.ProviderMarket
-		for _, m := range bm.Bets {
-			var vals []provider.ProviderMarketValue
-			for _, v := range m.Values {
-				// API-Sports returns value as string ("Home","Draw") OR number (2.5 for Over/Under)
-				// fmt.Sprintf("%v", ...) safely converts both to a clean string
-				vals = append(vals, provider.ProviderMarketValue{
-					Value: fmt.Sprintf("%v", v.Value),
-					Odd:   v.Odd,
+		if len(raw.Response) == 0 {
+			break // no more pages
+		}
+
+		for _, f := range raw.Response {
+			if len(f.Bookmakers) == 0 {
+				continue
+			}
+			bm := f.Bookmakers[0]
+			var markets []provider.ProviderMarket
+			for _, m := range bm.Bets {
+				var vals []provider.ProviderMarketValue
+				for _, v := range m.Values {
+					vals = append(vals, provider.ProviderMarketValue{
+						Value: fmt.Sprintf("%v", v.Value),
+						Odd:   v.Odd,
+					})
+				}
+				markets = append(markets, provider.ProviderMarket{
+					ID:     m.ID,
+					Name:   m.Name,
+					Values: vals,
 				})
 			}
-			markets = append(markets, provider.ProviderMarket{
-				ID:     m.ID,
-				Name:   m.Name,
-				Values: vals,
+			allOdds = append(allOdds, provider.ProviderOdd{
+				FixtureID: fmt.Sprintf("%d", f.Fixture.ID),
+				Bookmaker: bm.Name,
+				Markets:   markets,
 			})
 		}
-		odds = append(odds, provider.ProviderOdd{
-			FixtureID: fmt.Sprintf("%d", f.Fixture.ID),
-			Bookmaker: bm.Name,
-			Markets:   markets,
-		})
+
+		// Safety: stop at page 10 to avoid burning too many quota requests
+		if page >= 10 {
+			break
+		}
+		page++
 	}
-	return odds, nil
+
+	return allOdds, nil
 }
 
 func (g *HTTPGateway) GetLiveOdds(ctx context.Context) ([]provider.ProviderOdd, error) {
