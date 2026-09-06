@@ -110,8 +110,8 @@ func (h *FixturesHandler) ByDate(w http.ResponseWriter, r *http.Request) {
 			fixtures = h.queryFixturesWithArgs(ctx, `
 				SELECT f.external_id, f.home_team_name, COALESCE(f.home_team_logo,''), f.away_team_name, COALESCE(f.away_team_logo,''),
 					COALESCE(l.name,'Unknown') as league, COALESCE(f.league_logo_url,'') as league_logo_url, COALESCE(l.country,'') as country,
-					f.starts_at, f.status_short, f.elapsed, f.score_home, f.score_away, f.is_live,
-					COALESCE(o.home,1.90), COALESCE(o.draw,3.20), COALESCE(o.away,1.90),
+					f.starts_at, f.status_short, f.elapsed::int, f.score_home::int, f.score_away::int, f.is_live,
+					COALESCE(o.home,1.90)::float, COALESCE(o.draw,3.20)::float, COALESCE(o.away,1.90)::float,
 					COALESCE(f.sport_slug,'football'),
 					COALESCE(f.advanced_odds, '{}'::jsonb)::text
 				FROM fixtures f
@@ -126,8 +126,8 @@ func (h *FixturesHandler) ByDate(w http.ResponseWriter, r *http.Request) {
 			fixtures = h.queryFixturesWithArgs(ctx, `
 				SELECT f.external_id, f.home_team_name, COALESCE(f.home_team_logo,''), f.away_team_name, COALESCE(f.away_team_logo,''),
 					COALESCE(l.name,'Unknown') as league, COALESCE(f.league_logo_url,'') as league_logo_url, COALESCE(l.country,'') as country,
-					f.starts_at, f.status_short, f.elapsed, f.score_home, f.score_away, f.is_live,
-					COALESCE(o.home,1.90), COALESCE(o.draw,3.20), COALESCE(o.away,1.90),
+					f.starts_at, f.status_short, f.elapsed::int, f.score_home::int, f.score_away::int, f.is_live,
+					COALESCE(o.home,1.90)::float, COALESCE(o.draw,3.20)::float, COALESCE(o.away,1.90)::float,
 					COALESCE(f.sport_slug,'football'),
 					COALESCE(f.advanced_odds, '{}'::jsonb)::text
 				FROM fixtures f
