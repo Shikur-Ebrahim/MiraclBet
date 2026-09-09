@@ -274,8 +274,7 @@ export function FixtureTabs({
         <FullPageLoader />
       ) : displayFixtures.length > 0 ? (
         <>
-          {/* Match list */}
-          <div className="rounded-xl overflow-hidden shadow-sm bg-white">
+          <div className="bg-white">
             {rows.map((row, i) => {
               if (row.type === 'separator') {
                 return (

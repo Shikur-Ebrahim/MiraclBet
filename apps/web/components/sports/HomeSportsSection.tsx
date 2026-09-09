@@ -148,16 +148,15 @@ export function HomeSportsSection() {
               )}
             </button>
           </div>
-
-          <FixtureTabs
-            sport={activeSport}
-            timeRange={timeRange}
-            leagueId={effectiveLeagueId}
-            activeTab={activeTab}
-            filterDate={advancedFilter.date ?? undefined}
-            filterCountry={advancedFilter.country ?? undefined}
-          />
         </Container>
+        <FixtureTabs
+          sport={activeSport}
+          timeRange={timeRange}
+          leagueId={effectiveLeagueId}
+          activeTab={activeTab}
+          filterDate={advancedFilter.date ?? undefined}
+          filterCountry={advancedFilter.country ?? undefined}
+        />
       </section>
     </div>
   );

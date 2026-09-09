@@ -202,7 +202,7 @@ export default function MatchPage() {
           <div className="flex flex-col items-center justify-center shrink-0 w-24">
             {match.is_live ? (
               <div className="flex flex-col items-center">
-                <span className="text-[11px] text-red-500 font-bold mb-1 animate-pulse">LIVE {match.elapsed}'</span>
+                <span className="text-[11px] text-red-500 font-bold mb-1 animate-pulse">LIVE {match.elapsed}&apos;</span>
                 <span className="text-2xl font-black">{match.home_score} - {match.away_score}</span>
               </div>
             ) : (
