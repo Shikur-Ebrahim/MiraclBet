@@ -81,7 +81,7 @@ function getOdds(fix: Fixture) {
   return { home, draw, away, hd, da, ha, totalMarkets };
 }
 
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 50;
 
 // ─── Single Match Row ─────────────────────────────────────────────────────────
 function MatchRow({ fix }: { fix: Fixture }) {
