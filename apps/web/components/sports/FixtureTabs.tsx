@@ -90,7 +90,6 @@ function MatchRow({ fix }: { fix: Fixture }) {
   const dateStr = `${String(kickoff.getDate()).padStart(2, '0')}/${String(kickoff.getMonth() + 1).padStart(2, '0')}`;
 
   const { home, draw, away, hd, da, ha, totalMarkets } = getOdds(fix);
-  const hasOdds = home !== null;
 
   const oddCells = [
     { label: '1',  val: home },
@@ -250,7 +249,7 @@ export function FixtureTabs({
   const pageFixtures = displayFixtures.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   // Build flat list with league separator rows
-  const rows: { type: 'separator'; league: string; logoUrl?: string } | { type: 'fixture'; fix: Fixture }[] = [];
+  const rows: ({ type: 'separator'; league: string; logoUrl?: string } | { type: 'fixture'; fix: Fixture })[] = [];
   let lastLeague = '';
   for (const fix of pageFixtures) {
     const leagueName = fix.league || 'Other';
