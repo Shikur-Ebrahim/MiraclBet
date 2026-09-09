@@ -26,9 +26,7 @@ interface Fixture {
   odds_away: number;
   sport: string;
   advanced_odds?: {
-    // New format: flat markets array
     markets?: { id: number; name: string; values: { value: string; odd: string }[] }[];
-    // Old format (backwards compat)
     match_winner?: { value: string; odd: string }[];
   };
 }
@@ -60,15 +58,11 @@ function TeamLogo({ logo, name }: { logo?: string; name: string }) {
   return <div className="w-5 h-5 flex items-center justify-center shrink-0 text-sm">⚽</div>;
 }
 
-// Extract 1X2 odds - search by market ID=1 OR by common names
 function getMatchWinnerOdd(advanced_odds: Fixture['advanced_odds'], targetValue: 'Home' | 'Draw' | 'Away'): string | null {
   if (!advanced_odds) return null;
 
-  // New format: search markets array
   if (advanced_odds.markets && advanced_odds.markets.length > 0) {
-    // Try by ID=1 first
     let mw = advanced_odds.markets.find(m => m.id === 1);
-    // Fallback: search by name (Match Winner / 1X2 / Home/Draw/Away)
     if (!mw) {
       mw = advanced_odds.markets.find(m => {
         const n = m.name.toLowerCase();
@@ -76,7 +70,6 @@ function getMatchWinnerOdd(advanced_odds: Fixture['advanced_odds'], targetValue:
       });
     }
     if (mw) {
-      // value from API can be "Home"/"Away"/"Draw" or "1"/"X"/"2"
       const valueMap: Record<string, string[]> = {
         Home: ['Home', '1', 'home'],
         Draw: ['Draw', 'X', 'draw'],
@@ -87,7 +80,6 @@ function getMatchWinnerOdd(advanced_odds: Fixture['advanced_odds'], targetValue:
     }
   }
 
-  // Old format fallback
   if (advanced_odds.match_winner) {
     const val = advanced_odds.match_winner.find(v => v.value === targetValue);
     return val ? val.odd : null;
@@ -96,67 +88,85 @@ function getMatchWinnerOdd(advanced_odds: Fixture['advanced_odds'], targetValue:
   return null;
 }
 
+// ─── Single match row (vertical list style) ───────────────────────────────────
 function MatchRow({ fix }: { fix: Fixture }) {
   const kickoff = new Date(fix.kickoff_at);
   const timeStr = kickoff.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const dateStr = kickoff.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
 
+  const homeOdd = getMatchWinnerOdd(fix.advanced_odds, 'Home');
+  const drawOdd = getMatchWinnerOdd(fix.advanced_odds, 'Draw');
+  const awayOdd = getMatchWinnerOdd(fix.advanced_odds, 'Away');
+  const hasOdds = homeOdd !== null;
+
   return (
-    <Link href={`/match/${fix.id}`} className="block bg-white border-b border-gray-100 last:border-b-0 px-3 py-3 hover:bg-gray-50 transition-colors">
-      <div className="text-[13px] font-bold text-gray-800 mb-2 flex items-center gap-2">
+    <Link
+      href={`/match/${fix.id}`}
+      className="block bg-white border-b border-gray-100 last:border-b-0 px-3 py-3 hover:bg-gray-50 transition-colors"
+    >
+      {/* Time */}
+      <div className="text-[12px] font-semibold text-gray-400 mb-2 flex items-center gap-1.5">
         {fix.is_live ? (
           <span className="text-red-500 flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"/>
-            {fix.elapsed ? `${fix.elapsed}'` : fix.status}
+            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse inline-block" />
+            {fix.elapsed ? `${fix.elapsed}'` : 'LIVE'}
           </span>
         ) : (
-          <span>{timeStr} {dateStr.replace(/\//g, '.')}</span>
+          <span>{timeStr} · {dateStr.replace(/\//g, '.')}</span>
         )}
       </div>
 
-      <div className="flex justify-between items-start mb-3">
-        <div className="flex flex-col gap-2 flex-1 min-w-0">
+      <div className="flex items-start justify-between gap-2">
+        {/* Teams */}
+        <div className="flex flex-col gap-1.5 flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <TeamLogo logo={fix.home_team_logo} name={fix.home_team} />
-            <span className="text-[14px] font-medium text-gray-900 leading-tight truncate">{fix.home_team}</span>
+            <span className="text-[13px] font-semibold text-gray-900 leading-tight truncate">{fix.home_team}</span>
           </div>
           <div className="flex items-center gap-2">
             <TeamLogo logo={fix.away_team_logo} name={fix.away_team} />
-            <span className="text-[14px] font-medium text-gray-900 leading-tight truncate">{fix.away_team}</span>
+            <span className="text-[13px] font-semibold text-gray-900 leading-tight truncate">{fix.away_team}</span>
           </div>
         </div>
-            <span className="text-[12px] font-semibold text-gray-900 leading-tight line-clamp-1 flex-1">{fix.away_team}</span>
-            {fix.is_live && <span className="text-[12px] font-bold text-gray-800 shrink-0">{fix.away_score ?? 0}</span>}
-          </div>
-        </div>
-      </div>
 
-      {/* Odds Row */}
-      <div className="grid grid-cols-3 gap-0.5 px-2 pb-3">
-        {[
-          { label: '1', val: homeOdd },
-          { label: 'X', val: drawOdd },
-          { label: '2', val: awayOdd },
-        ].map(({ label, val }) => (
-          <button
-            key={label}
-            onClick={(e) => e.preventDefault()}
-            className={`rounded-lg py-1.5 flex flex-col items-center justify-center transition-colors gap-0.5 ${
-              hasOdds
-                ? 'bg-[#E4F4EC] border border-[#19E66B]/30 hover:bg-[#D0EAD9]'
-                : 'bg-[#F2F4F7]'
-            }`}
-          >
-            <span className="text-[9px] text-gray-400">{label}</span>
-            <span className={`text-[12px] font-bold leading-none ${hasOdds ? 'text-[#0D8A3C]' : 'text-gray-300'}`}>
-              {val ?? '—'}
-            </span>
-          </button>
-        ))}
+        {/* Score if live */}
+        {fix.is_live && (
+          <div className="flex flex-col gap-1.5 items-end justify-center shrink-0 pr-2">
+            <span className="text-[13px] font-bold text-gray-900">{fix.home_score ?? 0}</span>
+            <span className="text-[13px] font-bold text-gray-900">{fix.away_score ?? 0}</span>
+          </div>
+        )}
+
+        {/* Odds buttons */}
+        <div className="flex gap-1 shrink-0">
+          {[
+            { label: '1', val: homeOdd },
+            { label: 'X', val: drawOdd },
+            { label: '2', val: awayOdd },
+          ].map(({ label, val }) => (
+            <button
+              key={label}
+              onClick={(e) => e.preventDefault()}
+              className={`w-14 py-2 rounded-lg flex flex-col items-center justify-center gap-0.5 transition-colors ${
+                hasOdds
+                  ? 'bg-[#E4F4EC] border border-[#19E66B]/30 hover:bg-[#D0EAD9]'
+                  : 'bg-[#F2F4F7]'
+              }`}
+            >
+              <span className="text-[10px] text-gray-400">{label}</span>
+              <span className={`text-[12px] font-bold leading-none ${hasOdds ? 'text-[#0D8A3C]' : 'text-gray-300'}`}>
+                {val ?? '—'}
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
     </Link>
   );
 }
+
+// ─── League group with collapsible vertical list ───────────────────────────────
+const PAGE_SIZE = 15;
 
 function LeagueGroup({
   league, fixtures, leagueLogoUrl, defaultExpanded,
@@ -164,14 +174,18 @@ function LeagueGroup({
   league: string; fixtures: Fixture[]; leagueLogoUrl?: string; defaultExpanded: boolean;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
+  const [page, setPage] = useState(0);
   const logoUrl = getLeagueLogo(league, leagueLogoUrl);
 
+  const totalPages = Math.ceil(fixtures.length / PAGE_SIZE);
+  const pageFixtures = fixtures.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
   return (
-    <div className="mb-4">
+    <div className="mb-4 rounded-xl overflow-hidden shadow-sm">
       {/* League Header */}
       <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-2 px-3 py-2 text-left rounded-xl transition-colors"
+        onClick={() => { setExpanded(!expanded); setPage(0); }}
+        className="w-full flex items-center gap-2 px-3 py-2 text-left transition-colors"
         style={{ background: 'linear-gradient(90deg, #0A5F38 0%, #11834F 100%)' }}
       >
         <svg
@@ -179,7 +193,7 @@ function LeagueGroup({
           className={clsx('w-4 h-4 text-white transition-transform shrink-0', expanded ? '' : '-rotate-90')}
           fill="none" stroke="currentColor" strokeWidth="2.5"
         >
-          <polyline points="6 9 12 15 18 9"/>
+          <polyline points="6 9 12 15 18 9" />
         </svg>
         <div className="w-5 h-5 shrink-0 flex items-center justify-center bg-white rounded-full p-0.5">
           {logoUrl ? (
@@ -192,28 +206,51 @@ function LeagueGroup({
         <span className="text-xs text-white/60">{fixtures.length}</span>
       </button>
 
-      {/* Horizontal scroll cards */}
+      {/* Match list */}
       {expanded && (
-        <div
-          className="flex gap-3 overflow-x-auto py-3 px-1"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-        >
-          {fixtures.map((fix) => (
-            <MatchCard key={fix.id} fix={fix} />
+        <div className="bg-white">
+          {pageFixtures.map((fix) => (
+            <MatchRow key={fix.id} fix={fix} />
           ))}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-3 py-2 border-t border-gray-100 bg-gray-50">
+              <button
+                onClick={() => setPage(p => Math.max(0, p - 1))}
+                disabled={page === 0}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                style={{ background: '#E4F4EC', color: '#0D8A3C' }}
+              >
+                ← Prev
+              </button>
+              <span className="text-[11px] text-gray-400">
+                Page {page + 1} of {totalPages}
+              </span>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+                disabled={page === totalPages - 1}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                style={{ background: '#E4F4EC', color: '#0D8A3C' }}
+              >
+                Next →
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
 
+// ─── Main FixtureTabs ─────────────────────────────────────────────────────────
 interface FixtureTabsProps {
   sport?: string;
   timeRange?: number;
   leagueId?: string;
   activeTab?: 'prematch' | 'live';
-  filterDate?: string;    // specific date override from FilterPanel
-  filterCountry?: string; // country filter from FilterPanel
+  filterDate?: string;
+  filterCountry?: string;
 }
 
 export function FixtureTabs({ sport = 'football', timeRange = 6, leagueId, activeTab = 'prematch', filterDate, filterCountry }: FixtureTabsProps) {
@@ -230,14 +267,11 @@ export function FixtureTabs({ sport = 'football', timeRange = 6, leagueId, activ
       if (leagueId) url += `&league=${leagueId}`;
       fetch(url, { cache: 'no-store' })
         .then(r => r.json())
-        .then(data => {
-          setAllFixtures(Array.isArray(data) ? data : []);
-        })
+        .then(data => setAllFixtures(Array.isArray(data) ? data : []))
         .catch(() => setAllFixtures([]))
         .finally(() => setLoading(false));
     } else {
       const promises = [];
-      // If filterDate is set, just load that date. Otherwise, load timeRange days.
       const daysToLoad = filterDate ? 0 : timeRange;
       const baseDate = filterDate ? new Date(filterDate + 'T00:00:00') : new Date();
 
@@ -259,12 +293,11 @@ export function FixtureTabs({ sport = 'football', timeRange = 6, leagueId, activ
     }
   }, [sport, leagueId, activeTab, timeRange, API_BASE, filterDate]);
 
-  // Apply country filter client-side
   const displayFixtures = filterCountry
     ? allFixtures.filter(f => f.country === filterCountry || f.league?.toLowerCase().includes(filterCountry.toLowerCase()))
     : allFixtures;
 
-  // Group by league and maintain order
+  // Group by league
   const grouped: Record<string, { fixtures: Fixture[]; logoUrl?: string }> = {};
   for (const fix of displayFixtures) {
     const key = fix.league || 'Other';
@@ -272,21 +305,15 @@ export function FixtureTabs({ sport = 'football', timeRange = 6, leagueId, activ
     grouped[key].fixtures.push(fix);
   }
 
-  // Determine which leagues are in the first 200 matches to set defaultExpanded
-  let matchesCount = 0;
-  const initialLeagues = new Set<string>();
-  for (const [league, { fixtures }] of Object.entries(grouped)) {
-    if (matchesCount < 200) {
-      initialLeagues.add(league);
-    }
-    matchesCount += fixtures.length;
-  }
+  // First 3 leagues expanded by default
+  const leagueKeys = Object.keys(grouped);
+  const defaultExpandedSet = new Set(leagueKeys.slice(0, 3));
 
   return (
     <div>
       {loading ? (
         <FullPageLoader />
-      ) : Object.keys(grouped).length > 0 ? (
+      ) : leagueKeys.length > 0 ? (
         <div>
           {Object.entries(grouped).map(([league, { fixtures, logoUrl }]) => (
             <LeagueGroup
@@ -294,7 +321,7 @@ export function FixtureTabs({ sport = 'football', timeRange = 6, leagueId, activ
               league={league}
               fixtures={fixtures}
               leagueLogoUrl={logoUrl}
-              defaultExpanded={initialLeagues.has(league)}
+              defaultExpanded={defaultExpandedSet.has(league)}
             />
           ))}
         </div>
