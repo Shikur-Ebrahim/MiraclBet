@@ -125,39 +125,34 @@ function MatchRow({ fix }: { fix: Fixture }) {
             <span className="text-[14px] font-medium text-gray-900 leading-tight truncate">{fix.away_team}</span>
           </div>
         </div>
-
-        {fix.is_live && (
-          <div className="flex flex-col gap-2 items-end justify-center pr-2">
-            <span className="text-[14px] font-bold text-gray-900">{fix.home_score ?? 0}</span>
-            <span className="text-[14px] font-bold text-gray-900">{fix.away_score ?? 0}</span>
+            <span className="text-[12px] font-semibold text-gray-900 leading-tight line-clamp-1 flex-1">{fix.away_team}</span>
+            {fix.is_live && <span className="text-[12px] font-bold text-gray-800 shrink-0">{fix.away_score ?? 0}</span>}
           </div>
-        )}
+        </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-1">
+      {/* Odds Row */}
+      <div className="grid grid-cols-3 gap-0.5 px-2 pb-3">
         {[
-          { label: '1', val: getMatchWinnerOdd(fix.advanced_odds, 'Home') },
-          { label: 'X', val: getMatchWinnerOdd(fix.advanced_odds, 'Draw') },
-          { label: '2', val: getMatchWinnerOdd(fix.advanced_odds, 'Away') },
-        ].map(({ label, val }) => {
-          const hasReal = val !== null;
-          return (
-            <button
-              key={label}
-              onClick={(e) => { e.preventDefault(); }}
-              className={`rounded-md py-2 px-2 flex flex-col items-center justify-center transition-colors gap-0.5 ${
-                hasReal
-                  ? 'bg-[#E4F4EC] hover:bg-[#D0EAD9] border border-[#19E66B]/30'
-                  : 'bg-[#E4E9F2] hover:bg-[#D5DCE8]'
-              }`}
-            >
-              <span className="text-[10px] text-gray-400">{label}</span>
-              <span className={`text-[13px] font-bold ${hasReal ? 'text-[#0D8A3C]' : 'text-gray-400'}`}>
-                {val ?? '—'}
-              </span>
-            </button>
-          );
-        })}
+          { label: '1', val: homeOdd },
+          { label: 'X', val: drawOdd },
+          { label: '2', val: awayOdd },
+        ].map(({ label, val }) => (
+          <button
+            key={label}
+            onClick={(e) => e.preventDefault()}
+            className={`rounded-lg py-1.5 flex flex-col items-center justify-center transition-colors gap-0.5 ${
+              hasOdds
+                ? 'bg-[#E4F4EC] border border-[#19E66B]/30 hover:bg-[#D0EAD9]'
+                : 'bg-[#F2F4F7]'
+            }`}
+          >
+            <span className="text-[9px] text-gray-400">{label}</span>
+            <span className={`text-[12px] font-bold leading-none ${hasOdds ? 'text-[#0D8A3C]' : 'text-gray-300'}`}>
+              {val ?? '—'}
+            </span>
+          </button>
+        ))}
       </div>
     </Link>
   );
@@ -171,12 +166,12 @@ function LeagueGroup({
   const [expanded, setExpanded] = useState(defaultExpanded);
   const logoUrl = getLeagueLogo(league, leagueLogoUrl);
 
-  // No auto-open effect. User must explicitly click to expand.
   return (
-    <div className="mb-4 rounded-xl overflow-hidden shadow-sm">
+    <div className="mb-4">
+      {/* League Header */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-2 px-3 py-2 text-left transition-colors"
+        className="w-full flex items-center gap-2 px-3 py-2 text-left rounded-xl transition-colors"
         style={{ background: 'linear-gradient(90deg, #0A5F38 0%, #11834F 100%)' }}
       >
         <svg
@@ -197,9 +192,15 @@ function LeagueGroup({
         <span className="text-xs text-white/60">{fixtures.length}</span>
       </button>
 
+      {/* Horizontal scroll cards */}
       {expanded && (
-        <div className="bg-white">
-          {fixtures.map((fix) => <MatchRow key={fix.id} fix={fix} />)}
+        <div
+          className="flex gap-3 overflow-x-auto py-3 px-1"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
+          {fixtures.map((fix) => (
+            <MatchCard key={fix.id} fix={fix} />
+          ))}
         </div>
       )}
     </div>
