@@ -68,17 +68,37 @@ function findOdd(
 
 function getOdds(fix: Fixture) {
   const ao = fix.advanced_odds;
-  const home  = findOdd(ao, [1], ['match winner', '1x2'], ['home', '1']);
-  const draw  = findOdd(ao, [1], ['match winner', '1x2'], ['draw', 'x']);
-  const away  = findOdd(ao, [1], ['match winner', '1x2'], ['away', '2']);
-  const hd    = findOdd(ao, [10, 12], ['double chance'], ['home/draw', '1x', 'home or draw']);
-  const da    = findOdd(ao, [10, 12], ['double chance'], ['draw/away', 'x2', 'draw or away']);
-  const ha    = findOdd(ao, [10, 12], ['double chance'], ['home/away', '12', 'home or away']);
 
-  // Count total markets available
+  let home  = findOdd(ao, [1], ['match winner', '1x2'], ['home', '1']);
+  let draw  = findOdd(ao, [1], ['match winner', '1x2'], ['draw', 'x']);
+  let away  = findOdd(ao, [1], ['match winner', '1x2'], ['away', '2']);
+  let hd    = findOdd(ao, [10, 12], ['double chance'], ['home/draw', '1x', 'home or draw']);
+  let da    = findOdd(ao, [10, 12], ['double chance'], ['draw/away', 'x2', 'draw or away']);
+  let ha    = findOdd(ao, [10, 12], ['double chance'], ['home/away', '12', 'home or away']);
+
+  // If the 3 core 1X2 odds are missing, fall back to first available market's values
+  if (!home && !draw && !away && ao?.markets && ao.markets.length > 0) {
+    const firstMkt = ao.markets[0];
+    const vals = firstMkt.values;
+    if (vals.length >= 1) home = vals[0].odd;
+    if (vals.length >= 2) draw = vals[1].odd;
+    if (vals.length >= 3) away = vals[2].odd;
+  }
+  // If double chance missing, fall back to second market or next values
+  if (!hd && !da && !ha && ao?.markets && ao.markets.length > 0) {
+    const mkt = ao.markets.find(m => m.values.length >= 2) ?? ao.markets[0];
+    if (mkt) {
+      const vals = mkt.values;
+      if (vals.length >= 4) hd = vals[3].odd;
+      if (vals.length >= 5) da = vals[4].odd;
+      if (vals.length >= 6) ha = vals[5].odd;
+    }
+  }
+
+  const hasRealOdds = !!(home || draw || away);
   const totalMarkets = ao?.markets?.length ?? 0;
 
-  return { home, draw, away, hd, da, ha, totalMarkets };
+  return { home, draw, away, hd, da, ha, totalMarkets, hasRealOdds };
 }
 
 const PAGE_SIZE = 50;
@@ -247,10 +267,11 @@ export function FixtureTabs({
     return 99; // Default for others
   }
 
-  // Only show fixtures that have real odds data
+  // Only show fixtures that have at least 1 real displayable odd value
   const withOdds = allFixtures.filter(f => {
     const markets = f.advanced_odds?.markets;
-    return markets && markets.length > 0;
+    if (!markets || markets.length === 0) return false;
+    return getOdds(f).hasRealOdds;
   });
 
   // Apply country filter
