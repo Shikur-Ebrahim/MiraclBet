@@ -84,7 +84,31 @@ function getOdds(fix: Fixture) {
 
 const PAGE_SIZE = 50;
 
-// ─── Single Match Row ─────────────────────────────────────────────────────────
+// ─── Skeleton Shimmer Row ─────────────────────────────────────────────────────
+function SkeletonRow() {
+  return (
+    <div className="px-3 py-2.5 border-b border-gray-100 animate-pulse">
+      <div className="flex items-start gap-2 mb-2">
+        <div className="shrink-0 min-w-[36px] flex flex-col gap-1">
+          <div className="h-2.5 w-7 bg-gray-200 rounded" />
+          <div className="h-3 w-8 bg-gray-200 rounded" />
+        </div>
+        <div className="flex-1 flex flex-col gap-1.5">
+          <div className="h-3 w-32 bg-gray-200 rounded" />
+          <div className="h-3 w-28 bg-gray-200 rounded" />
+        </div>
+        <div className="h-4 w-7 bg-gray-200 rounded shrink-0" />
+      </div>
+      <div className="grid grid-cols-6 gap-1 ml-[44px]">
+        {[0,1,2,3,4,5].map(i => (
+          <div key={i} className="h-8 bg-gray-100 rounded" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
 function MatchRow({ fix }: { fix: Fixture }) {
   const kickoff = new Date(fix.kickoff_at);
   const timeStr = kickoff.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -196,7 +220,8 @@ export function FixtureTabs({
   filterCountry,
 }: FixtureTabsProps) {
   const [allFixtures, setAllFixtures] = useState<Fixture[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);       // true = first load skeleton
+  const [loadingMore, setLoadingMore] = useState(false); // true = background loading more
   const [page, setPage] = useState(0);
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
 
@@ -206,6 +231,7 @@ export function FixtureTabs({
   useEffect(() => {
     setAllFixtures([]);
     setLoading(true);
+    setLoadingMore(false);
 
     if (activeTab === 'live') {
       let url = `${API_BASE}/api/v1/fixtures/live?sport=${sport}`;
@@ -215,26 +241,68 @@ export function FixtureTabs({
         .then(data => setAllFixtures(Array.isArray(data) ? data : []))
         .catch(() => setAllFixtures([]))
         .finally(() => setLoading(false));
-    } else {
-      const promises = [];
-      const daysToLoad = filterDate ? 0 : timeRange;
-      const baseDate = filterDate ? new Date(filterDate + 'T00:00:00') : new Date();
+      return;
+    }
 
-      for (let i = 0; i <= daysToLoad; i++) {
-        const d = new Date(baseDate);
-        if (!filterDate) d.setDate(d.getDate() + i);
-        const dateStr = d.toISOString().split('T')[0];
-        let url = `${API_BASE}/api/v1/fixtures?date=${dateStr}&sport=${sport}`;
-        if (leagueId) url += `&league=${leagueId}`;
-        promises.push(fetch(url, { cache: 'no-store' }).then(r => r.json()).catch(() => []));
-      }
+    // ── Progressive loading for prematch ─────────────────────────────────────
+    const daysToLoad = filterDate ? 0 : timeRange;
+    const baseDate = filterDate ? new Date(filterDate + 'T00:00:00') : new Date();
+    const seen = new Set<string>();
 
-      Promise.all(promises).then(results => {
-        const flat = results.flatMap(data => Array.isArray(data) ? data : []);
-        const unique = Array.from(new Map(flat.map(f => [f.id, f])).values());
-        unique.sort((a, b) => new Date(a.kickoff_at).getTime() - new Date(b.kickoff_at).getTime());
-        setAllFixtures(unique);
-      }).finally(() => setLoading(false));
+    const mergeFixtures = (fresh: Fixture[]) => {
+      setAllFixtures(prev => {
+        const combined = [...prev];
+        for (const f of fresh) {
+          if (!seen.has(f.id)) {
+            seen.add(f.id);
+            combined.push(f);
+          }
+        }
+        // Sort by priority league, then by time
+        combined.sort((a, b) => {
+          // (priority sort handled below in displayFixtures)
+          return new Date(a.kickoff_at).getTime() - new Date(b.kickoff_at).getTime();
+        });
+        return combined;
+      });
+    };
+
+    const buildUrl = (dayOffset: number) => {
+      const d = new Date(baseDate);
+      if (!filterDate) d.setDate(d.getDate() + dayOffset);
+      const dateStr = d.toISOString().split('T')[0];
+      let url = `${API_BASE}/api/v1/fixtures?date=${dateStr}&sport=${sport}`;
+      if (leagueId) url += `&league=${leagueId}`;
+      return url;
+    };
+
+    // Step 1: Load TODAY instantly → first paint
+    fetch(buildUrl(0), { cache: 'no-store' })
+      .then(r => r.json())
+      .then(data => {
+        const fixtures = Array.isArray(data) ? data : [];
+        for (const f of fixtures) seen.add(f.id);
+        setAllFixtures(fixtures);
+      })
+      .catch(() => {})
+      .finally(() => {
+        setLoading(false); // skeleton gone, real data shows
+        if (daysToLoad > 0) setLoadingMore(true); // show subtle "loading more" indicator
+      });
+
+    // Step 2: Load remaining days in background without blocking UI
+    if (daysToLoad > 0 && !filterDate) {
+      const loadRemaining = async () => {
+        for (let i = 1; i <= daysToLoad; i++) {
+          try {
+            const data = await fetch(buildUrl(i), { cache: 'no-store' }).then(r => r.json());
+            mergeFixtures(Array.isArray(data) ? data : []);
+          } catch { /* ignore */ }
+          await new Promise(r => setTimeout(r, 300)); // small delay between requests
+        }
+        setLoadingMore(false);
+      };
+      loadRemaining();
     }
   }, [sport, leagueId, activeTab, timeRange, API_BASE, filterDate]);
 
@@ -307,7 +375,10 @@ export function FixtureTabs({
   return (
     <div>
       {loading ? (
-        <FullPageLoader />
+        /* ── First Load: Show 8 skeleton rows instantly ── */
+        <div className="bg-white">
+          {Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)}
+        </div>
       ) : displayFixtures.length > 0 ? (
         <>
           <div className="bg-white">
@@ -332,6 +403,13 @@ export function FixtureTabs({
               }
               return <MatchRow key={row.fix.id} fix={row.fix} />;
             })}
+
+            {/* Loading more indicator — subtle shimmer at bottom */}
+            {loadingMore && (
+              <div className="bg-white">
+                {Array.from({ length: 3 }).map((_, i) => <SkeletonRow key={`more-${i}`} />)}
+              </div>
+            )}
           </div>
 
           {/* Global pagination */}
