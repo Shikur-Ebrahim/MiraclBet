@@ -51,49 +51,80 @@ func main() {
         return
     }
 
-    ticker := time.NewTicker(10 * time.Minute)
-    defer ticker.Stop()
+    // ── Tickers ──────────────────────────────────────────────────────────────
+    // Every 1 minute  — sync live fixtures + live odds
+    liveTicker := time.NewTicker(1 * time.Minute)
+    defer liveTicker.Stop()
+
+    // Every 10 minutes — refresh today's & tomorrow's prematch odds
+    oddsTicker := time.NewTicker(10 * time.Minute)
+    defer oddsTicker.Stop()
+
+    // Every 1 hour — delete finished matches older than 24h
+    cleanupTicker := time.NewTicker(1 * time.Hour)
+    defer cleanupTicker.Stop()
+
+    // Every 3 hours — full 7-day fixture + odds re-sync + league update
+    dailyTicker := time.NewTicker(3 * time.Hour)
+    defer dailyTicker.Stop()
 
     log.Println("[worker] sync loop started")
 
-    // Run initial sync immediately
+    // ── Startup sync (runs immediately in background) ─────────────────────────
     go func() {
-        log.Println("[worker] Running initial startup sync...")
-        // Sync leagues first so fixture inserts can link to league IDs
+        log.Println("[worker] ── STARTUP SYNC ──")
+
+        // 1. Sync leagues so fixtures can link to league IDs
         sync.SyncLeagues(db.Pool, cfg.FootballAPIKey)
+
+        // 2. Live data immediately
         _ = syncer.SyncLiveFixtures(ctx)
         _ = syncer.SyncLiveOdds(ctx)
-        _ = syncer.SyncMultipleDays(ctx, 7) // Today + 6 days
+
+        // 3. Sync fixtures for today + next 6 days
+        _ = syncer.SyncMultipleDays(ctx, 7)
+
+        // 4. Sync odds for all 7 days
         today := time.Now().UTC()
         for i := 0; i < 7; i++ {
             _ = syncer.SyncOddsByDate(ctx, today.AddDate(0, 0, i))
             time.Sleep(1 * time.Second)
         }
-        log.Println("[worker] Initial startup sync complete!")
+
+        // 5. Clean up any old finished matches right away
+        _ = syncer.CleanupFinishedMatches(ctx)
+
+        log.Println("[worker] ── STARTUP SYNC COMPLETE ──")
     }()
 
-    liveTicker := time.NewTicker(1 * time.Minute)
-    defer liveTicker.Stop()
-
-    dailyTicker := time.NewTicker(3 * time.Hour)
-    defer dailyTicker.Stop()
-
+    // ── Main event loop ───────────────────────────────────────────────────────
     for {
         select {
         case <-ctx.Done():
-            log.Println("[worker] shutting down")
+            log.Println("[worker] shutdown signal — exiting")
             return
+
         case <-liveTicker.C:
-            log.Println("[worker] tick: syncing live fixtures & live odds...")
+            // Every minute: keep live matches + live odds up to date
+            log.Println("[worker] tick: live fixtures & odds...")
             _ = syncer.SyncLiveFixtures(ctx)
             _ = syncer.SyncLiveOdds(ctx)
-        case <-ticker.C:
-            log.Println("[worker] tick: refreshing odds for today & tomorrow...")
+
+        case <-oddsTicker.C:
+            // Every 10 min: refresh prematch odds for today + tomorrow
+            log.Println("[worker] tick: prematch odds today + tomorrow...")
             today := time.Now().UTC()
             _ = syncer.SyncOddsByDate(ctx, today)
             _ = syncer.SyncOddsByDate(ctx, today.AddDate(0, 0, 1))
+
+        case <-cleanupTicker.C:
+            // Every hour: delete finished matches older than 24h
+            log.Println("[worker] tick: cleanup finished matches...")
+            _ = syncer.CleanupFinishedMatches(ctx)
+
         case <-dailyTicker.C:
-            log.Println("[worker] tick: syncing 7-day fixtures, odds and leagues...")
+            // Every 3 hours: full re-sync of 7-day window + leagues
+            log.Println("[worker] tick: full 7-day sync + leagues...")
             sync.SyncLeagues(db.Pool, cfg.FootballAPIKey)
             _ = syncer.SyncMultipleDays(ctx, 7)
             today := time.Now().UTC()
@@ -101,6 +132,7 @@ func main() {
                 _ = syncer.SyncOddsByDate(ctx, today.AddDate(0, 0, i))
                 time.Sleep(1 * time.Second)
             }
+            _ = syncer.CleanupFinishedMatches(ctx)
         }
     }
 }

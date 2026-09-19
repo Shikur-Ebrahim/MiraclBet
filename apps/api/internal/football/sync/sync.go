@@ -130,3 +130,25 @@ func (s *Syncer) saveFixtures(ctx context.Context, fixtures []provider.ProviderF
 	log.Printf("[sync] Saved/updated %d/%d fixtures", saved, len(fixtures))
 	return nil
 }
+
+// CleanupFinishedMatches deletes matches that have ended more than 24 hours ago.
+// This keeps the DB lean — only upcoming/live matches stay in the database.
+func (s *Syncer) CleanupFinishedMatches(ctx context.Context) error {
+	query := `
+		DELETE FROM fixtures
+		WHERE status_short IN ('FT', 'AET', 'PEN', 'AWD', 'WO', 'CANC', 'ABD', 'INT')
+		AND starts_at < NOW() - INTERVAL '24 hours'
+	`
+	res, err := s.db.Pool.Exec(ctx, query)
+	if err != nil {
+		log.Printf("[cleanup] error deleting finished matches: %v", err)
+		return err
+	}
+	if res.RowsAffected() > 0 {
+		log.Printf("[cleanup] deleted %d finished matches older than 24h", res.RowsAffected())
+	} else {
+		log.Printf("[cleanup] no finished matches to delete")
+	}
+	return nil
+}
+
