@@ -411,16 +411,35 @@ export function FixtureTabs({
     return withOdds.length > 0 ? withOdds : allFixtures;
   })();
 
-  const displayFixtures = leagueId
-    ? baseFixtures.filter(f => {
-        // league filter by ID or name
-        return String(f.league_id) === String(leagueId) ||
-               String(f.league_external_id) === String(leagueId);
-      })
-    : [...baseFixtures];
+  // Build displayFixtures:
+  // - country + league both active → show ALL country matches, selected league first
+  // - league only → hard filter to just that league
+  // - country only → all country matches
+  // - neither → all matches with odds
+  const displayFixtures = (() => {
+    if (filterCountry && leagueId) {
+      // Both active: show all country matches (league sorts to top below)
+      return [...baseFixtures];
+    }
+    if (leagueId && !filterCountry) {
+      // League only: hard filter
+      return baseFixtures.filter(f =>
+        String(f.league_external_id) === String(leagueId)
+      );
+    }
+    return [...baseFixtures];
+  })();
 
-  // Group by league and sort: priority date first, then top leagues, then time
+  // Sort: selected league first (when country also active), then priority date, then top leagues, then time
   displayFixtures.sort((a, b) => {
+    // 0. If both country + league selected: selected league's matches first
+    if (filterCountry && leagueId) {
+      const aIsSelected = String(a.league_external_id) === String(leagueId);
+      const bIsSelected = String(b.league_external_id) === String(leagueId);
+      if (aIsSelected && !bIsSelected) return -1;
+      if (!aIsSelected && bIsSelected) return 1;
+    }
+
     // 1. Priority date first
     if (priorityDate) {
       const aIsToday = a.kickoff_at.startsWith(priorityDate);
@@ -429,12 +448,12 @@ export function FixtureTabs({
       if (!aIsToday && bIsToday) return 1;
     }
 
-    // 2. League priority (Champions League, Premier League etc first)
+    // 2. Top leagues priority
     const pA = getLeaguePriority(a.league);
     const pB = getLeaguePriority(b.league);
     if (pA !== pB) return pA - pB;
 
-    // 3. Alphabetical league name within same priority
+    // 3. Alphabetical league name
     const leagueA = (a.league || '').toLowerCase();
     const leagueB = (b.league || '').toLowerCase();
     if (leagueA < leagueB) return -1;
