@@ -154,45 +154,46 @@ export default function MatchPage() {
   useEffect(() => { findMatch(); }, [findMatch]);
 
   if (loading) return (
-    <div className="min-h-screen bg-[#0d131c] animate-pulse">
+    <div className="min-h-screen bg-white animate-pulse">
       {/* Header skeleton */}
-      <div className="px-4 py-3 border-b border-[#1e2a38] flex items-center justify-between">
-        <div className="h-3 w-32 bg-[#1e2a38] rounded" />
-        <div className="w-6 h-6 bg-[#1e2a38] rounded-full" />
+      <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+        <div className="h-4 w-16 bg-gray-200 rounded" />
+        <div className="h-3 w-28 bg-gray-200 rounded" />
+        <div className="w-8 h-4 bg-gray-100 rounded" />
       </div>
       {/* Scoreboard skeleton */}
-      <div className="px-4 py-6 border-b border-[#1e2a38]">
+      <div className="px-4 py-6 border-b border-gray-100 bg-white">
         <div className="flex items-center justify-between">
           <div className="flex flex-col items-center gap-2 flex-1">
-            <div className="w-12 h-12 bg-[#1e2a38] rounded-full" />
-            <div className="h-3 w-20 bg-[#1e2a38] rounded" />
+            <div className="w-14 h-14 bg-gray-200 rounded-full" />
+            <div className="h-3 w-20 bg-gray-200 rounded" />
           </div>
           <div className="flex flex-col items-center gap-2 w-24">
-            <div className="h-5 w-6 bg-[#1e2a38] rounded" />
-            <div className="h-3 w-20 bg-[#1e2a38] rounded" />
+            <div className="h-6 w-10 bg-gray-200 rounded" />
+            <div className="h-3 w-20 bg-gray-100 rounded" />
           </div>
           <div className="flex flex-col items-center gap-2 flex-1">
-            <div className="w-12 h-12 bg-[#1e2a38] rounded-full" />
-            <div className="h-3 w-20 bg-[#1e2a38] rounded" />
+            <div className="w-14 h-14 bg-gray-200 rounded-full" />
+            <div className="h-3 w-20 bg-gray-200 rounded" />
           </div>
         </div>
       </div>
       {/* Tabs skeleton */}
-      <div className="px-3 py-3 border-b border-[#1e2a38] flex gap-2">
+      <div className="px-3 py-2.5 border-b border-gray-100 bg-white flex gap-2">
         {[80, 60, 50, 70, 55].map((w, i) => (
-          <div key={i} className="h-7 rounded-full bg-[#1e2a38]" style={{ width: w }} />
+          <div key={i} className="h-7 rounded-full bg-gray-200" style={{ width: w }} />
         ))}
       </div>
       {/* Market cards skeleton */}
-      <div className="p-3 space-y-3">
+      <div className="p-3 space-y-2 bg-gray-50">
         {[1,2,3,4].map(i => (
-          <div key={i} className="bg-[#111827] rounded overflow-hidden">
-            <div className="px-3 py-3 bg-[#0F1C2D] flex items-center gap-2">
-              <div className="w-4 h-4 bg-[#1e2a38] rounded" />
-              <div className="h-3 w-32 bg-[#1e2a38] rounded" />
+          <div key={i} className="bg-white rounded-lg border border-gray-100 overflow-hidden shadow-sm">
+            <div className="px-3 py-2.5 bg-gray-50 border-b border-gray-100 flex items-center gap-2">
+              <div className="w-3.5 h-3.5 bg-gray-200 rounded" />
+              <div className="h-3 w-32 bg-gray-200 rounded" />
             </div>
-            <div className="p-3 grid grid-cols-3 gap-2">
-              {[1,2,3].map(j => <div key={j} className="h-10 bg-[#1e2a38] rounded" />)}
+            <div className="p-2 grid grid-cols-3 gap-1.5">
+              {[1,2,3].map(j => <div key={j} className="h-10 bg-gray-100 rounded" />)}
             </div>
           </div>
         ))}
