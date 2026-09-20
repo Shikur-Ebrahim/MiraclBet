@@ -212,6 +212,7 @@ interface FixtureTabsProps {
   activeTab?: 'prematch' | 'live';
   filterDate?: string;
   filterCountry?: string;
+  filterSearch?: string;
   priorityDate?: string;
   onFixturesLoaded?: (countries: { country: string; flag?: string }[]) => void;
   onLeaguesLoaded?: (leagues: { id: string; name: string; logo?: string; country: string }[]) => void;
@@ -248,6 +249,7 @@ export function FixtureTabs({
   activeTab = 'prematch',
   filterDate,
   filterCountry,
+  filterSearch,
   priorityDate,
   onFixturesLoaded,
   onLeaguesLoaded,
@@ -430,6 +432,18 @@ export function FixtureTabs({
     return [...baseFixtures];
   })();
 
+  // Apply search filter if in search mode
+  if (filterSearch && filterSearch.trim()) {
+    const q = filterSearch.toLowerCase();
+    const filtered = displayFixtures.filter(f =>
+      f.home_team?.toLowerCase().includes(q) ||
+      f.away_team?.toLowerCase().includes(q) ||
+      f.league?.toLowerCase().includes(q)
+    );
+    // Replace in-place
+    displayFixtures.splice(0, displayFixtures.length, ...filtered);
+  }
+
   // Sort: selected league first (when country also active), then priority date, then top leagues, then time
   displayFixtures.sort((a, b) => {
     // 0. If both country + league selected: selected league's matches first
@@ -523,26 +537,28 @@ export function FixtureTabs({
                   <button
                     key={`sep-${row.league}-${i}`}
                     onClick={() => toggleLeague(row.league)}
-                    className="w-full flex items-center gap-2 px-3 py-2 border-b border-[#D6F5E3] text-left transition-colors"
-                    style={{ background: '#F0FBF4' }}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors"
+                    style={{ background: 'linear-gradient(90deg, #E8FAF0 0%, #D4F5E5 100%)', borderBottom: '1px solid #B2EDD0' }}
                   >
                     {row.logoUrl ? (
-                      <Image src={row.logoUrl} alt={row.league} width={16} height={16} className="object-contain shrink-0" unoptimized />
+                      <div className="w-5 h-5 bg-white rounded-full flex items-center justify-center shrink-0 shadow-sm">
+                        <Image src={row.logoUrl} alt={row.league} width={14} height={14} className="object-contain" unoptimized />
+                      </div>
                     ) : (
                       <span className="text-sm shrink-0">⚽</span>
                     )}
-                    <span className="text-[11px] font-bold text-[#1A7A40] uppercase tracking-wide truncate flex-1">
+                    <span className="text-[11.5px] font-extrabold text-[#0D6E35] uppercase tracking-wide truncate flex-1">
                       {row.league}
                     </span>
                     {/* match count */}
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: '#D6F5E3', color: '#1A7A40' }}>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: '#19E66B33', color: '#0D6E35' }}>
                       {row.count}
                     </span>
                     {/* collapse chevron */}
                     <svg
                       viewBox="0 0 24 24"
                       className={`w-4 h-4 shrink-0 transition-transform duration-200 ${isCollapsed ? '' : 'rotate-180'}`}
-                      fill="none" stroke="#1A7A40" strokeWidth="2.5"
+                      fill="none" stroke="#0D6E35" strokeWidth="2.5"
                     >
                       <polyline points="6 9 12 15 18 9"/>
                     </svg>
