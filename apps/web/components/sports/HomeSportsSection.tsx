@@ -119,7 +119,7 @@ export function HomeSportsSection() {
       <SportsNav
         activeSport={activeSport}
         onSportChange={s => { setActiveSport(s); resetFilters(); }}
-        timeRange={0}
+        timeRange={6}
         onTimeRangeChange={() => {}}
         activeTab={activeTab}
         onTabChange={setActiveTab}
