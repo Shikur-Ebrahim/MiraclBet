@@ -315,14 +315,14 @@ export function HomeSportsSection() {
         </div>
       )}
 
-      {/* Match list — timeRange=0 means only the selected date */}
+      {/* Match list — always loads 7 days, selected day shown first */}
       <section>
         <FixtureTabs
           sport={activeSport}
-          timeRange={0}
+          timeRange={6}
           leagueId={selectedLeague?.id ?? undefined}
           activeTab={activeTab}
-          filterDate={selectedDay.value}
+          priorityDate={selectedDay.value}
           filterCountry={selectedCountry && !selectedLeague ? selectedCountry.country : undefined}
         />
       </section>

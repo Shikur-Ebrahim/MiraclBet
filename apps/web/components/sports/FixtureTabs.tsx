@@ -209,6 +209,7 @@ interface FixtureTabsProps {
   activeTab?: 'prematch' | 'live';
   filterDate?: string;
   filterCountry?: string;
+  priorityDate?: string; // Show this date's matches first, others still visible below
 }
 
 export function FixtureTabs({
@@ -218,6 +219,7 @@ export function FixtureTabs({
   activeTab = 'prematch',
   filterDate,
   filterCountry,
+  priorityDate,
 }: FixtureTabsProps) {
   const [allFixtures, setAllFixtures] = useState<Fixture[]>([]);
   const [loading, setLoading] = useState(true);       // true = first load skeleton
@@ -334,19 +336,28 @@ export function FixtureTabs({
       )
     : [...baseFixtures]);
 
-  // Group by league and sort top leagues first
+  // Group by league and sort: priority date first, then top leagues, then time
   displayFixtures.sort((a, b) => {
+    // 1. Priority date first
+    if (priorityDate) {
+      const aIsToday = a.kickoff_at.startsWith(priorityDate);
+      const bIsToday = b.kickoff_at.startsWith(priorityDate);
+      if (aIsToday && !bIsToday) return -1;
+      if (!aIsToday && bIsToday) return 1;
+    }
+
+    // 2. League priority (Champions League, Premier League etc first)
     const pA = getLeaguePriority(a.league);
     const pB = getLeaguePriority(b.league);
     if (pA !== pB) return pA - pB;
-    
-    // If same priority, sort alphabetically by league name
+
+    // 3. Alphabetical league name within same priority
     const leagueA = (a.league || '').toLowerCase();
     const leagueB = (b.league || '').toLowerCase();
     if (leagueA < leagueB) return -1;
     if (leagueA > leagueB) return 1;
 
-    // Finally sort by time
+    // 4. Kickoff time
     return new Date(a.kickoff_at).getTime() - new Date(b.kickoff_at).getTime();
   });
 
