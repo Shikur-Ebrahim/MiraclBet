@@ -237,13 +237,39 @@ export function FixtureTabs({
     }
   }, [sport, leagueId, activeTab, timeRange, API_BASE, filterDate]);
 
+  function getLeaguePriority(leagueName: string): number {
+    const name = (leagueName || '').toLowerCase();
+    if (name.includes('premier league') || name.includes('champions league') || name.includes('europa league')) return 1;
+    if (name.includes('la liga') || name.includes('serie a') || name.includes('bundesliga') || name.includes('ligue 1')) return 2;
+    if (name.includes('world cup') || name.includes('euro ') || name.includes('copa america') || name.includes('copa libertadores')) return 3;
+    if (name.includes('championship') || name.includes('eredivisie') || name.includes('primeira liga')) return 4;
+    if (name.includes('mls') || name.includes('brasileiro')) return 5;
+    return 99; // Default for others
+  }
+
   // Apply country filter
-  const displayFixtures = filterCountry
+  let displayFixtures = filterCountry
     ? allFixtures.filter(f =>
         f.country === filterCountry ||
         f.league?.toLowerCase().includes(filterCountry.toLowerCase())
       )
-    : allFixtures;
+    : [...allFixtures];
+
+  // Group by league and sort top leagues first
+  displayFixtures.sort((a, b) => {
+    const pA = getLeaguePriority(a.league);
+    const pB = getLeaguePriority(b.league);
+    if (pA !== pB) return pA - pB;
+    
+    // If same priority, sort alphabetically by league name
+    const leagueA = (a.league || '').toLowerCase();
+    const leagueB = (b.league || '').toLowerCase();
+    if (leagueA < leagueB) return -1;
+    if (leagueA > leagueB) return 1;
+
+    // Finally sort by time
+    return new Date(a.kickoff_at).getTime() - new Date(b.kickoff_at).getTime();
+  });
 
   const totalPages = Math.ceil(displayFixtures.length / PAGE_SIZE);
   const pageFixtures = displayFixtures.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
