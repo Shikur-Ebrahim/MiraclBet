@@ -79,10 +79,15 @@ export function HomeSportsSection() {
       {/* ── 3-button Filter Bar — each button owns its dropdown ──────── */}
       <div className="flex items-center gap-1.5 px-3 py-2.5 border-b border-gray-100 bg-white relative z-30" ref={dropdownRef}>
 
-        {/* 📅 DAY — dropdown anchors below this button only */}
+        {/* 📅 DAY — opening this clears Country + League */}
         <div className="relative flex-1">
           <button
-            onClick={() => setOpenDropdown(p => p === 'days' ? null : 'days')}
+            onClick={() => {
+              // Clear other filters when opening Days
+              setSelectedCountry(null);
+              setSelectedLeague(null);
+              setOpenDropdown(p => p === 'days' ? null : 'days');
+            }}
             className={`w-full flex items-center justify-center gap-1 py-2 rounded-lg text-[11px] font-bold transition-all ${
               openDropdown === 'days' ? 'bg-gray-200 text-gray-800'
               : (!selectedCountry && !selectedLeague) ? 'bg-[#19E66B] text-white'
@@ -116,10 +121,14 @@ export function HomeSportsSection() {
           )}
         </div>
 
-        {/* 🌍 COUNTRIES — dropdown anchors below this button only */}
+        {/* 🌍 COUNTRIES — opening this clears Day + League */}
         <div className="relative flex-[1.4]">
           <button
-            onClick={() => setOpenDropdown(p => p === 'countries' ? null : 'countries')}
+            onClick={() => {
+              setSelectedLeague(null);
+              setSelectedDay(days[0]); // reset day to Today
+              setOpenDropdown(p => p === 'countries' ? null : 'countries');
+            }}
             className={`w-full flex items-center justify-center gap-1 py-2 rounded-lg text-[11px] font-bold transition-all ${
               openDropdown === 'countries' ? 'bg-gray-200 text-gray-800'
               : selectedCountry ? 'bg-[#19E66B] text-white'
@@ -173,9 +182,14 @@ export function HomeSportsSection() {
         </div>
 
         {/* 🏆 LEAGUES — dropdown anchors below this button only */}
+        {/* 🏆 LEAGUES — opening this clears Day + Country */}
         <div className="relative flex-[1.4]">
           <button
-            onClick={() => setOpenDropdown(p => p === 'leagues' ? null : 'leagues')}
+            onClick={() => {
+              setSelectedCountry(null);
+              setSelectedDay(days[0]); // reset day to Today
+              setOpenDropdown(p => p === 'leagues' ? null : 'leagues');
+            }}
             className={`w-full flex items-center justify-center gap-1 py-2 rounded-lg text-[11px] font-bold transition-all ${
               openDropdown === 'leagues' ? 'bg-gray-200 text-gray-800'
               : selectedLeague ? 'bg-[#19E66B] text-white'
