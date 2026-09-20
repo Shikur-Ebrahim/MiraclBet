@@ -41,47 +41,46 @@ interface MatchDetails {
   advanced_odds?: AdvancedOdds;
 }
 
-// ─── Odd Button Layout (Horizontal label and odd) ─────────────────────────────
-function OddButton({ label, value, odd, onClick, selected }: {
+// ─── Odd Button Layout (light theme) ─────────────────────────────────────────
+function OddButton({ value, odd, onClick, selected }: {
   label?: string; value: string; odd: string;
   onClick?: () => void; selected?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center justify-between rounded px-3 py-2.5 transition-colors ${
+      className={`flex items-center justify-between rounded px-3 py-2.5 transition-colors border ${
         selected
-          ? 'bg-[#1e2a38] border border-[#ffb800]'
-          : 'bg-[#151c26] hover:bg-[#1e2a38] border border-transparent'
+          ? 'bg-[#E8FFF2] border-[#19E66B] '
+          : 'bg-white hover:bg-[#F0FDF4] border-gray-200 hover:border-[#19E66B]/40'
       }`}
     >
-      <span className={`text-[12px] ${selected ? 'text-white' : 'text-gray-400'}`}>
-        {label || value}
+      <span className={`text-[12px] ${selected ? 'text-[#0D8A3C] font-semibold' : 'text-gray-500'}`}>
+        {value}
       </span>
-      <span className="text-[13px] font-bold text-[#19E66B]">{odd}</span>
+      <span className={`text-[13px] font-bold ${selected ? 'text-[#0D8A3C]' : 'text-[#19E66B]'}`}>{odd}</span>
     </button>
   );
 }
 
-// ─── Market Collapsible Card ──────────────────────────────────────────────────
+// ─── Market Collapsible Card (light theme) ───────────────────────────────────
 function MarketCard({ market }: { market: Market }) {
   const [expanded, setExpanded] = useState(true);
   const [selected, setSelected] = useState<string | null>(null);
 
-  // Grouping columns (e.g. 1X2 -> 3 cols, BTTS -> 2 cols)
-  const cols = market.values.length === 3 ? 3 : market.values.length % 2 === 0 ? 2 : 3;
+  const cols = market.values.length === 2 ? 2 : market.values.length === 3 ? 3 : market.values.length % 2 === 0 ? 2 : 3;
 
   return (
-    <div className="mb-2">
+    <div className="mb-1.5 mx-3 mt-1.5 rounded-lg overflow-hidden border border-gray-100 shadow-sm">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between px-3 py-3 bg-[#111827] border-b border-[#1e2a38]"
+        className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 border-b border-gray-100"
       >
         <div className="flex items-center gap-2">
-          <svg viewBox="0 0 24 24" className="w-4 h-4 text-[#ffb800]" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-[#19E66B]" fill="currentColor">
             <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
           </svg>
-          <span className="text-[13px] font-bold text-white uppercase tracking-wide">{market.name}</span>
+          <span className="text-[12px] font-bold text-gray-800">{market.name}</span>
         </div>
         <svg
           viewBox="0 0 24 24"
@@ -93,8 +92,8 @@ function MarketCard({ market }: { market: Market }) {
       </button>
 
       {expanded && (
-        <div className="p-3 bg-[#0f151f]">
-          <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
+        <div className="p-2 bg-white">
+          <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
             {market.values.map((v, i) => (
               <OddButton
                 key={i}
@@ -201,9 +200,9 @@ export default function MatchPage() {
     </div>
   );
   if (!match) return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-[#0d131c] text-white">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-white text-gray-800">
       <p className="text-xl mb-4">Match not found</p>
-      <button onClick={() => router.back()} className="px-4 py-2 bg-[#ffb800] text-black font-bold rounded-lg">← Go Back</button>
+      <button onClick={() => router.back()} className="px-4 py-2 bg-[#19E66B] text-white font-bold rounded-lg">← Go Back</button>
     </div>
   );
 
@@ -213,99 +212,104 @@ export default function MatchPage() {
 
   const allMarkets = match.advanced_odds?.markets ?? [];
   const activeTabFilter = MARKET_GROUPS.find(g => g.label === activeTab)?.filter || (() => true);
-  const visibleMarkets = activeTab === 'All' 
-    ? allMarkets 
+  const visibleMarkets = activeTab === 'All'
+    ? allMarkets
     : allMarkets.filter(m => activeTabFilter(m.name));
 
   return (
-    <div className="min-h-screen bg-[#0d131c] text-white flex flex-col font-sans">
+    <div className="min-h-screen bg-white text-gray-900 flex flex-col font-sans">
+
       {/* Header */}
-      <div className="px-4 py-3 flex items-center justify-between border-b border-[#1e2a38]">
-        <span className="text-[13px] text-gray-300">{match.league}</span>
-        <button onClick={() => router.back()} className="w-6 h-6 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20">
-          <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" strokeWidth="3">
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
+      <div className="px-4 py-3 flex items-center justify-between border-b border-gray-100 bg-white sticky top-0 z-10">
+        <button onClick={() => router.back()} className="flex items-center gap-1.5 text-[13px] font-semibold text-gray-600 hover:text-gray-900">
+          <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <polyline points="15 18 9 12 15 6"/>
           </svg>
+          Back
         </button>
+        <span className="text-[13px] font-semibold text-gray-700 truncate max-w-[180px]">{match.league}</span>
+        <div className="w-8" />
       </div>
 
       {/* Match Scoreboard */}
-      <div className="px-4 py-6 border-b border-[#1e2a38]">
-        <div className="flex items-center justify-between mb-4">
+      <div className="px-4 py-5 border-b border-gray-100 bg-white">
+        <div className="flex items-center justify-between">
           {/* Home Team */}
           <div className="flex flex-col items-center flex-1 gap-2">
-            <div className="w-12 h-12 flex items-center justify-center">
+            <div className="w-14 h-14 flex items-center justify-center">
               {match.home_team_logo
-                ? <Image src={match.home_team_logo} alt={match.home_team} width={48} height={48} className="object-contain" unoptimized />
-                : <span className="text-2xl">⚽</span>}
+                ? <Image src={match.home_team_logo} alt={match.home_team} width={56} height={56} className="object-contain" unoptimized />
+                : <span className="text-3xl">⚽</span>}
             </div>
-            <span className="text-[12px] font-semibold text-center text-white">{match.home_team}</span>
+            <span className="text-[12px] font-bold text-center text-gray-900 leading-tight">{match.home_team}</span>
           </div>
 
-          {/* Center (VS or Score) */}
+          {/* Center */}
           <div className="flex flex-col items-center justify-center shrink-0 w-24">
             {match.is_live ? (
-              <div className="flex flex-col items-center">
-                <span className="text-[11px] text-red-500 font-bold mb-1 animate-pulse">LIVE {match.elapsed}&apos;</span>
-                <span className="text-2xl font-black">{match.home_score} - {match.away_score}</span>
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-[11px] text-red-500 font-bold flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse inline-block" />
+                  LIVE {match.elapsed}&apos;
+                </span>
+                <span className="text-2xl font-black text-gray-900">{match.home_score} - {match.away_score}</span>
               </div>
             ) : (
-              <span className="text-xl font-black text-white">VS</span>
-            )}
-            {!match.is_live && (
-              <div className="flex items-center gap-1 text-[11px] text-gray-400 mt-1">
-                <svg viewBox="0 0 24 24" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-                </svg>
-                <span>{dateStr} {timeStr}</span>
-              </div>
+              <>
+                <span className="text-2xl font-black text-gray-300">VS</span>
+                <div className="flex items-center gap-1 text-[11px] text-gray-400 mt-1">
+                  <svg viewBox="0 0 24 24" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                  <span>{dateStr} {timeStr}</span>
+                </div>
+              </>
             )}
           </div>
 
           {/* Away Team */}
           <div className="flex flex-col items-center flex-1 gap-2">
-            <div className="w-12 h-12 flex items-center justify-center">
+            <div className="w-14 h-14 flex items-center justify-center">
               {match.away_team_logo
-                ? <Image src={match.away_team_logo} alt={match.away_team} width={48} height={48} className="object-contain" unoptimized />
-                : <span className="text-2xl">⚽</span>}
+                ? <Image src={match.away_team_logo} alt={match.away_team} width={56} height={56} className="object-contain" unoptimized />
+                : <span className="text-3xl">⚽</span>}
             </div>
-            <span className="text-[12px] font-semibold text-center text-white">{match.away_team}</span>
+            <span className="text-[12px] font-bold text-center text-gray-900 leading-tight">{match.away_team}</span>
           </div>
         </div>
       </div>
 
       {/* Market Tabs */}
-      <div className="px-3 py-3 border-b border-[#1e2a38] overflow-x-auto scrollbar-hide flex gap-2">
+      <div className="px-3 py-2.5 border-b border-gray-100 bg-white overflow-x-auto scrollbar-hide flex gap-2">
         {MARKET_GROUPS.map(g => {
           const count = g.label === 'All' ? allMarkets.length : allMarkets.filter(m => g.filter(m.name)).length;
           if (count === 0 && g.label !== 'All') return null;
-          
           const isActive = activeTab === g.label;
           return (
             <button
               key={g.label}
               onClick={() => setActiveTab(g.label)}
-              className={`whitespace-nowrap rounded-full px-4 py-1.5 text-[12px] font-medium transition-colors ${
+              className={`whitespace-nowrap rounded-full px-4 py-1.5 text-[12px] font-semibold transition-colors ${
                 isActive
-                  ? 'border border-[#ffb800] text-white bg-transparent'
-                  : 'text-gray-400 bg-[#1e2a38] hover:bg-[#28374a]'
+                  ? 'bg-[#19E66B] text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
               {g.label}
+              {count > 0 && <span className="ml-1 text-[10px] opacity-70">({count})</span>}
             </button>
           );
         })}
       </div>
 
       {/* Markets List */}
-      <div className="flex-1 overflow-y-auto pb-8 bg-[#0d131c]">
+      <div className="flex-1 overflow-y-auto pb-8 bg-gray-50">
         {visibleMarkets.length > 0 ? (
           visibleMarkets.map(market => (
             <MarketCard key={market.id} market={market} />
           ))
         ) : (
-          <div className="text-center py-10 text-gray-500 text-sm">
+          <div className="text-center py-10 text-gray-400 text-sm">
             No odds available for this tab.
           </div>
         )}
