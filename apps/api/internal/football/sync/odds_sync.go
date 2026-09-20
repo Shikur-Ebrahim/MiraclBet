@@ -1,4 +1,4 @@
-﻿package sync
+package sync
 
 import (
 	"context"
@@ -114,5 +114,24 @@ func (s *Syncer) saveOdds(ctx context.Context, odds []provider.ProviderOdd) erro
 	}
 
 	log.Printf("[odds] DONE — Saved: %d, Skipped: %d, Errors: %d, Total: %d", updated, skipped, errCount, len(odds))
+
+	// Auto-cleanup: remove fixtures that still have no odds and are older than 30 minutes
+	cleanupQuery := `
+		DELETE FROM fixtures
+		WHERE (
+			advanced_odds IS NULL
+			OR advanced_odds = '{}'::jsonb
+			OR jsonb_array_length(COALESCE(advanced_odds->'markets', '[]'::jsonb)) = 0
+		)
+		AND created_at < NOW() - INTERVAL '30 minutes'
+	`
+	cleanRes, cleanErr := s.db.Pool.Exec(ctx, cleanupQuery)
+	if cleanErr != nil {
+		log.Printf("[odds] cleanup error: %v", cleanErr)
+	} else if cleanRes.RowsAffected() > 0 {
+		log.Printf("[odds] cleanup: removed %d fixtures with no odds", cleanRes.RowsAffected())
+	}
+
 	return nil
 }
+
