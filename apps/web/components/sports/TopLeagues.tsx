@@ -110,17 +110,22 @@ export function SportsNav({
           {isLive ? 'Open Prematch' : 'Open Live'}
         </button>
 
-        {/* Search button */}
-        <button
-          onClick={() => onOpenSearch?.()}
-          className="flex items-center justify-center w-10 h-10 rounded-lg shrink-0 transition-colors hover:bg-white/10"
-          style={{ background: '#132012', border: '1px solid #1C3026' }}
-        >
-          <svg viewBox="0 0 24 24" className="w-4 h-4 text-muted" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-          </svg>
-        </button>
       </div>
+
+      {/* ── Attractive Search Bar ───────────────────────────────── */}
+      <button
+        onClick={() => onOpenSearch?.()}
+        className="mx-3 mb-3 w-[calc(100%-24px)] flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all active:scale-[0.98]"
+        style={{ background: '#0D2018', border: '1px solid #1C3026' }}
+      >
+        <svg viewBox="0 0 24 24" className="w-5 h-5 shrink-0" fill="none" stroke="#19E66B" strokeWidth="2.5">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+        <span className="text-sm font-medium" style={{ color: '#4A7C63' }}>Search teams, leagues…</span>
+        <span className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold" style={{ background: '#19E66B22', color: '#19E66B' }}>
+          SEARCH
+        </span>
+      </button>
 
       {/* VikingBet Style Time Tracker / Slider */}
       <div className="flex items-center gap-4 px-3 mb-1">
