@@ -27,20 +27,16 @@ export function HomeSportsSection() {
   const [timeRange, setTimeRange]   = useState(6);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // Inline search state
-  const [isSearchMode, setIsSearchMode] = useState(false);
-  const [searchQuery,  setSearchQuery]  = useState('');
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  // Search query — typed directly into nav search bar
+  const [searchQuery, setSearchQuery] = useState('');
 
   const days = buildDays();
   const [selectedDay, setSelectedDay] = useState(days[0]);
   const [openDropdown, setOpenDropdown] = useState<'days' | 'countries' | 'leagues' | null>(null);
 
-  // Derived from real fixture data
   const [allCountries, setAllCountries] = useState<CountryItem[]>([]);
   const [allLeagues,   setAllLeagues]   = useState<LeagueItem[]>([]);
 
-  // Independent filter selections
   const [selectedCountry, setSelectedCountry] = useState<CountryItem | null>(null);
   const [selectedLeague,  setSelectedLeague]  = useState<LeagueItem  | null>(null);
 
@@ -55,25 +51,8 @@ export function HomeSportsSection() {
     return () => document.removeEventListener('mousedown', fn);
   }, []);
 
-  // Focus input when entering search mode
-  useEffect(() => {
-    if (isSearchMode) setTimeout(() => searchInputRef.current?.focus(), 50);
-  }, [isSearchMode]);
-
   const handleFixturesLoaded = useCallback((list: CountryItem[]) => setAllCountries(list), []);
   const handleLeaguesLoaded  = useCallback((list: LeagueItem[])  => setAllLeagues(list),   []);
-
-  const openSearch = () => {
-    setSelectedCountry(null);
-    setSelectedLeague(null);
-    setOpenDropdown(null);
-    setIsSearchMode(true);
-  };
-  const closeSearch = () => {
-    setIsSearchMode(false);
-    setSearchQuery('');
-  };
-
 
   return (
     <div>
@@ -86,41 +65,16 @@ export function HomeSportsSection() {
 
       <SportsNav
         activeSport={activeSport}
-        onSportChange={s => { setActiveSport(s); setSelectedCountry(null); setSelectedLeague(null); }}
+        onSportChange={s => { setActiveSport(s); setSelectedCountry(null); setSelectedLeague(null); setSearchQuery(''); }}
         timeRange={timeRange}
         onTimeRangeChange={setTimeRange}
         activeTab={activeTab}
         onTabChange={setActiveTab}
         onOpenSidebar={() => setIsSidebarOpen(true)}
-        onOpenSearch={openSearch}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
       />
 
-      {/* ── Inline Search Bar (replaces filter buttons when active) ──── */}
-      {isSearchMode ? (
-        <div className="flex items-center gap-2 px-3 py-2.5 bg-white border-b border-gray-100 sticky top-0 z-30">
-          <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-100 border border-gray-200">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#19E66B" strokeWidth="2.5" style={{width:16,height:16,flexShrink:0}}>
-              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-            </svg>
-            <input
-              ref={searchInputRef}
-              type="text"
-              placeholder="Search teams, leagues..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="flex-1 bg-transparent text-gray-800 placeholder-gray-400 text-sm outline-none"
-            />
-            {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="text-gray-400">
-                <svg viewBox="0 0 24 24" style={{width:14,height:14}} fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-              </button>
-            )}
-          </div>
-          <button onClick={closeSearch} className="text-[#19E66B] text-sm font-bold px-1 shrink-0">Cancel</button>
-        </div>
-      ) : (
-        /* ── 3-button Filter Bar — each button owns its dropdown ──────── */
-        <div className="flex items-center gap-1.5 px-3 py-2.5 border-b border-gray-100 bg-white relative z-30" ref={dropdownRef}>
 
         {/* 📅 DAY — opening this clears Country + League */}
         <div className="relative flex-1">
@@ -275,10 +229,8 @@ export function HomeSportsSection() {
 
       </div>
 
-      )}
-
-      {/* Active filter chips — hidden in search mode */}
-      {!isSearchMode && (selectedCountry || selectedLeague) && (
+      {/* Active filter chips */}
+      {(selectedCountry || selectedLeague) && (
         <div className="flex items-center flex-wrap gap-2 px-3 py-1.5 bg-[#F0FDF4] border-b border-[#BBF7D0]">
           {selectedCountry && (
             <span className="flex items-center gap-1 px-2 py-0.5 bg-[#DCFCE7] text-[#16A34A] text-[11px] font-semibold rounded-full">
@@ -311,7 +263,7 @@ export function HomeSportsSection() {
           activeTab={activeTab}
           priorityDate={selectedDay.value}
           filterCountry={selectedCountry?.country ?? undefined}
-          filterSearch={isSearchMode ? searchQuery : undefined}
+          filterSearch={searchQuery || undefined}
           onFixturesLoaded={handleFixturesLoaded}
           onLeaguesLoaded={handleLeaguesLoaded}
         />

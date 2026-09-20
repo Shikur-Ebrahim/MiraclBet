@@ -538,7 +538,7 @@ export function FixtureTabs({
                     key={`sep-${row.league}-${i}`}
                     onClick={() => toggleLeague(row.league)}
                     className="w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors"
-                    style={{ background: 'linear-gradient(90deg, #E8FAF0 0%, #D4F5E5 100%)', borderBottom: '1px solid #B2EDD0' }}
+                    style={{ background: '#19E66B', borderBottom: '2px solid #12B857' }}
                   >
                     {row.logoUrl ? (
                       <div className="w-5 h-5 bg-white rounded-full flex items-center justify-center shrink-0 shadow-sm">
@@ -547,18 +547,18 @@ export function FixtureTabs({
                     ) : (
                       <span className="text-sm shrink-0">⚽</span>
                     )}
-                    <span className="text-[11.5px] font-extrabold text-[#0D6E35] uppercase tracking-wide truncate flex-1">
+                    <span className="text-[11.5px] font-extrabold text-black uppercase tracking-wide truncate flex-1">
                       {row.league}
                     </span>
                     {/* match count */}
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: '#19E66B33', color: '#0D6E35' }}>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-black/15 text-black">
                       {row.count}
                     </span>
                     {/* collapse chevron */}
                     <svg
                       viewBox="0 0 24 24"
                       className={`w-4 h-4 shrink-0 transition-transform duration-200 ${isCollapsed ? '' : 'rotate-180'}`}
-                      fill="none" stroke="#0D6E35" strokeWidth="2.5"
+                      fill="none" stroke="black" strokeWidth="2.5"
                     >
                       <polyline points="6 9 12 15 18 9"/>
                     </svg>

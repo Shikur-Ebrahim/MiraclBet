@@ -26,6 +26,8 @@ interface SportNavProps {
   onTabChange?: (tab: 'prematch' | 'live') => void;
   onOpenSidebar?: () => void;
   onOpenSearch?: () => void;
+  onSearchChange?: (q: string) => void;
+  searchQuery?: string;
 }
 
 export function SportsNav({ 
@@ -36,7 +38,8 @@ export function SportsNav({
   activeTab = 'prematch',
   onTabChange,
   onOpenSidebar,
-  onOpenSearch,
+  onSearchChange,
+  searchQuery = '',
 }: SportNavProps) {
   const handleSelect = (key: string) => {
     onSportChange?.(key);
@@ -112,20 +115,32 @@ export function SportsNav({
 
       </div>
 
-      {/* ── Attractive Search Bar ───────────────────────────────── */}
-      <button
-        onClick={() => onOpenSearch?.()}
-        className="mx-3 mb-3 w-[calc(100%-24px)] flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all active:scale-[0.98]"
+      {/* ── Search Bar (real input — type to filter inline) ────────── */}
+      <div
+        className="mx-3 mb-3 flex items-center gap-3 px-4 py-2.5 rounded-xl"
         style={{ background: '#0D2018', border: '1px solid #1C3026' }}
       >
         <svg viewBox="0 0 24 24" className="w-5 h-5 shrink-0" fill="none" stroke="#19E66B" strokeWidth="2.5">
           <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
         </svg>
-        <span className="text-sm font-medium" style={{ color: '#4A7C63' }}>Search teams, leagues…</span>
-        <span className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold" style={{ background: '#19E66B22', color: '#19E66B' }}>
-          SEARCH
-        </span>
-      </button>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={e => onSearchChange?.(e.target.value)}
+          placeholder="Search teams, leagues…"
+          className="flex-1 bg-transparent text-sm outline-none placeholder-[#4A7C63]"
+          style={{ color: '#B8D8C8' }}
+        />
+        {searchQuery ? (
+          <button onClick={() => onSearchChange?.('')} className="shrink-0">
+            <svg viewBox="0 0 24 24" style={{width:14,height:14}} fill="none" stroke="#4A7C63" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        ) : (
+          <span className="ml-auto flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold shrink-0" style={{ background: '#19E66B22', color: '#19E66B' }}>
+            SEARCH
+          </span>
+        )}
+      </div>
 
       {/* VikingBet Style Time Tracker / Slider */}
       <div className="flex items-center gap-4 px-3 mb-1">
