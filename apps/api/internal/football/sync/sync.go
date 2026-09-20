@@ -83,18 +83,21 @@ func (s *Syncer) saveFixtures(ctx context.Context, fixtures []provider.ProviderF
 			external_id,
 			home_team_name, away_team_name,
 			home_team_logo, away_team_logo,
-			league_external_id, league_name, league_logo_url,
+			league_external_id, league_id, league_name, league_logo_url,
 			sport_slug,
 			starts_at, status_short, elapsed,
 			score_home, score_away, is_live
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, 'football', $9, $10, $11, $12, $13, $14
+			$1, $2, $3, $4, $5, $6, 
+			(SELECT id FROM leagues WHERE external_id = $6 LIMIT 1),
+			$7, $8, 'football', $9, $10, $11, $12, $13, $14
 		) ON CONFLICT (external_id) DO UPDATE SET
 			home_team_name    = EXCLUDED.home_team_name,
 			away_team_name    = EXCLUDED.away_team_name,
 			home_team_logo    = EXCLUDED.home_team_logo,
 			away_team_logo    = EXCLUDED.away_team_logo,
 			league_external_id = EXCLUDED.league_external_id,
+			league_id         = (SELECT id FROM leagues WHERE external_id = EXCLUDED.league_external_id LIMIT 1),
 			league_name       = EXCLUDED.league_name,
 			league_logo_url   = EXCLUDED.league_logo_url,
 			sport_slug        = 'football',
