@@ -75,6 +75,8 @@ export function HomeSportsSection() {
         onSearchChange={setSearchQuery}
       />
 
+      {/* ── 3-button Filter Bar ─────────────────────────────────────── */}
+      <div className="flex items-center gap-1.5 px-3 py-2.5 border-b border-gray-100 bg-white relative z-30" ref={dropdownRef}>
 
         {/* 📅 DAY — opening this clears Country + League */}
         <div className="relative flex-1">
