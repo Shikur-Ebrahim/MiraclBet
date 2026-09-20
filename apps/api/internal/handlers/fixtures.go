@@ -14,25 +14,27 @@ import (
 )
 
 type FixtureResponse struct {
-	ID            string          `json:"id"`
-	HomeTeam      string          `json:"home_team"`
-	HomeTeamLogo  string          `json:"home_team_logo"`
-	AwayTeam      string          `json:"away_team"`
-	AwayTeamLogo  string          `json:"away_team_logo"`
-	League        string          `json:"league"`
-	LeagueLogoURL string          `json:"league_logo_url"`
-	Country       string          `json:"country"`
-	KickoffAt     string          `json:"kickoff_at"`
-	Status        string          `json:"status"`
-	Elapsed       *int            `json:"elapsed,omitempty"`
-	HomeScore     *int            `json:"home_score"`
-	AwayScore     *int            `json:"away_score"`
-	IsLive        bool            `json:"is_live"`
-	OddsHome      float64         `json:"odds_home"` // Legacy
-	OddsDraw      float64         `json:"odds_draw"` // Legacy
-	OddsAway      float64         `json:"odds_away"` // Legacy
-	Sport         string          `json:"sport"`
-	AdvancedOdds  json.RawMessage `json:"advanced_odds,omitempty"`
+	ID                string          `json:"id"`
+	HomeTeam          string          `json:"home_team"`
+	HomeTeamLogo      string          `json:"home_team_logo"`
+	AwayTeam          string          `json:"away_team"`
+	AwayTeamLogo      string          `json:"away_team_logo"`
+	League            string          `json:"league"`
+	LeagueExternalID  string          `json:"league_external_id"`
+	LeagueLogoURL     string          `json:"league_logo_url"`
+	Country           string          `json:"country"`
+	CountryFlagURL    string          `json:"country_flag_url"`
+	KickoffAt         string          `json:"kickoff_at"`
+	Status            string          `json:"status"`
+	Elapsed           *int            `json:"elapsed,omitempty"`
+	HomeScore         *int            `json:"home_score"`
+	AwayScore         *int            `json:"away_score"`
+	IsLive            bool            `json:"is_live"`
+	OddsHome          float64         `json:"odds_home"` // Legacy
+	OddsDraw          float64         `json:"odds_draw"` // Legacy
+	OddsAway          float64         `json:"odds_away"` // Legacy
+	Sport             string          `json:"sport"`
+	AdvancedOdds      json.RawMessage `json:"advanced_odds,omitempty"`
 }
 
 type FixturesHandler struct {
@@ -57,7 +59,9 @@ func (h *FixturesHandler) Live(w http.ResponseWriter, r *http.Request) {
 	if h.db != nil {
 		fixtures := h.queryFixturesWithArg(ctx, `
 			SELECT f.external_id, f.home_team_name, COALESCE(f.home_team_logo,''), f.away_team_name, COALESCE(f.away_team_logo,''),
-				COALESCE(l.name,'Unknown') as league, COALESCE(f.league_logo_url,'') as league_logo_url, COALESCE(l.country,'') as country,
+				COALESCE(l.name,'Unknown') as league, COALESCE(f.league_external_id,'') as league_external_id,
+				COALESCE(f.league_logo_url,'') as league_logo_url, COALESCE(l.country,'') as country,
+				COALESCE(l.country_flag_url,'') as country_flag_url,
 				f.starts_at, f.status_short, f.elapsed, f.score_home, f.score_away, f.is_live,
 				COALESCE(o.home,1.90), COALESCE(o.draw,3.20), COALESCE(o.away,1.90),
 				COALESCE(f.sport_slug,'football'),
@@ -106,10 +110,12 @@ func (h *FixturesHandler) ByDate(w http.ResponseWriter, r *http.Request) {
 	if h.db != nil {
 		var fixtures []FixtureResponse
 		if leagueID != "" {
-			// Filter by league
+			// Filter by league external_id
 			fixtures = h.queryFixturesWithArgs(ctx, `
 				SELECT f.external_id, f.home_team_name, COALESCE(f.home_team_logo,''), f.away_team_name, COALESCE(f.away_team_logo,''),
-					COALESCE(l.name,'Unknown') as league, COALESCE(f.league_logo_url,'') as league_logo_url, COALESCE(l.country,'') as country,
+					COALESCE(l.name,'Unknown') as league, COALESCE(f.league_external_id,'') as league_external_id,
+					COALESCE(f.league_logo_url,'') as league_logo_url, COALESCE(l.country,'') as country,
+					COALESCE(l.country_flag_url,'') as country_flag_url,
 					f.starts_at, f.status_short, f.elapsed::int, f.score_home::int, f.score_away::int, f.is_live,
 					COALESCE(o.home,1.90)::float, COALESCE(o.draw,3.20)::float, COALESCE(o.away,1.90)::float,
 					COALESCE(f.sport_slug,'football'),
@@ -125,7 +131,9 @@ func (h *FixturesHandler) ByDate(w http.ResponseWriter, r *http.Request) {
 		} else {
 			fixtures = h.queryFixturesWithArgs(ctx, `
 				SELECT f.external_id, f.home_team_name, COALESCE(f.home_team_logo,''), f.away_team_name, COALESCE(f.away_team_logo,''),
-					COALESCE(l.name,'Unknown') as league, COALESCE(f.league_logo_url,'') as league_logo_url, COALESCE(l.country,'') as country,
+					COALESCE(l.name,'Unknown') as league, COALESCE(f.league_external_id,'') as league_external_id,
+					COALESCE(f.league_logo_url,'') as league_logo_url, COALESCE(l.country,'') as country,
+					COALESCE(l.country_flag_url,'') as country_flag_url,
 					f.starts_at, f.status_short, f.elapsed::int, f.score_home::int, f.score_away::int, f.is_live,
 					COALESCE(o.home,1.90)::float, COALESCE(o.draw,3.20)::float, COALESCE(o.away,1.90)::float,
 					COALESCE(f.sport_slug,'football'),
@@ -194,10 +202,10 @@ func scanRows(rows rowScanner) []FixtureResponse {
 	for rows.Next() {
 		var fx FixtureResponse
 		var kickoff time.Time
-		var advancedOddsStr *string // pointer handles NULLs safely
+		var advancedOddsStr *string
 		err := rows.Scan(
 			&fx.ID, &fx.HomeTeam, &fx.HomeTeamLogo, &fx.AwayTeam, &fx.AwayTeamLogo,
-			&fx.League, &fx.LeagueLogoURL, &fx.Country,
+			&fx.League, &fx.LeagueExternalID, &fx.LeagueLogoURL, &fx.Country, &fx.CountryFlagURL,
 			&kickoff, &fx.Status, &fx.Elapsed,
 			&fx.HomeScore, &fx.AwayScore, &fx.IsLive,
 			&fx.OddsHome, &fx.OddsDraw, &fx.OddsAway,

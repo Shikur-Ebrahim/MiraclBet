@@ -12,8 +12,11 @@ interface Fixture {
   away_team: string;
   away_team_logo?: string;
   league: string;
+  league_id?: string;
+  league_external_id?: string;
   league_logo_url?: string;
   country: string;
+  country_flag_url?: string;
   kickoff_at: string;
   status: string;
   elapsed?: number;
@@ -319,22 +322,35 @@ export function FixtureTabs({
     return 99; // Default for others
   }
 
-  // Only show fixtures that have at least 1 real displayable odd value
-  const withOdds = allFixtures.filter(f => {
-    const markets = f.advanced_odds?.markets;
-    if (!markets || markets.length === 0) return false;
-    return getOdds(f).hasRealOdds;
-  });
-
-  // Apply country filter
-  const baseFixtures = withOdds.length > 0 ? withOdds : allFixtures; // fallback to all if none have odds yet
-
-  const displayFixtures = (filterCountry
-    ? baseFixtures.filter(f =>
+  // When country is selected, show ALL its matches (even without standard odds)
+  // Otherwise only show fixtures with real displayable odds
+  const baseFixtures = (() => {
+    if (filterCountry) {
+      // Country selected: show all matches from that country across all loaded days
+      const countryMatches = allFixtures.filter(f =>
         f.country === filterCountry ||
+        f.country?.toLowerCase() === filterCountry.toLowerCase()
+      );
+      return countryMatches.length > 0 ? countryMatches : allFixtures.filter(f =>
         f.league?.toLowerCase().includes(filterCountry.toLowerCase())
-      )
-    : [...baseFixtures]);
+      );
+    }
+    // No country filter: only show fixtures with real displayable odds
+    const withOdds = allFixtures.filter(f => {
+      const markets = f.advanced_odds?.markets;
+      if (!markets || markets.length === 0) return false;
+      return getOdds(f).hasRealOdds;
+    });
+    return withOdds.length > 0 ? withOdds : allFixtures;
+  })();
+
+  const displayFixtures = leagueId
+    ? baseFixtures.filter(f => {
+        // league filter by ID or name
+        return String(f.league_id) === String(leagueId) ||
+               String(f.league_external_id) === String(leagueId);
+      })
+    : [...baseFixtures];
 
   // Group by league and sort: priority date first, then top leagues, then time
   displayFixtures.sort((a, b) => {
