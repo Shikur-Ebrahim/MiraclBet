@@ -59,15 +59,15 @@ func (h *FixturesHandler) Live(w http.ResponseWriter, r *http.Request) {
 	if h.db != nil {
 		fixtures := h.queryFixturesWithArg(ctx, `
 			SELECT f.external_id, f.home_team_name, COALESCE(f.home_team_logo,''), f.away_team_name, COALESCE(f.away_team_logo,''),
-				COALESCE(l.name,'Unknown') as league, COALESCE(l.external_id,'') as league_external_id,
+				COALESCE(l.name,'Unknown') as league, COALESCE(f.league_external_id,'') as league_external_id,
 				COALESCE(f.league_logo_url,'') as league_logo_url, COALESCE(l.country,'') as country,
-				COALESCE(l.country_flag_url,'') as country_flag_url,
+				COALESCE(NULLIF(l.country_flag_url,''), 'https://media.api-sports.io/flags/' || REPLACE(LOWER(l.country), ' ', '-') || '.svg') as country_flag_url,
 				f.starts_at, f.status_short, f.elapsed, f.score_home, f.score_away, f.is_live,
 				COALESCE(o.home,1.90), COALESCE(o.draw,3.20), COALESCE(o.away,1.90),
 				COALESCE(f.sport_slug,'football'),
 				f.advanced_odds
 			FROM fixtures f
-			LEFT JOIN leagues l ON f.league_id = l.id
+			LEFT JOIN leagues l ON l.external_id = f.league_external_id
 			LEFT JOIN odds o ON o.fixture_id = f.id
 			WHERE f.is_live = true AND COALESCE(f.sport_slug,'football') = $1
 			ORDER BY f.starts_at DESC LIMIT 200`, sport)
@@ -113,33 +113,33 @@ func (h *FixturesHandler) ByDate(w http.ResponseWriter, r *http.Request) {
 			// Filter by league external_id
 			fixtures = h.queryFixturesWithArgs(ctx, `
 				SELECT f.external_id, f.home_team_name, COALESCE(f.home_team_logo,''), f.away_team_name, COALESCE(f.away_team_logo,''),
-					COALESCE(l.name,'Unknown') as league, COALESCE(l.external_id,'') as league_external_id,
+					COALESCE(l.name,'Unknown') as league, COALESCE(f.league_external_id,'') as league_external_id,
 					COALESCE(f.league_logo_url,'') as league_logo_url, COALESCE(l.country,'') as country,
-					COALESCE(l.country_flag_url,'') as country_flag_url,
+					COALESCE(NULLIF(l.country_flag_url,''), 'https://media.api-sports.io/flags/' || REPLACE(LOWER(l.country), ' ', '-') || '.svg') as country_flag_url,
 					f.starts_at, f.status_short, f.elapsed::int, f.score_home::int, f.score_away::int, f.is_live,
 					COALESCE(o.home,1.90)::float, COALESCE(o.draw,3.20)::float, COALESCE(o.away,1.90)::float,
 					COALESCE(f.sport_slug,'football'),
 					COALESCE(f.advanced_odds, '{}'::jsonb)::text
 				FROM fixtures f
-				LEFT JOIN leagues l ON f.league_id = l.id
+				LEFT JOIN leagues l ON l.external_id = f.league_external_id
 				LEFT JOIN odds o ON o.fixture_id = f.id
 				WHERE DATE(f.starts_at AT TIME ZONE 'UTC') = $1
 				  AND COALESCE(f.sport_slug,'football') = $2
-				  AND l.external_id = $3
+				  AND (f.league_external_id = $3 OR l.external_id = $3)
 				ORDER BY f.starts_at ASC LIMIT 200`,
 				date.Format("2006-01-02"), sport, leagueID)
 		} else {
 			fixtures = h.queryFixturesWithArgs(ctx, `
 				SELECT f.external_id, f.home_team_name, COALESCE(f.home_team_logo,''), f.away_team_name, COALESCE(f.away_team_logo,''),
-					COALESCE(l.name,'Unknown') as league, COALESCE(l.external_id,'') as league_external_id,
+					COALESCE(l.name,'Unknown') as league, COALESCE(f.league_external_id,'') as league_external_id,
 					COALESCE(f.league_logo_url,'') as league_logo_url, COALESCE(l.country,'') as country,
-					COALESCE(l.country_flag_url,'') as country_flag_url,
+					COALESCE(NULLIF(l.country_flag_url,''), 'https://media.api-sports.io/flags/' || REPLACE(LOWER(l.country), ' ', '-') || '.svg') as country_flag_url,
 					f.starts_at, f.status_short, f.elapsed::int, f.score_home::int, f.score_away::int, f.is_live,
 					COALESCE(o.home,1.90)::float, COALESCE(o.draw,3.20)::float, COALESCE(o.away,1.90)::float,
 					COALESCE(f.sport_slug,'football'),
 					COALESCE(f.advanced_odds, '{}'::jsonb)::text
 				FROM fixtures f
-				LEFT JOIN leagues l ON f.league_id = l.id
+				LEFT JOIN leagues l ON l.external_id = f.league_external_id
 				LEFT JOIN odds o ON o.fixture_id = f.id
 				WHERE DATE(f.starts_at AT TIME ZONE 'UTC') = $1
 				  AND COALESCE(f.sport_slug,'football') = $2
