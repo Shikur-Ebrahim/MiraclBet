@@ -229,7 +229,7 @@ export function HomeSportsSection() {
                 onClick={() => {
                   setSelectedCountry(cg);
                   setSelectedLeague(null);
-                  setOpenDropdown('leagues');
+                  setOpenDropdown(null); // ← close immediately, show all matches in that country
                 }}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 border-b border-gray-50 ${
                   selectedCountry?.country === cg.country ? 'bg-[#E8FFF2] text-[#0D8A3C]' : 'text-gray-700 hover:bg-gray-50'
@@ -240,10 +240,12 @@ export function HomeSportsSection() {
                   : <span className="text-base shrink-0">🌍</span>
                 }
                 <span className="text-sm font-medium flex-1 text-left">{cg.country}</span>
-                <span className="text-[11px] text-gray-400 shrink-0">{cg.leagues.length}</span>
-                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-gray-300 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polyline points="9 6 15 12 9 18"/>
-                </svg>
+                <span className="text-[11px] text-gray-400 shrink-0">{cg.leagues.length} leagues</span>
+                {selectedCountry?.country === cg.country && (
+                  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-[#19E66B] shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                )}
               </button>
             ))}
           </div>
