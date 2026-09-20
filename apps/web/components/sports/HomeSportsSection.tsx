@@ -61,19 +61,19 @@ export function HomeSportsSection() {
     return () => document.removeEventListener('mousedown', fn);
   }, []);
 
-  // Fetch leagues from leagues table when Countries/Leagues dropdown opens
+  // Fetch leagues from 7-day window (not just today) — so ALL countries appear
   useEffect(() => {
     if (openDropdown !== 'countries' && openDropdown !== 'leagues') return;
-    if (allLeagues.length > 0) return; // already loaded for this day
+    if (allLeagues.length > 0) return; // already loaded
     setLoadingLeagues(true);
-    fetch(`${API_BASE}/api/v1/meta/leagues?date=${selectedDay.value}`)
+    fetch(`${API_BASE}/api/v1/meta/leagues?days=7`)
       .then(r => r.json())
       .then((data: LeagueInfo[]) => {
         setAllLeagues(Array.isArray(data) ? data : []);
       })
       .catch(() => setAllLeagues([]))
       .finally(() => setLoadingLeagues(false));
-  }, [openDropdown, selectedDay.value, allLeagues.length]);
+  }, [openDropdown, allLeagues.length]);
 
   // Group leagues by country
   const countryGroups: CountryGroup[] = React.useMemo(() => {
@@ -94,7 +94,7 @@ export function HomeSportsSection() {
 
   const handleDaySelect = (day: typeof days[0]) => {
     setSelectedDay(day);
-    setAllLeagues([]); // reset so leagues re-fetch for new date
+    // Don't reset allLeagues here — countries come from 7-day window
     setSelectedCountry(null);
     setSelectedLeague(null);
     setOpenDropdown(null);
