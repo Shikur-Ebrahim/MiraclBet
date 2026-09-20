@@ -136,31 +136,38 @@ export function HomeSportsSection() {
           </button>
           {openDropdown === 'countries' && (
             <div className="absolute left-0 top-full mt-1 w-64 bg-white border border-gray-200 rounded-xl shadow-2xl z-50 max-h-72 overflow-y-auto">
-              <button
-                onClick={() => { setSelectedCountry(null); setOpenDropdown(null); }}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 border-b border-gray-100 rounded-t-xl ${!selectedCountry ? 'bg-[#E8FFF2] text-[#0D8A3C] font-bold' : 'text-gray-600 hover:bg-gray-50'}`}
-              >
-                <span className="text-base">🌍</span>
-                <span className="text-sm font-medium flex-1 text-left">All Countries</span>
-                {!selectedCountry && <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-[#19E66B]" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>}
-              </button>
               {allCountries.length === 0 ? (
                 <div className="flex items-center justify-center py-8 gap-2">
                   <div className="w-4 h-4 border-2 border-[#19E66B] border-t-transparent rounded-full animate-spin"/>
                   <span className="text-sm text-gray-400">Loading...</span>
                 </div>
-              ) : allCountries.map(c => (
-                <button key={c.country}
-                  onClick={() => { setSelectedCountry(c); setOpenDropdown(null); }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 border-b border-gray-50 last:border-0 ${selectedCountry?.country === c.country ? 'bg-[#E8FFF2] text-[#0D8A3C]' : 'text-gray-700 hover:bg-gray-50'}`}
-                >
-                  {c.flag
-                    ? <Image src={c.flag} alt={c.country} width={24} height={16} className="object-cover rounded-sm shrink-0 border border-gray-200" unoptimized />
-                    : <span className="text-base shrink-0">🌍</span>}
-                  <span className="text-sm font-medium flex-1 text-left">{c.country}</span>
-                  {selectedCountry?.country === c.country && <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-[#19E66B] shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>}
-                </button>
-              ))}
+              ) : (() => {
+                // If a league is selected, put its country first, then rest alphabetically
+                const leagueCountry = selectedLeague?.country;
+                const sorted = leagueCountry
+                  ? [
+                      ...allCountries.filter(c => c.country === leagueCountry),
+                      ...allCountries.filter(c => c.country !== leagueCountry),
+                    ]
+                  : allCountries;
+                return sorted.map((c, i) => (
+                  <button key={c.country}
+                    onClick={() => { setSelectedCountry(c); setOpenDropdown(null); }}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 border-b border-gray-50 last:border-0 ${
+                      selectedCountry?.country === c.country ? 'bg-[#E8FFF2] text-[#0D8A3C]' : 'text-gray-700 hover:bg-gray-50'
+                    } ${i === 0 && leagueCountry ? 'rounded-t-xl' : ''}`}
+                  >
+                    {c.flag
+                      ? <Image src={c.flag} alt={c.country} width={24} height={16} className="object-cover rounded-sm shrink-0 border border-gray-200" unoptimized />
+                      : <span className="text-base shrink-0">🌍</span>}
+                    <span className="text-sm font-medium flex-1 text-left">{c.country}</span>
+                    {i === 0 && leagueCountry && c.country !== selectedCountry?.country && (
+                      <span className="text-[10px] text-[#19E66B] font-bold shrink-0">League</span>
+                    )}
+                    {selectedCountry?.country === c.country && <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-[#19E66B] shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>}
+                  </button>
+                ));
+              })()}
             </div>
           )}
         </div>
@@ -185,17 +192,6 @@ export function HomeSportsSection() {
           </button>
           {openDropdown === 'leagues' && (
             <div className="absolute right-0 top-full mt-1 w-72 bg-white border border-gray-200 rounded-xl shadow-2xl z-50 max-h-72 overflow-y-auto">
-              <div className="px-3 py-2 bg-gray-50 border-b border-gray-100 rounded-t-xl">
-                <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">⭐ Top Leagues</span>
-              </div>
-              <button
-                onClick={() => { setSelectedLeague(null); setOpenDropdown(null); }}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 border-b border-gray-100 ${!selectedLeague ? 'bg-[#E8FFF2] text-[#0D8A3C] font-bold' : 'text-gray-600 hover:bg-gray-50'}`}
-              >
-                <span className="text-base">🏆</span>
-                <span className="text-sm font-medium flex-1 text-left">All Leagues</span>
-                {!selectedLeague && <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-[#19E66B]" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>}
-              </button>
               {allLeagues.length === 0 ? (
                 <div className="flex items-center justify-center py-8 gap-2">
                   <div className="w-4 h-4 border-2 border-[#19E66B] border-t-transparent rounded-full animate-spin"/>
