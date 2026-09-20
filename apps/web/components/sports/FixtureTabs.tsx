@@ -267,17 +267,15 @@ export function FixtureTabs({
       });
     };
 
-    const buildUrl = (dayOffset: number) => {
-      const d = new Date(baseDate);
-      if (!filterDate) d.setDate(d.getDate() + dayOffset);
-      const dateStr = d.toISOString().split('T')[0];
+    const buildUrl = (dateStr: string) => {
       let url = `${API_BASE}/api/v1/fixtures?date=${dateStr}&sport=${sport}`;
       if (leagueId) url += `&league=${leagueId}`;
       return url;
     };
 
-    // Step 1: Load TODAY instantly → first paint
-    fetch(buildUrl(0), { cache: 'no-store' })
+    // Step 1: Load selected date instantly → first paint
+    const todayStr = baseDate.toISOString().split('T')[0];
+    fetch(buildUrl(todayStr), { cache: 'no-store' })
       .then(r => r.json())
       .then(data => {
         const fixtures = Array.isArray(data) ? data : [];
@@ -286,19 +284,22 @@ export function FixtureTabs({
       })
       .catch(() => {})
       .finally(() => {
-        setLoading(false); // skeleton gone, real data shows
-        if (daysToLoad > 0) setLoadingMore(true); // show subtle "loading more" indicator
+        setLoading(false);
+        // Only load extra days if timeRange > 0 AND no specific date is locked
+        if (daysToLoad > 0 && !filterDate) setLoadingMore(true);
       });
 
-    // Step 2: Load remaining days in background without blocking UI
+    // Step 2: Load remaining days in background only when timeRange > 0
     if (daysToLoad > 0 && !filterDate) {
       const loadRemaining = async () => {
         for (let i = 1; i <= daysToLoad; i++) {
           try {
-            const data = await fetch(buildUrl(i), { cache: 'no-store' }).then(r => r.json());
+            const d = new Date(baseDate);
+            d.setDate(baseDate.getDate() + i);
+            const data = await fetch(buildUrl(d.toISOString().split('T')[0]), { cache: 'no-store' }).then(r => r.json());
             mergeFixtures(Array.isArray(data) ? data : []);
           } catch { /* ignore */ }
-          await new Promise(r => setTimeout(r, 300)); // small delay between requests
+          await new Promise(r => setTimeout(r, 300));
         }
         setLoadingMore(false);
       };

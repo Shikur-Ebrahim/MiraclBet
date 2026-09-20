@@ -41,8 +41,9 @@ func (h *MetaHandler) GetLeagues(w http.ResponseWriter, r *http.Request) {
 
 	live := r.URL.Query().Get("live") == "true"
 	days := r.URL.Query().Get("days")
+	date := r.URL.Query().Get("date") // e.g. "2026-09-20"
 
-	// Base query
+	// Base query — always return country_flag_url and logo_url
 	query := `
 		SELECT l.external_id, l.name, l.country, COALESCE(l.country_flag_url,''), COALESCE(l.logo_url,''), COALESCE(l.season, 0), l.is_top_league
 		FROM leagues l
@@ -51,8 +52,10 @@ func (h *MetaHandler) GetLeagues(w http.ResponseWriter, r *http.Request) {
 
 	if live {
 		query += ` AND EXISTS (SELECT 1 FROM fixtures f WHERE f.league_external_id = l.external_id AND f.is_live = true)`
+	} else if date != "" {
+		// Filter leagues that have fixtures on a specific date
+		query += fmt.Sprintf(` AND EXISTS (SELECT 1 FROM fixtures f WHERE f.league_external_id = l.external_id AND DATE(f.starts_at) = '%s')`, date)
 	} else if days != "" {
-		// Filter by days
 		query += fmt.Sprintf(` AND EXISTS (SELECT 1 FROM fixtures f WHERE f.league_external_id = l.external_id AND f.starts_at >= CURRENT_DATE AND f.starts_at < CURRENT_DATE + INTERVAL '%s days' + INTERVAL '1 day')`, days)
 	}
 
