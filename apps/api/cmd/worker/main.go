@@ -87,6 +87,11 @@ func main() {
             log.Println("[worker] tick: syncing live fixtures & live odds...")
             _ = syncer.SyncLiveFixtures(ctx)
             _ = syncer.SyncLiveOdds(ctx)
+        case <-ticker.C:
+            log.Println("[worker] tick: refreshing odds for today & tomorrow...")
+            today := time.Now().UTC()
+            _ = syncer.SyncOddsByDate(ctx, today)
+            _ = syncer.SyncOddsByDate(ctx, today.AddDate(0, 0, 1))
         case <-dailyTicker.C:
             log.Println("[worker] tick: syncing 7-day fixtures, odds and leagues...")
             sync.SyncLeagues(db.Pool, cfg.FootballAPIKey)

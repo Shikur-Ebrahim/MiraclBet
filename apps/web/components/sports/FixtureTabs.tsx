@@ -247,13 +247,21 @@ export function FixtureTabs({
     return 99; // Default for others
   }
 
+  // Only show fixtures that have real odds data
+  const withOdds = allFixtures.filter(f => {
+    const markets = f.advanced_odds?.markets;
+    return markets && markets.length > 0;
+  });
+
   // Apply country filter
-  let displayFixtures = filterCountry
-    ? allFixtures.filter(f =>
+  const baseFixtures = withOdds.length > 0 ? withOdds : allFixtures; // fallback to all if none have odds yet
+
+  const displayFixtures = (filterCountry
+    ? baseFixtures.filter(f =>
         f.country === filterCountry ||
         f.league?.toLowerCase().includes(filterCountry.toLowerCase())
       )
-    : [...allFixtures];
+    : [...baseFixtures]);
 
   // Group by league and sort top leagues first
   displayFixtures.sort((a, b) => {
