@@ -38,12 +38,13 @@ function buildDays() {
 export function HomeSportsSection() {
   const [activeSport, setActiveSport] = useState('football');
   const [activeTab, setActiveTab] = useState<'prematch' | 'live'>('prematch');
+  const [timeRange, setTimeRange] = useState(6); // default = full bar (all 7 days)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   // Filter state
   const days = buildDays();
-  const [selectedDay, setSelectedDay] = useState(days[0]); // default = Today
+  const [selectedDay, setSelectedDay] = useState(days[0]); // default = Today priority
   const [openDropdown, setOpenDropdown] = useState<'days' | 'countries' | 'leagues' | null>(null);
   const [allLeagues, setAllLeagues] = useState<LeagueInfo[]>([]);
   const [loadingLeagues, setLoadingLeagues] = useState(false);
@@ -119,8 +120,8 @@ export function HomeSportsSection() {
       <SportsNav
         activeSport={activeSport}
         onSportChange={s => { setActiveSport(s); resetFilters(); }}
-        timeRange={0}
-        onTimeRangeChange={() => {}}
+        timeRange={timeRange}
+        onTimeRangeChange={setTimeRange}
         activeTab={activeTab}
         onTabChange={setActiveTab}
         onOpenSidebar={() => setIsSidebarOpen(true)}
@@ -317,11 +318,11 @@ export function HomeSportsSection() {
         </div>
       )}
 
-      {/* Match list — always loads 7 days, selected day shown first */}
+      {/* Match list — timeRange from slider, today's matches shown first by priority */}
       <section>
         <FixtureTabs
           sport={activeSport}
-          timeRange={6}
+          timeRange={timeRange}
           leagueId={selectedLeague?.id ?? undefined}
           activeTab={activeTab}
           priorityDate={selectedDay.value}

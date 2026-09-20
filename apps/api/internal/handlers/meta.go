@@ -45,9 +45,7 @@ func (h *MetaHandler) GetLeagues(w http.ResponseWriter, r *http.Request) {
 
 	// Base query — always return country_flag_url and logo_url
 	query := `
-		SELECT l.external_id, l.name, l.country, 
-		       COALESCE(NULLIF(l.country_flag_url,''), 'https://media.api-sports.io/flags/' || REPLACE(LOWER(l.country), ' ', '-') || '.svg'), 
-		       COALESCE(l.logo_url,''), COALESCE(l.season, 0), l.is_top_league
+		SELECT l.external_id, l.name, l.country, COALESCE(l.country_flag_url,''), COALESCE(l.logo_url,''), COALESCE(l.season, 0), l.is_top_league
 		FROM leagues l
 		WHERE l.sport_slug = 'football' AND l.is_active = true
 	`
