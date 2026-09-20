@@ -466,17 +466,37 @@ export function FixtureTabs({
   const totalPages = Math.ceil(displayFixtures.length / PAGE_SIZE);
   const pageFixtures = displayFixtures.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
+  // Track which leagues are collapsed
+  const [collapsedLeagues, setCollapsedLeagues] = useState<Set<string>>(new Set());
+  const toggleLeague = (league: string) => {
+    setCollapsedLeagues(prev => {
+      const next = new Set(prev);
+      if (next.has(league)) next.delete(league);
+      else next.add(league);
+      return next;
+    });
+  };
+
   // Build flat list with league separator rows
-  const rows: ({ type: 'separator'; league: string; logoUrl?: string } | { type: 'fixture'; fix: Fixture })[] = [];
+  const rows: ({ type: 'separator'; league: string; logoUrl?: string; count: number } | { type: 'fixture'; fix: Fixture; league: string })[] = [];
   let lastLeague = '';
+  // First pass: count per league
+  const leagueCounts: Record<string, number> = {};
+  for (const fix of pageFixtures) {
+    const n = fix.league || 'Other';
+    leagueCounts[n] = (leagueCounts[n] || 0) + 1;
+  }
   for (const fix of pageFixtures) {
     const leagueName = fix.league || 'Other';
     if (leagueName !== lastLeague) {
-      rows.push({ type: 'separator', league: leagueName, logoUrl: fix.league_logo_url });
+      rows.push({ type: 'separator', league: leagueName, logoUrl: fix.league_logo_url, count: leagueCounts[leagueName] || 0 });
       lastLeague = leagueName;
     }
-    rows.push({ type: 'fixture', fix });
+    if (!collapsedLeagues.has(leagueName)) {
+      rows.push({ type: 'fixture', fix, league: leagueName });
+    }
   }
+
 
   // Pagination page numbers to show
   function getPageNumbers() {
@@ -498,21 +518,35 @@ export function FixtureTabs({
           <div className="bg-white">
             {rows.map((row, i) => {
               if (row.type === 'separator') {
+                const isCollapsed = collapsedLeagues.has(row.league);
                 return (
-                  <div
+                  <button
                     key={`sep-${row.league}-${i}`}
-                    className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-100"
-                    style={{ background: '#f7f9f8' }}
+                    onClick={() => toggleLeague(row.league)}
+                    className="w-full flex items-center gap-2 px-3 py-2 border-b border-[#D6F5E3] text-left transition-colors"
+                    style={{ background: '#F0FBF4' }}
                   >
                     {row.logoUrl ? (
-                      <Image src={row.logoUrl} alt={row.league} width={14} height={14} className="object-contain shrink-0" unoptimized />
+                      <Image src={row.logoUrl} alt={row.league} width={16} height={16} className="object-contain shrink-0" unoptimized />
                     ) : (
-                      <span className="text-[12px]">⚽</span>
+                      <span className="text-sm shrink-0">⚽</span>
                     )}
-                    <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide truncate">
+                    <span className="text-[11px] font-bold text-[#1A7A40] uppercase tracking-wide truncate flex-1">
                       {row.league}
                     </span>
-                  </div>
+                    {/* match count */}
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: '#D6F5E3', color: '#1A7A40' }}>
+                      {row.count}
+                    </span>
+                    {/* collapse chevron */}
+                    <svg
+                      viewBox="0 0 24 24"
+                      className={`w-4 h-4 shrink-0 transition-transform duration-200 ${isCollapsed ? '' : 'rotate-180'}`}
+                      fill="none" stroke="#1A7A40" strokeWidth="2.5"
+                    >
+                      <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                  </button>
                 );
               }
               return <MatchRow key={row.fix.id} fix={row.fix} />;

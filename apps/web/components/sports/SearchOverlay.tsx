@@ -97,80 +97,81 @@ export function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
 
   return (
     <>
-      {/* Backdrop */}
+      {/* Backdrop — lighter so page is still visible */}
       <div
-        className={clsx('fixed inset-0 z-50 bg-black/70 transition-opacity duration-200',
+        className={clsx('fixed inset-0 z-50 bg-black/40 transition-opacity duration-200',
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         )}
         onClick={onClose}
       />
 
-      {/* Overlay panel */}
+      {/* Overlay panel — white/light theme, slides from top */}
       <div
         className={clsx(
-          'fixed inset-x-0 top-0 z-50 flex flex-col transition-transform duration-300',
+          'fixed inset-x-0 top-0 z-50 flex flex-col transition-transform duration-300 shadow-2xl',
           isOpen ? 'translate-y-0' : '-translate-y-full'
         )}
-        style={{ background: '#0A0E1A', maxHeight: '90vh' }}
+        style={{ background: '#ffffff', maxHeight: '85vh', borderBottomLeftRadius: 16, borderBottomRightRadius: 16 }}
       >
         {/* Search Input */}
-        <div className="flex items-center gap-3 px-4 py-4 border-b border-white/10">
-          <div className="flex-1 flex items-center gap-2 px-3 py-2.5 rounded-xl" style={{ background: '#0D2018', border: '1px solid #1C3026' }}>
-            <svg viewBox="0 0 24 24" className="w-5 h-5 shrink-0 text-white/40" fill="none" stroke="currentColor" strokeWidth="2">
+        <div className="flex items-center gap-2 px-3 pt-4 pb-3 border-b border-gray-100">
+          <div className="flex-1 flex items-center gap-2 px-3 py-2.5 rounded-xl bg-gray-100 border border-gray-200">
+            <svg viewBox="0 0 24 24" className="w-4.5 h-4.5 shrink-0 text-[#19E66B]" fill="none" stroke="#19E66B" strokeWidth="2.5" style={{width:18,height:18}}>
               <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
             </svg>
             <input
               ref={inputRef}
               type="text"
-              placeholder="Search teams or leagues..."
+              placeholder="Search teams, leagues..."
               value={query}
               onChange={e => setQuery(e.target.value)}
-              className="flex-1 bg-transparent text-white placeholder-white/30 text-[15px] outline-none"
+              className="flex-1 bg-transparent text-gray-800 placeholder-gray-400 text-[15px] outline-none"
             />
             {query && (
-              <button onClick={() => setQuery('')} className="text-white/40 hover:text-white/70">
+              <button onClick={() => setQuery('')} className="text-gray-400 hover:text-gray-600">
                 <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
               </button>
             )}
           </div>
-          <button onClick={onClose} className="text-white/60 hover:text-white text-sm font-semibold px-2">
+          <button onClick={onClose} className="text-[#19E66B] text-sm font-bold px-2 shrink-0">
             Cancel
           </button>
         </div>
 
         {/* Results */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto bg-white">
           {!query.trim() ? (
-            <div className="py-16 text-center">
-              <div className="text-4xl mb-3">🔍</div>
-              <p className="text-white/40 text-sm">Search for a team or league</p>
+            <div className="px-4 py-6">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Quick Search</p>
+              <p className="text-sm text-gray-400">Type a team or league name to find matches…</p>
             </div>
           ) : loading ? (
-            <FullPageLoader />
+            <div className="flex items-center justify-center py-12 gap-2">
+              <div className="w-5 h-5 border-2 border-[#19E66B] border-t-transparent rounded-full animate-spin"/>
+              <span className="text-sm text-gray-400">Searching…</span>
+            </div>
           ) : results.length === 0 ? (
-            <div className="py-16 text-center">
+            <div className="py-12 text-center">
               <div className="text-4xl mb-3">😔</div>
-              <p className="text-white/40 text-sm">No matches found for &quot;{query}&quot;</p>
+              <p className="text-gray-400 text-sm">No matches found for &quot;{query}&quot;</p>
             </div>
           ) : (
             <div className="pb-6">
-              <p className="px-4 py-2 text-xs text-white/40 uppercase tracking-wider">
+              <p className="px-4 py-2 text-xs text-gray-400 uppercase tracking-wider">
                 {results.length} match{results.length !== 1 ? 'es' : ''} found
               </p>
               {Object.entries(grouped).map(([league, { fixtures, logoUrl }]) => (
-                <div key={league} className="mb-3">
-                  {/* League header */}
+                <div key={league} className="mb-2">
+                  {/* League header — green tinted */}
                   <div
-                    className="flex items-center gap-2 px-4 py-2"
-                    style={{ background: 'linear-gradient(90deg, #0A5F38 0%, #11834F 100%)' }}
+                    className="flex items-center gap-2 px-4 py-2 border-b border-[#D6F5E3]"
+                    style={{ background: '#F0FBF4' }}
                   >
-                    <div className="w-5 h-5 shrink-0 flex items-center justify-center bg-white rounded-full p-0.5">
-                      {logoUrl
-                        ? <Image src={logoUrl} alt={league} width={16} height={16} className="object-contain" unoptimized />
-                        : <span className="text-[10px]">⚽</span>
-                      }
-                    </div>
-                    <span className="text-[12px] font-bold text-white uppercase truncate">{league}</span>
+                    {logoUrl
+                      ? <Image src={logoUrl} alt={league} width={18} height={18} className="object-contain shrink-0" unoptimized />
+                      : <span className="text-sm">⚽</span>
+                    }
+                    <span className="text-[11px] font-bold text-[#1A7A40] uppercase tracking-wide truncate flex-1">{league}</span>
                   </div>
 
                   {/* Matches */}
