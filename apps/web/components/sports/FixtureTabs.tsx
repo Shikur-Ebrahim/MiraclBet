@@ -213,7 +213,32 @@ interface FixtureTabsProps {
   filterDate?: string;
   filterCountry?: string;
   priorityDate?: string;
-  onFixturesLoaded?: (fixtures: { country: string; flag?: string }[]) => void;
+  onFixturesLoaded?: (countries: { country: string; flag?: string }[]) => void;
+  onLeaguesLoaded?: (leagues: { id: string; name: string; logo?: string; country: string }[]) => void;
+}
+
+// League popularity ranking — lower = more popular
+function leaguePopularity(name: string): number {
+  const n = (name || '').toLowerCase();
+  if (n.includes('champions league')) return 1;
+  if (n.includes('premier league') && !n.includes('russia') && !n.includes('egypt')) return 2;
+  if (n.includes('la liga')) return 3;
+  if (n.includes('serie a') && n.includes('ital')) return 4;
+  if (n.includes('bundesliga') && !n.includes('2')) return 5;
+  if (n.includes('ligue 1')) return 6;
+  if (n.includes('europa league')) return 7;
+  if (n.includes('conference league')) return 8;
+  if (n.includes('copa libertadores')) return 9;
+  if (n.includes('world cup') || n.includes('euro ') || n.includes('copa america')) return 10;
+  if (n.includes('eredivisie')) return 11;
+  if (n.includes('primeira liga')) return 12;
+  if (n.includes('super lig') || n.includes('süper lig')) return 13;
+  if (n.includes('mls')) return 14;
+  if (n.includes('brasileiro') || n.includes('serie a brazil')) return 15;
+  if (n.includes('premier league')) return 16; // other premier leagues
+  if (n.includes('nations league')) return 17;
+  if (n.includes('championship')) return 50;
+  return 99;
 }
 
 export function FixtureTabs({
@@ -225,6 +250,7 @@ export function FixtureTabs({
   filterCountry,
   priorityDate,
   onFixturesLoaded,
+  onLeaguesLoaded,
 }: FixtureTabsProps) {
   const [allFixtures, setAllFixtures] = useState<Fixture[]>([]);
   const [loading, setLoading] = useState(true);
@@ -232,20 +258,44 @@ export function FixtureTabs({
   const [page, setPage] = useState(0);
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
 
-  // Notify parent whenever fixtures change so it can derive countries
+  // Notify parent whenever fixtures change — emit countries + leagues
   useEffect(() => {
-    if (!onFixturesLoaded || allFixtures.length === 0) return;
-    const seen = new Set<string>();
-    const list: { country: string; flag?: string }[] = [];
-    for (const f of allFixtures) {
-      if (f.country && !seen.has(f.country)) {
-        seen.add(f.country);
-        list.push({ country: f.country, flag: f.country_flag_url });
+    if (allFixtures.length === 0) return;
+
+    // Countries (alphabetical)
+    if (onFixturesLoaded) {
+      const seen = new Set<string>();
+      const list: { country: string; flag?: string }[] = [];
+      for (const f of allFixtures) {
+        if (f.country && !seen.has(f.country)) {
+          seen.add(f.country);
+          list.push({ country: f.country, flag: f.country_flag_url });
+        }
       }
+      list.sort((a, b) => a.country.localeCompare(b.country));
+      onFixturesLoaded(list);
     }
-    list.sort((a, b) => a.country.localeCompare(b.country));
-    onFixturesLoaded(list);
-  }, [allFixtures, onFixturesLoaded]);
+
+    // Leagues (popularity-sorted, deduplicated by league_external_id or name)
+    if (onLeaguesLoaded) {
+      const seenL = new Set<string>();
+      const leagues: { id: string; name: string; logo?: string; country: string }[] = [];
+      for (const f of allFixtures) {
+        const key = f.league_external_id || f.league;
+        if (key && !seenL.has(key)) {
+          seenL.add(key);
+          leagues.push({
+            id: f.league_external_id || f.league,
+            name: f.league,
+            logo: f.league_logo_url,
+            country: f.country,
+          });
+        }
+      }
+      leagues.sort((a, b) => leaguePopularity(a.name) - leaguePopularity(b.name) || a.name.localeCompare(b.name));
+      onLeaguesLoaded(leagues);
+    }
+  }, [allFixtures, onFixturesLoaded, onLeaguesLoaded]);
 
   // Reset page when filters change
   useEffect(() => { setPage(0); }, [sport, leagueId, activeTab, timeRange, filterDate, filterCountry]);
