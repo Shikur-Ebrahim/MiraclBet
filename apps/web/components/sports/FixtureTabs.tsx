@@ -212,7 +212,8 @@ interface FixtureTabsProps {
   activeTab?: 'prematch' | 'live';
   filterDate?: string;
   filterCountry?: string;
-  priorityDate?: string; // Show this date's matches first, others still visible below
+  priorityDate?: string;
+  onFixturesLoaded?: (fixtures: { country: string; flag?: string }[]) => void;
 }
 
 export function FixtureTabs({
@@ -223,12 +224,28 @@ export function FixtureTabs({
   filterDate,
   filterCountry,
   priorityDate,
+  onFixturesLoaded,
 }: FixtureTabsProps) {
   const [allFixtures, setAllFixtures] = useState<Fixture[]>([]);
-  const [loading, setLoading] = useState(true);       // true = first load skeleton
-  const [loadingMore, setLoadingMore] = useState(false); // true = background loading more
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(0);
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
+
+  // Notify parent whenever fixtures change so it can derive countries
+  useEffect(() => {
+    if (!onFixturesLoaded || allFixtures.length === 0) return;
+    const seen = new Set<string>();
+    const list: { country: string; flag?: string }[] = [];
+    for (const f of allFixtures) {
+      if (f.country && !seen.has(f.country)) {
+        seen.add(f.country);
+        list.push({ country: f.country, flag: f.country_flag_url });
+      }
+    }
+    list.sort((a, b) => a.country.localeCompare(b.country));
+    onFixturesLoaded(list);
+  }, [allFixtures, onFixturesLoaded]);
 
   // Reset page when filters change
   useEffect(() => { setPage(0); }, [sport, leagueId, activeTab, timeRange, filterDate, filterCountry]);
