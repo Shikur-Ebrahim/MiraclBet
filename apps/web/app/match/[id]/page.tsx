@@ -12,6 +12,8 @@ interface OddValue {
 interface Market {
   id: number;
   name: string;
+  status?: string;
+  odds_version?: number;
   values: OddValue[];
 }
 
@@ -41,15 +43,15 @@ interface MatchDetails {
 }
 
 // ─── Odd Button with Animation ─────────────────────────────────────────────────
-function OddButton({ value, odd, onClick, selected }: {
+function OddButton({ value, odd, onClick, selected, disabled }: {
   value: string; odd: string;
-  onClick?: () => void; selected?: boolean;
+  onClick?: () => void; selected?: boolean; disabled?: boolean;
 }) {
   const [flash, setFlash] = useState<'up' | 'down' | null>(null);
   const prevVal = React.useRef(odd);
 
   useEffect(() => {
-    if (odd !== null && prevVal.current !== null && odd !== prevVal.current) {
+    if (odd !== null && prevVal.current !== null && odd !== prevVal.current && !disabled) {
       const numVal = parseFloat(odd);
       const numPrev = parseFloat(prevVal.current);
       if (!isNaN(numVal) && !isNaN(numPrev)) {
@@ -59,17 +61,19 @@ function OddButton({ value, odd, onClick, selected }: {
       }
     }
     prevVal.current = odd;
-  }, [odd]);
+  }, [odd, disabled]);
 
   const displayVal = !isNaN(parseFloat(odd)) ? Number(odd).toFixed(2) : odd;
 
   return (
     <button
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
       className={`flex items-center justify-between rounded px-3 py-2.5 transition-all duration-300 border ${
+        disabled         ? 'bg-gray-100 border-gray-100 opacity-60 cursor-not-allowed' :
         flash === 'up'   ? 'bg-[#16A34A] border-[#16A34A]' :
         flash === 'down' ? 'bg-[#DC2626] border-[#DC2626]' :
-        selected         ? 'bg-[#0D8A3C] border-[#0D8A3C]' :  // solid dark green like homepage
+        selected         ? 'bg-[#0D8A3C] border-[#0D8A3C]' :
                            'bg-white hover:bg-[#F0FDF4] border-gray-200 hover:border-[#19E66B]/40'
       }`}
     >
@@ -79,7 +83,7 @@ function OddButton({ value, odd, onClick, selected }: {
         {value}
       </span>
       <span className={`text-[13px] font-bold transition-colors duration-300 ${
-        flash ? 'text-white' : selected ? 'text-white' : 'text-[#19E66B]'
+        flash ? 'text-white' : selected ? 'text-white' : disabled ? 'text-gray-400' : 'text-[#19E66B]'
       }`}>
         {displayVal}
       </span>
@@ -98,19 +102,30 @@ function MarketCard({
 }) {
   const [expanded, setExpanded] = useState(true);
 
+  if (market.status === 'CLOSED') return null;
+
+  const isSuspended = market.status === 'SUSPENDED';
   const cols = market.values.length === 2 ? 2 : market.values.length === 3 ? 3 : market.values.length % 2 === 0 ? 2 : 3;
 
   return (
-    <div className="mb-1.5 mx-3 mt-1.5 rounded-lg overflow-hidden border border-gray-100 shadow-sm">
+    <div className={`mb-1.5 mx-3 mt-1.5 rounded-lg overflow-hidden border ${isSuspended ? 'border-gray-200 opacity-75' : 'border-gray-100 shadow-sm'}`}>
       <button
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 border-b border-gray-100"
       >
         <div className="flex items-center gap-2">
-          <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-[#19E66B]" fill="currentColor">
-            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-          </svg>
-          <span className="text-[12px] font-bold text-gray-800">{market.name}</span>
+          {isSuspended ? (
+             <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" strokeWidth="2.5">
+               <rect x="5" y="11" width="14" height="10" rx="2" ry="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>
+             </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-[#19E66B]" fill="currentColor">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+          )}
+          <span className="text-[12px] font-bold text-gray-800">
+            {market.name} {isSuspended && <span className="text-gray-500 ml-1">(Suspended)</span>}
+          </span>
         </div>
         <svg
           viewBox="0 0 24 24"
@@ -122,7 +137,7 @@ function MarketCard({
       </button>
 
       {expanded && (
-        <div className="p-2 bg-white">
+        <div className="p-2 bg-white relative">
           <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
             {market.values.map((v, i) => {
               const isSelected = globalSelMarketId === market.id && globalSelIdx === i;
@@ -132,7 +147,10 @@ function MarketCard({
                   value={v.value}
                   odd={v.odd}
                   selected={isSelected}
-                  onClick={() => onSelect(isSelected ? -1 : market.id, isSelected ? -1 : i)}
+                  disabled={isSuspended}
+                  onClick={() => {
+                     if (!isSuspended) onSelect(isSelected ? -1 : market.id, isSelected ? -1 : i);
+                  }}
                 />
               );
             })}
@@ -345,10 +363,48 @@ export default function MatchPage() {
   const handleSelect = (marketId: number, idx: number) => {
     if (marketId === -1) setGlobalSel(null);
     else setGlobalSel({ marketId, idx });
+    setBetResult(null); // Reset bet result on new selection
+  };
+
+  const [isPlacing, setIsPlacing] = useState(false);
+  const [betResult, setBetResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  const placeBet = async () => {
+    if (!globalSel) return;
+    setIsPlacing(true);
+    setBetResult(null);
+    
+    const market = allMarkets.find(m => m.id === globalSel.marketId);
+    if (!market) return;
+    const selection = market.values[globalSel.idx];
+
+    try {
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
+      const res = await fetch(`${API_BASE}/api/v1/bets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fixture_id: match.id,
+          market_id: market.id,
+          selection: selection.value,
+          odds: parseFloat(selection.odd),
+          odds_version: market.odds_version || 1
+        })
+      });
+      const data = await res.json();
+      setBetResult(data);
+      if (data.success) {
+        setTimeout(() => setGlobalSel(null), 2000); // clear selection on success
+      }
+    } catch (e) {
+      setBetResult({ success: false, message: 'Network error. Please try again.' });
+    } finally {
+      setIsPlacing(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-white text-gray-900 flex flex-col font-sans">
+    <div className="min-h-screen bg-white text-gray-900 flex flex-col font-sans relative pb-20">
 
       {/* Header */}
       <div className="px-4 py-3 flex items-center justify-between border-b border-gray-100 bg-white sticky top-0 z-10">
@@ -451,6 +507,26 @@ export default function MatchPage() {
           </div>
         )}
       </div>
+
+      {/* Bet Slip Footer (Only visible when selection is active) */}
+      {globalSel && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] p-4 z-50">
+          {betResult && (
+            <div className={`mb-3 p-2 text-center text-sm font-bold rounded-lg ${betResult.success ? 'bg-[#E8FFF2] text-[#0D8A3C]' : 'bg-red-50 text-red-600'}`}>
+              {betResult.message}
+            </div>
+          )}
+          <button
+            onClick={placeBet}
+            disabled={isPlacing}
+            className={`w-full py-3.5 rounded-xl text-white font-bold text-sm shadow-md transition-all ${
+              isPlacing ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#0D8A3C] hover:bg-[#0A6B2E]'
+            }`}
+          >
+            {isPlacing ? 'Validating...' : 'Place Bet'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

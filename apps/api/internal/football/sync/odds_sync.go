@@ -12,9 +12,11 @@ import (
 
 // MarketData holds one betting market (e.g. "Match Winner") with all its values
 type MarketData struct {
-	ID     int        `json:"id"`
-	Name   string     `json:"name"`
-	Values []OddValue `json:"values"`
+	ID          int        `json:"id"`
+	Name        string     `json:"name"`
+	Status      string     `json:"status"`       // OPEN, SUSPENDED, CLOSED
+	OddsVersion int        `json:"odds_version"`
+	Values      []OddValue `json:"values"`
 }
 
 // OddValue is a single selection within a market
@@ -77,7 +79,6 @@ func (s *Syncer) saveOdds(ctx context.Context, odds []provider.ProviderOdd) erro
 	updated, skipped, errCount := 0, 0, 0
 
 	for _, o := range odds {
-		// Store ALL markets from the API — not just 4
 		var allMarkets []MarketData
 		for _, m := range o.Markets {
 			var vals []OddValue
@@ -85,7 +86,30 @@ func (s *Syncer) saveOdds(ctx context.Context, odds []provider.ProviderOdd) erro
 				vals = append(vals, OddValue{Value: v.Value, Odd: v.Odd})
 			}
 			if len(vals) > 0 {
-				allMarkets = append(allMarkets, MarketData{ID: m.ID, Name: m.Name, Values: vals})
+				// Upsert state tracking for this market
+				var newVersion int
+				stateQuery := `
+					INSERT INTO live_market_states (fixture_external_id, market_id, status, odds_version, last_update_at)
+					VALUES ($1, $2, 'OPEN', 1, NOW())
+					ON CONFLICT (fixture_external_id, market_id) DO UPDATE SET
+						odds_version = live_market_states.odds_version + 1,
+						status = 'OPEN',
+						last_update_at = NOW()
+					RETURNING odds_version
+				`
+				err := s.db.Pool.QueryRow(ctx, stateQuery, o.FixtureID, m.ID).Scan(&newVersion)
+				if err != nil {
+					// Fallback if migration hasn't run yet or other DB error
+					newVersion = 1
+				}
+
+				allMarkets = append(allMarkets, MarketData{
+					ID:          m.ID,
+					Name:        m.Name,
+					Status:      "OPEN",
+					OddsVersion: newVersion,
+					Values:      vals,
+				})
 			}
 		}
 
@@ -101,7 +125,6 @@ func (s *Syncer) saveOdds(ctx context.Context, odds []provider.ProviderOdd) erro
 			continue
 		}
 
-		// Pass as []byte — pgx v5 maps this directly to JSONB
 		res, err := s.db.Pool.Exec(ctx, query, jsonBytes, o.FixtureID)
 		if err != nil {
 			log.Printf("[odds] DB ERROR fixture %s: %v", o.FixtureID, err)
@@ -115,7 +138,7 @@ func (s *Syncer) saveOdds(ctx context.Context, odds []provider.ProviderOdd) erro
 
 	log.Printf("[odds] DONE — Saved: %d, Skipped: %d, Errors: %d, Total: %d", updated, skipped, errCount, len(odds))
 
-	// Auto-cleanup: remove fixtures that still have no odds and are older than 30 minutes
+	// Auto-cleanup
 	cleanupQuery := `
 		DELETE FROM fixtures
 		WHERE (

@@ -38,6 +38,9 @@ func New(cfg *config.Config, db *database.DB) http.Handler {
 		r.Get("/meta/leagues/top", metaHandler.GetTopLeagues)
 		r.Get("/meta/leagues", metaHandler.GetLeagues)
 
+		betsHandler := handlers.NewBetsHandler(db)
+		r.Post("/bets", betsHandler.PlaceBet)
+
 		// Debug endpoints — shows raw API response to diagnose odds issues
 		debugHandler := handlers.NewDebugHandler(cfg)
 		r.Get("/debug/odds", debugHandler.TestOdds)

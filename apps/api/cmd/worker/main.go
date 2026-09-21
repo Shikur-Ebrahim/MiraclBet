@@ -101,6 +101,8 @@ func main() {
         log.Println("[worker] ── STARTUP SYNC COMPLETE ──")
     }()
 
+    go syncer.StartLiveMonitor(ctx)
+
     // ── Main event loop ───────────────────────────────────────────────────────
     for {
         select {
