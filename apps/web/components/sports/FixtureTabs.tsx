@@ -111,9 +111,15 @@ function SkeletonRow() {
 }
 
 // ─── Odd Button with Animation ──────────────────────────────────────────────────
-function AnimatedOddButton({ label, val }: { label: string, val: string | null }) {
+function AnimatedOddButton({
+  label, val, selected, onSelect,
+}: {
+  label: string;
+  val: string | null;
+  selected: boolean;
+  onSelect: () => void;
+}) {
   const [flash, setFlash] = useState<'up' | 'down' | null>(null);
-  const [selected, setSelected] = useState(false);
   const prevVal = useRef(val);
 
   useEffect(() => {
@@ -122,7 +128,7 @@ function AnimatedOddButton({ label, val }: { label: string, val: string | null }
       const numPrev = parseFloat(prevVal.current);
       if (!isNaN(numVal) && !isNaN(numPrev)) {
         setFlash(numVal > numPrev ? 'up' : 'down');
-        const t = setTimeout(() => setFlash(null), 2000); // 2 seconds flash
+        const t = setTimeout(() => setFlash(null), 2000);
         return () => clearTimeout(t);
       }
     }
@@ -131,7 +137,7 @@ function AnimatedOddButton({ label, val }: { label: string, val: string | null }
 
   if (val === null) {
     return (
-      <div className="py-1.5 rounded flex flex-col items-center justify-center gap-0 bg-gray-50 border border-gray-100 opacity-90 transition-colors hover:bg-gray-100">
+      <div className="py-1.5 rounded flex flex-col items-center justify-center gap-0 bg-gray-50 border border-gray-100 opacity-90">
         <span className="text-[9px] text-gray-400 leading-none mb-[2px]">{label}</span>
         <svg viewBox="0 0 24 24" className="w-[13px] h-[13px] text-gray-400 mt-[1px]" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <rect x="5" y="11" width="14" height="10" rx="2" ry="2"/>
@@ -146,18 +152,22 @@ function AnimatedOddButton({ label, val }: { label: string, val: string | null }
   return (
     <button
       onClick={(e) => {
-        e.stopPropagation(); // stop click from bubbling to parent div (which would navigate)
-        setSelected(!selected);
+        e.stopPropagation(); // stop parent div onClick (goToMatch) from firing
+        onSelect();
       }}
       className={`py-1.5 rounded flex flex-col items-center justify-center gap-0 transition-all duration-300 border ${
-        flash === 'up' ? 'bg-[#16A34A] border-[#16A34A]' :
+        flash === 'up'   ? 'bg-[#16A34A] border-[#16A34A]' :
         flash === 'down' ? 'bg-[#DC2626] border-[#DC2626]' :
-        selected ? 'bg-[#0D8A3C] border-[#0D8A3C]' :
-        'bg-[#E4F4EC] border-[#19E66B]/30 hover:bg-[#D0EAD9]'
+        selected         ? 'bg-[#0D8A3C] border-[#0D8A3C]' :
+                           'bg-[#E4F4EC] border-[#19E66B]/30 hover:bg-[#D0EAD9]'
       }`}
     >
-      <span className={`text-[9px] leading-none mb-[2px] transition-colors duration-300 ${flash ? 'text-white/90' : selected ? 'text-white' : 'text-gray-400'}`}>{label}</span>
-      <span className={`text-[11.5px] font-bold leading-none transition-colors duration-300 ${flash ? 'text-white' : selected ? 'text-white' : 'text-[#0D8A3C]'}`}>{displayVal}</span>
+      <span className={`text-[9px] leading-none mb-[2px] transition-colors duration-300 ${
+        flash ? 'text-white/90' : selected ? 'text-white' : 'text-gray-400'
+      }`}>{label}</span>
+      <span className={`text-[11.5px] font-bold leading-none transition-colors duration-300 ${
+        flash ? 'text-white' : selected ? 'text-white' : 'text-[#0D8A3C]'
+      }`}>{displayVal}</span>
     </button>
   );
 }
@@ -165,6 +175,9 @@ function AnimatedOddButton({ label, val }: { label: string, val: string | null }
 // ─── Match Row ────────────────────────────────────────────────────────────────
 function MatchRow({ fix }: { fix: Fixture }) {
   const router = useRouter();
+  // Only ONE odd can be selected per match (null = none selected)
+  const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
+
   const kickoff = new Date(fix.kickoff_at);
   const dateStr = `${String(kickoff.getDate()).padStart(2, '0')}/${String(kickoff.getMonth() + 1).padStart(2, '0')}`;
   const timeStr = kickoff.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -226,7 +239,7 @@ function MatchRow({ fix }: { fix: Fixture }) {
           </div>
         </div>
 
-        {/* Market count badge */}
+        {/* Market count badge — also navigates to match */}
         {totalMarkets > 0 && (
           <div className="shrink-0 self-center">
             <span
@@ -241,11 +254,20 @@ function MatchRow({ fix }: { fix: Fixture }) {
 
       {/* Row 2: 6 odds buttons */}
       <div className="grid grid-cols-6 gap-1 ml-[44px]">
-        {oddCells.map(({ label, val }) => <AnimatedOddButton key={label} label={label} val={val} />)}
+        {oddCells.map(({ label, val }) => (
+          <AnimatedOddButton
+            key={label}
+            label={label}
+            val={val}
+            selected={selectedLabel === label}
+            onSelect={() => setSelectedLabel(selectedLabel === label ? null : label)}
+          />
+        ))}
       </div>
     </div>
   );
 }
+
 
 // ─── Main FixtureTabs ─────────────────────────────────────────────────────────
 interface FixtureTabsProps {
