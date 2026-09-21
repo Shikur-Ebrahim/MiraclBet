@@ -513,6 +513,13 @@ export function FixtureTabs({
     if (!markets || markets.length === 0) return false;
     if (!getOdds(f).hasRealOdds) return false;
     
+    // STRICT LOCAL DATE FILTER (bulletproof against cache/live bleed)
+    if (filterDate) {
+      if (!f.kickoff_at.startsWith(filterDate)) {
+        return false;
+      }
+    }
+
     // If a country filter is applied, also enforce it
     if (filterCountry) {
       const c = filterCountry.toLowerCase();
