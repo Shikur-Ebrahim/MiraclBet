@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface Fixture {
   id: string;
@@ -163,7 +163,8 @@ function AnimatedOddButton({ label, val }: { label: string, val: string | null }
 }
 
 // ─── Match Row ────────────────────────────────────────────────────────────────
-function MatchRow({ fix, priorityDate }: { fix: Fixture; priorityDate?: string }) {
+function MatchRow({ fix }: { fix: Fixture }) {
+  const router = useRouter();
   const kickoff = new Date(fix.kickoff_at);
   const dateStr = `${String(kickoff.getDate()).padStart(2, '0')}/${String(kickoff.getMonth() + 1).padStart(2, '0')}`;
   const timeStr = kickoff.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -179,14 +180,16 @@ function MatchRow({ fix, priorityDate }: { fix: Fixture; priorityDate?: string }
     { label: '12', val: ha },
   ];
 
+  const goToMatch = () => {
+    sessionStorage.setItem('homeScrollPos', window.scrollY.toString());
+    sessionStorage.setItem(`match_cache_${fix.id}`, JSON.stringify(fix));
+    router.push(`/match/${fix.id}`);
+  };
+
   return (
-    <Link
-      href={`/match/${fix.id}`}
-      onClick={() => {
-        sessionStorage.setItem('homeScrollPos', window.scrollY.toString());
-        sessionStorage.setItem(`match_cache_${fix.id}`, JSON.stringify(fix));
-      }}
-      className="block px-3 py-2.5 border-b border-gray-100 hover:bg-gray-50 transition-colors"
+    <div
+      onClick={goToMatch}
+      className="block px-3 py-2.5 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
     >
       {/* Row 1: date + teams + market count */}
       <div className="flex items-start gap-2 mb-2">
@@ -240,7 +243,7 @@ function MatchRow({ fix, priorityDate }: { fix: Fixture; priorityDate?: string }
       <div className="grid grid-cols-6 gap-1 ml-[44px]">
         {oddCells.map(({ label, val }) => <AnimatedOddButton key={label} label={label} val={val} />)}
       </div>
-    </Link>
+    </div>
   );
 }
 
