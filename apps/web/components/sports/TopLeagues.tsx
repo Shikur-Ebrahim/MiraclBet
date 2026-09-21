@@ -45,19 +45,6 @@ export function SportsNav({
     onSportChange?.(key);
   };
 
-  const handleSliderClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const percentage = Math.max(0, Math.min(1, x / rect.width));
-    const step = Math.round(percentage * 6);
-    onTimeRangeChange?.(step);
-  };
-
-  const getLabel = () => {
-    if (timeRange === 0) return 'Today\nEvents';
-    if (timeRange === 6) return 'All\nEvents';
-    return `${timeRange + 1} Days\nEvents`;
-  };
 
   const isLive = activeTab === 'live';
 

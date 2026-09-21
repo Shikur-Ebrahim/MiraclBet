@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { clsx } from 'clsx';
-import { FullPageLoader } from '@/components/ui/Loader';
 
 interface SearchFixture {
   id: string;

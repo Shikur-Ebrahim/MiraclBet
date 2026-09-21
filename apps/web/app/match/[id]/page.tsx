@@ -3,7 +3,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FullPageLoader } from '@/components/ui/Loader';
 
 interface OddValue {
   value: string;

@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { FullPageLoader } from '@/components/ui/Loader';
 
 interface Fixture {
   id: string;
@@ -428,7 +427,7 @@ export function FixtureTabs({
     // We fetch today first, then progressively load the next 6 days
     const loadDays = async () => {
       const baseUTC = new Date();
-      let combined: Fixture[] = [];
+      const combined: Fixture[] = [];
 
       for (let i = 0; i <= timeRange; i++) {
         try {
