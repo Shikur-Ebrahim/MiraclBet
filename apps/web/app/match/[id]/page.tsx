@@ -183,6 +183,8 @@ export default function MatchPage() {
   const [activeTab, setActiveTab] = useState('All');
   // Global selection: only ONE odd can be selected across ALL markets at once
   const [globalSel, setGlobalSel] = useState<{ marketId: number; idx: number } | null>(null);
+  const [isPlacing, setIsPlacing] = useState(false);
+  const [betResult, setBetResult] = useState<{ success: boolean; message: string } | null>(null);
 
   const findMatch = useCallback(async () => {
     const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
@@ -201,7 +203,7 @@ export default function MatchPage() {
         setSourceUrl(knownSourceUrl);
         setLoading(false);
       }
-    } catch (e) { /* ignore */ }
+    } catch { /* ignore */ }
 
     // 2. Fetch the absolute latest odds to ensure the page isn't stale
     try {
@@ -337,10 +339,6 @@ export default function MatchPage() {
     </div>
   );
 
-  const kickoff = new Date(match.kickoff_at);
-  const dateStr = `${String(kickoff.getDate()).padStart(2, '0')}/${String(kickoff.getMonth() + 1).padStart(2, '0')}`;
-  const timeStr = kickoff.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
   const allMarkets = match.advanced_odds?.markets ?? [];
 
   // Build per-tab market lists
@@ -363,11 +361,8 @@ export default function MatchPage() {
   const handleSelect = (marketId: number, idx: number) => {
     if (marketId === -1) setGlobalSel(null);
     else setGlobalSel({ marketId, idx });
-    setBetResult(null); // Reset bet result on new selection
+    setBetResult(null);
   };
-
-  const [isPlacing, setIsPlacing] = useState(false);
-  const [betResult, setBetResult] = useState<{ success: boolean; message: string } | null>(null);
 
   const placeBet = async () => {
     if (!globalSel) return;
@@ -396,7 +391,7 @@ export default function MatchPage() {
       if (data.success) {
         setTimeout(() => setGlobalSel(null), 2000); // clear selection on success
       }
-    } catch (e) {
+    } catch {
       setBetResult({ success: false, message: 'Network error. Please try again.' });
     } finally {
       setIsPlacing(false);
