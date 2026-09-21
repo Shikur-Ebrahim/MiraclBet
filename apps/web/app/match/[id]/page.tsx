@@ -54,7 +54,7 @@ function OddButton({ value, odd, onClick, selected }: {
       const numPrev = parseFloat(prevVal.current);
       if (!isNaN(numVal) && !isNaN(numPrev)) {
         setFlash(numVal > numPrev ? 'up' : 'down');
-        const t = setTimeout(() => setFlash(null), 1500);
+        const t = setTimeout(() => setFlash(null), 2000); // 2 seconds flash
         return () => clearTimeout(t);
       }
     }

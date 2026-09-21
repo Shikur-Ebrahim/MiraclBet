@@ -121,7 +121,7 @@ function AnimatedOddButton({ label, val }: { label: string, val: string | null }
       const numPrev = parseFloat(prevVal.current);
       if (!isNaN(numVal) && !isNaN(numPrev)) {
         setFlash(numVal > numPrev ? 'up' : 'down');
-        const t = setTimeout(() => setFlash(null), 1500);
+        const t = setTimeout(() => setFlash(null), 2000); // 2 seconds flash
         return () => clearTimeout(t);
       }
     }
@@ -490,12 +490,17 @@ export function FixtureTabs({
 
   // ── Polling for Live Odds Updates ──────────────────────────────────────────
   useEffect(() => {
-    // Only poll for live tab (10s) or today's prematch (30s)
+    // Poll for live tab (10s) or currently viewed prematch day (30s)
     const interval = setInterval(() => {
       const isLive = activeTab === 'live';
+      
+      // Determine what date to poll. If looking at a specific day, poll that. 
+      // If no day is strictly filtered, fallback to today.
+      const pollDateStr = filterDate ? filterDate : new Date().toISOString().split('T')[0];
+
       const url = isLive 
         ? `${API_BASE}/api/v1/fixtures/live?sport=${sport}`
-        : `${API_BASE}/api/v1/fixtures?date=${new Date().toISOString().split('T')[0]}&sport=${sport}`;
+        : `${API_BASE}/api/v1/fixtures?date=${pollDateStr}&sport=${sport}`;
         
       fetch(url, { cache: 'no-store' }).then(r => r.json()).then(data => {
         if (!Array.isArray(data)) return;
@@ -529,7 +534,7 @@ export function FixtureTabs({
     }, activeTab === 'live' ? 10000 : 30000);
 
     return () => clearInterval(interval);
-  }, [activeTab, sport, API_BASE]);
+  }, [activeTab, sport, API_BASE, filterDate]);
 
 
   // Build displayFixtures:
