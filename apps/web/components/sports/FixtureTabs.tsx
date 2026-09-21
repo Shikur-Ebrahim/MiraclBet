@@ -280,13 +280,24 @@ function leaguePopularity(name: string): number {
   return 99;
 }
 
-// ─── Global Cache to restore scroll position instantly on Back navigation ──
-const globalFixtureCache = {
-  key: '',
-  data: [] as Fixture[],
+// ─── Global ALL-DAYS store: loaded ONCE, used for instant local filtering ──
+// This eliminates all loading on day-filter switches. All 7 days live here.
+const globalAllDaysStore: {
+  sport: string;
+  data: Fixture[];
+  loaded: boolean;
+  loading: boolean;
+  timestamp: number;
+  page: number;
+  collapsedLeagues: string[];
+} = {
+  sport: '',
+  data: [],
+  loaded: false,
+  loading: false,
   timestamp: 0,
   page: 0,
-  collapsedLeagues: [] as string[],
+  collapsedLeagues: [],
 };
 
 export function FixtureTabs({
@@ -301,27 +312,24 @@ export function FixtureTabs({
   onLeaguesLoaded,
 }: FixtureTabsProps) {
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
-  const cacheKey = `${sport}-${activeTab}-${timeRange}-${filterDate || ''}`;
-  const isCacheValid = globalFixtureCache.key === cacheKey && (Date.now() - globalFixtureCache.timestamp < 5 * 60 * 1000);
+  const currentStoreKey = `${sport}-${activeTab}-${leagueId || ''}`;
+  const isCacheValid = globalAllDaysStore.sport === currentStoreKey && globalAllDaysStore.data.length > 0;
 
-  const [allFixtures, setAllFixtures] = useState<Fixture[]>(() => isCacheValid ? globalFixtureCache.data : []);
-  const [loading, setLoading] = useState(allFixtures.length === 0);
+  const [allFixtures, setAllFixtures] = useState<Fixture[]>(() => isCacheValid ? globalAllDaysStore.data : []);
+  const [loading, setLoading] = useState(!isCacheValid);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [page, setPage] = useState(() => isCacheValid ? globalFixtureCache.page : 0);
+  const [page, setPage] = useState(() => isCacheValid ? globalAllDaysStore.page : 0);
   const [collapsedLeagues, setCollapsedLeagues] = useState<Set<string>>(() => 
-    isCacheValid ? new Set(globalFixtureCache.collapsedLeagues) : new Set()
+    isCacheValid ? new Set(globalAllDaysStore.collapsedLeagues) : new Set()
   );
 
-  // Sync to cache
+  // Sync scroll metadata to store
   useEffect(() => {
-    if (allFixtures.length > 0) {
-      globalFixtureCache.key = cacheKey;
-      globalFixtureCache.data = allFixtures;
-      globalFixtureCache.timestamp = Date.now();
-      globalFixtureCache.page = page;
-      globalFixtureCache.collapsedLeagues = Array.from(collapsedLeagues);
+    if (isCacheValid) {
+      globalAllDaysStore.page = page;
+      globalAllDaysStore.collapsedLeagues = Array.from(collapsedLeagues);
     }
-  }, [allFixtures, cacheKey, page, collapsedLeagues]);
+  }, [page, collapsedLeagues, isCacheValid]);
 
   // Handle precise scroll restoration
   useEffect(() => {
@@ -377,10 +385,23 @@ export function FixtureTabs({
   useEffect(() => { setPage(0); }, [sport, leagueId, activeTab, timeRange, filterDate, filterCountry, filterSearch]);
 
   useEffect(() => {
-    // Skip fetch if restored from cache
-    if (isCacheValid && allFixtures.length > 0) {
+    // We do NOT want to re-fetch when filterDate changes. All days are loaded into allFixtures.
+    // We only re-fetch if sport, leagueId, or activeTab changes.
+    const currentStoreKey = `${sport}-${activeTab}-${leagueId || ''}`;
+    
+    if (globalAllDaysStore.sport === currentStoreKey && globalAllDaysStore.data.length > 0) {
+      setAllFixtures(globalAllDaysStore.data);
+      if (!globalAllDaysStore.loading) {
+        setLoading(false);
+      }
       return;
     }
+
+    // New store context, reset
+    globalAllDaysStore.sport = currentStoreKey;
+    globalAllDaysStore.data = [];
+    globalAllDaysStore.loaded = false;
+    globalAllDaysStore.loading = true;
 
     setAllFixtures([]);
     setLoading(true);
@@ -390,81 +411,66 @@ export function FixtureTabs({
       const url = `${API_BASE}/api/v1/fixtures/live?sport=${sport}`;
       fetch(url, { cache: 'no-store' })
         .then(r => r.json())
-        .then(data => setAllFixtures(Array.isArray(data) ? data : []))
+        .then(data => {
+          const fixtures = Array.isArray(data) ? data : [];
+          globalAllDaysStore.data = fixtures;
+          globalAllDaysStore.loading = false;
+          setAllFixtures(fixtures);
+        })
         .catch(() => setAllFixtures([]))
         .finally(() => setLoading(false));
       return;
     }
 
-    // ── Progressive loading for prematch ─────────────────────────────────────
-    const daysToLoad = filterDate ? 0 : timeRange;
-    // Use UTC base date so it matches server timezone
-    const baseDate = filterDate
-      ? new Date(filterDate + 'T00:00:00Z')  // treat as UTC midnight
-      : new Date();
+    // ── Progressive loading for prematch (Load all 7 days) ───────────────────
     const seen = new Set<string>();
+    
+    // We fetch today first, then progressively load the next 6 days
+    const loadDays = async () => {
+      const baseUTC = new Date();
+      let combined: Fixture[] = [];
 
-    const mergeFixtures = (fresh: Fixture[]) => {
-      setAllFixtures(prev => {
-        // Build a dedup key from BOTH id AND team names (handles duplicate DB rows)
-        const getDupKey = (f: Fixture) => `${f.id}|${f.home_team}|${f.away_team}|${f.kickoff_at?.slice(0,10)}`;
-        
-        // Seed the seen set from current state to prevent double-adds
-        const existing = new Map<string, Fixture>();
-        for (const f of prev) {
-          existing.set(getDupKey(f), f);
-        }
-        for (const f of fresh) {
-          const key = getDupKey(f);
-          if (!seen.has(key) && !existing.has(key)) {
-            seen.add(key);
-            existing.set(key, f);
+      for (let i = 0; i <= timeRange; i++) {
+        try {
+          const d = new Date(Date.UTC(baseUTC.getUTCFullYear(), baseUTC.getUTCMonth(), baseUTC.getUTCDate() + i));
+          const dateStr = d.toISOString().split('T')[0];
+          const url = `${API_BASE}/api/v1/fixtures?date=${dateStr}&sport=${sport}${leagueId ? `&league=${leagueId}` : ''}`;
+          
+          const res = await fetch(url, { cache: 'no-store' });
+          const data = await res.json();
+          const fixtures = Array.isArray(data) ? data : [];
+          
+          for (const f of fixtures) {
+            const dupKey = `${f.id}|${f.home_team}|${f.away_team}|${f.kickoff_at?.slice(0,10)}`;
+            if (!seen.has(dupKey)) {
+              seen.add(dupKey);
+              combined.push(f);
+            }
           }
-        }
-        const combined = Array.from(existing.values());
-        // Sort by time
-        combined.sort((a, b) => new Date(a.kickoff_at).getTime() - new Date(b.kickoff_at).getTime());
-        return combined;
-      });
+
+          // Sort by time
+          combined.sort((a, b) => new Date(a.kickoff_at).getTime() - new Date(b.kickoff_at).getTime());
+          
+          // Update global store and local state
+          globalAllDaysStore.data = [...combined];
+          setAllFixtures(globalAllDaysStore.data);
+          
+          if (i === 0) {
+            setLoading(false); // Today loaded, hide main spinner
+            if (timeRange > 0) setLoadingMore(true); // Show bottom loader
+          }
+        } catch { /* ignore */ }
+        
+        if (i < timeRange) await new Promise(r => setTimeout(r, 200));
+      }
+      
+      globalAllDaysStore.loading = false;
+      globalAllDaysStore.loaded = true;
+      setLoadingMore(false);
     };
 
-    const buildUrl = (dateStr: string) => {
-      return `${API_BASE}/api/v1/fixtures?date=${dateStr}&sport=${sport}`;
-    };
-
-    // Step 1: Load selected date instantly → first paint
-    const todayStr = baseDate.toISOString().split('T')[0];
-    fetch(buildUrl(todayStr), { cache: 'no-store' })
-      .then(r => r.json())
-      .then(data => {
-        const fixtures = Array.isArray(data) ? data : [];
-        for (const f of fixtures) seen.add(f.id);
-        setAllFixtures(fixtures);
-      })
-      .catch(() => {})
-      .finally(() => {
-        setLoading(false);
-        // Only load extra days if timeRange > 0 AND no specific date is locked
-        if (daysToLoad > 0 && !filterDate) setLoadingMore(true);
-      });
-
-    // Step 2: Load remaining days in background only when timeRange > 0
-    if (daysToLoad > 0 && !filterDate) {
-      const loadRemaining = async () => {
-        for (let i = 1; i <= daysToLoad; i++) {
-          try {
-            const d = new Date(baseDate);
-            d.setDate(baseDate.getDate() + i);
-            const data = await fetch(buildUrl(d.toISOString().split('T')[0]), { cache: 'no-store' }).then(r => r.json());
-            mergeFixtures(Array.isArray(data) ? data : []);
-          } catch { /* ignore */ }
-          await new Promise(r => setTimeout(r, 300));
-        }
-        setLoadingMore(false);
-      };
-      loadRemaining();
-    }
-  }, [sport, leagueId, activeTab, timeRange, API_BASE, filterDate, isCacheValid]);
+    loadDays();
+  }, [sport, leagueId, activeTab, timeRange, API_BASE]);
 
   // ── Polling for Live Odds Updates ──────────────────────────────────────────
   useEffect(() => {
@@ -509,14 +515,27 @@ export function FixtureTabs({
     return () => clearInterval(interval);
   }, [activeTab, sport, API_BASE]);
 
-  function getLeaguePriority(leagueName: string): number {
-    const name = (leagueName || '').toLowerCase();
-    if (name.includes('premier league') || name.includes('champions league') || name.includes('europa league')) return 1;
-    if (name.includes('la liga') || name.includes('serie a') || name.includes('bundesliga') || name.includes('ligue 1')) return 2;
-    if (name.includes('world cup') || name.includes('euro ') || name.includes('copa america') || name.includes('copa libertadores')) return 3;
-    if (name.includes('championship') || name.includes('eredivisie') || name.includes('primeira liga')) return 4;
-    if (name.includes('mls') || name.includes('brasileiro')) return 5;
-    return 99; // Default for others
+  function getLeaguePriority(leagueName: string | undefined): number {
+    if (!leagueName) return 999;
+    const name = leagueName.toLowerCase();
+    
+    if (name.includes('premier league') && !name.includes('women') && !name.includes('2')) return 1;
+    if (name.includes('la liga')) return 2;
+    if (name.includes('serie a')) return 3;
+    if (name.includes('bundesliga') && !name.includes('2') && !name.includes('3')) return 4;
+    if (name.includes('ligue 1')) return 5;
+    if (name.includes('brasileiro serie a') || name.includes('brasileirão')) return 6;
+    if (name.includes('primeira liga')) return 7;
+    if (name.includes('eredivisie')) return 8;
+    if (name.includes('belgian pro league') || name.includes('first division a')) return 9;
+    if (name.includes('süper lig') || name.includes('super lig')) return 10;
+    if (name.includes('liga profesional argentina') || name.includes('argentine primera')) return 11;
+    if (name.includes('mls') || name.includes('major league soccer')) return 12;
+    if (name.includes('saudi pro league')) return 13;
+    if (name.includes('primera division') && name.includes('paraguay')) return 14;
+    if (name.includes('j1 league')) return 15;
+    
+    return 999;
   }
 
   // ALWAYS strictly drop matches without displayable odds
