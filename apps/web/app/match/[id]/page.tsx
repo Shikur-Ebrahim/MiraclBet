@@ -221,6 +221,12 @@ export default function MatchPage() {
     }
   }, [id]);
 
+  // Hard safety timeout: if still loading after 5s, stop spinner so user sees "not found"
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 5000);
+    return () => clearTimeout(t);
+  }, []);
+
   useEffect(() => { findMatch(); }, [findMatch]);
 
   // Polling Effect
