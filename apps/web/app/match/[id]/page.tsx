@@ -41,24 +41,48 @@ interface MatchDetails {
   advanced_odds?: AdvancedOdds;
 }
 
-// ─── Odd Button Layout (light theme) ─────────────────────────────────────────
+// ─── Odd Button with Animation ─────────────────────────────────────────────────
 function OddButton({ value, odd, onClick, selected }: {
   label?: string; value: string; odd: string;
   onClick?: () => void; selected?: boolean;
 }) {
+  const [flash, setFlash] = useState<'up' | 'down' | null>(null);
+  const prevVal = React.useRef(odd);
+
+  useEffect(() => {
+    if (odd !== null && prevVal.current !== null && odd !== prevVal.current) {
+      const numVal = parseFloat(odd);
+      const numPrev = parseFloat(prevVal.current);
+      if (!isNaN(numVal) && !isNaN(numPrev)) {
+        setFlash(numVal > numPrev ? 'up' : 'down');
+        const t = setTimeout(() => setFlash(null), 1500);
+        return () => clearTimeout(t);
+      }
+    }
+    prevVal.current = odd;
+  }, [odd]);
+
+  const displayVal = !isNaN(parseFloat(odd)) ? Number(odd).toFixed(2) : odd;
+
   return (
     <button
       onClick={onClick}
-      className={`flex items-center justify-between rounded px-3 py-2.5 transition-colors border ${
-        selected
-          ? 'bg-[#E8FFF2] border-[#19E66B] '
-          : 'bg-white hover:bg-[#F0FDF4] border-gray-200 hover:border-[#19E66B]/40'
+      className={`flex items-center justify-between rounded px-3 py-2.5 transition-all duration-300 border ${
+        flash === 'up' ? 'bg-[#16A34A] border-[#16A34A]' :
+        flash === 'down' ? 'bg-[#DC2626] border-[#DC2626]' :
+        selected ? 'bg-[#E8FFF2] border-[#19E66B]' : 'bg-white hover:bg-[#F0FDF4] border-gray-200 hover:border-[#19E66B]/40'
       }`}
     >
-      <span className={`text-[12px] ${selected ? 'text-[#0D8A3C] font-semibold' : 'text-gray-500'}`}>
+      <span className={`text-[12px] transition-colors duration-300 ${
+        flash ? 'text-white/90' : selected ? 'text-[#0D8A3C] font-semibold' : 'text-gray-500'
+      }`}>
         {value}
       </span>
-      <span className={`text-[13px] font-bold ${selected ? 'text-[#0D8A3C]' : 'text-[#19E66B]'}`}>{odd}</span>
+      <span className={`text-[13px] font-bold transition-colors duration-300 ${
+        flash ? 'text-white' : selected ? 'text-[#0D8A3C]' : 'text-[#19E66B]'
+      }`}>
+        {displayVal}
+      </span>
     </button>
   );
 }
@@ -124,6 +148,7 @@ export default function MatchPage() {
   const router = useRouter();
   const id = params.id as string;
   const [match, setMatch] = useState<MatchDetails | null>(null);
+  const [sourceUrl, setSourceUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('All');
 
@@ -142,7 +167,11 @@ export default function MatchPage() {
       for (const url of sources) {
         const data = await fetch(url).then(r => r.json());
         const found = (Array.isArray(data) ? data : []).find((f: MatchDetails) => f.id === id);
-        if (found) { setMatch(found); return; }
+        if (found) {
+          setMatch(found);
+          setSourceUrl(url);
+          return;
+        }
       }
     } catch (e) {
       console.error(e);
@@ -153,6 +182,27 @@ export default function MatchPage() {
 
   useEffect(() => { findMatch(); }, [findMatch]);
 
+  // Polling Effect
+  useEffect(() => {
+    if (!sourceUrl) return;
+    const interval = setInterval(async () => {
+      try {
+        const data = await fetch(sourceUrl, { cache: 'no-store' }).then(r => r.json());
+        const found = (Array.isArray(data) ? data : []).find((f: MatchDetails) => f.id === id);
+        if (found) {
+          setMatch(prev => {
+            if (!prev) return found;
+            if (JSON.stringify(prev.advanced_odds) !== JSON.stringify(found.advanced_odds) ||
+                prev.home_score !== found.home_score || prev.away_score !== found.away_score || prev.elapsed !== found.elapsed) {
+              return found;
+            }
+            return prev;
+          });
+        }
+      } catch {}
+    }, sourceUrl.includes('/live') ? 10000 : 30000); // 10s for live, 30s for prematch
+    return () => clearInterval(interval);
+  }, [sourceUrl, id]);
   if (loading) return (
     <div className="min-h-screen bg-white animate-pulse">
       {/* Header skeleton */}

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { FullPageLoader } from '@/components/ui/Loader';
@@ -111,11 +111,58 @@ function SkeletonRow() {
   );
 }
 
+// ─── Odd Button with Animation ──────────────────────────────────────────────────
+function AnimatedOddButton({ label, val }: { label: string, val: string | null }) {
+  const [flash, setFlash] = useState<'up' | 'down' | null>(null);
+  const prevVal = useRef(val);
 
-function MatchRow({ fix }: { fix: Fixture }) {
+  useEffect(() => {
+    if (val !== null && prevVal.current !== null && val !== prevVal.current) {
+      const numVal = parseFloat(val);
+      const numPrev = parseFloat(prevVal.current);
+      if (!isNaN(numVal) && !isNaN(numPrev)) {
+        setFlash(numVal > numPrev ? 'up' : 'down');
+        const t = setTimeout(() => setFlash(null), 1500);
+        return () => clearTimeout(t);
+      }
+    }
+    prevVal.current = val;
+  }, [val]);
+
+  if (val === null) {
+    return (
+      <div className="py-1.5 rounded flex flex-col items-center justify-center gap-0 bg-gray-50 border border-gray-100 opacity-90 transition-colors hover:bg-gray-100">
+        <span className="text-[9px] text-gray-400 leading-none mb-[2px]">{label}</span>
+        <svg viewBox="0 0 24 24" className="w-[13px] h-[13px] text-gray-400 mt-[1px]" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="5" y="11" width="14" height="10" rx="2" ry="2"/>
+          <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
+        </svg>
+      </div>
+    );
+  }
+
+  const displayVal = !isNaN(parseFloat(val)) ? Number(val).toFixed(2) : val;
+
+  return (
+    <button
+      onClick={(e) => e.preventDefault()}
+      className={`py-1.5 rounded flex flex-col items-center justify-center gap-0 transition-all duration-300 ${
+        flash === 'up' ? 'bg-[#16A34A] border-[#16A34A]' :
+        flash === 'down' ? 'bg-[#DC2626] border-[#DC2626]' :
+        'bg-[#E4F4EC] border border-[#19E66B]/30 hover:bg-[#D0EAD9]'
+      }`}
+    >
+      <span className={`text-[9px] leading-none mb-[2px] transition-colors duration-300 ${flash ? 'text-white/90' : 'text-gray-400'}`}>{label}</span>
+      <span className={`text-[11.5px] font-bold leading-none transition-colors duration-300 ${flash ? 'text-white' : 'text-[#0D8A3C]'}`}>{displayVal}</span>
+    </button>
+  );
+}
+
+// ─── Match Row ────────────────────────────────────────────────────────────────
+function MatchRow({ fix, priorityDate }: { fix: Fixture; priorityDate?: string }) {
   const kickoff = new Date(fix.kickoff_at);
-  const timeStr = kickoff.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const dateStr = `${String(kickoff.getDate()).padStart(2, '0')}/${String(kickoff.getMonth() + 1).padStart(2, '0')}`;
+  const timeStr = kickoff.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   const { home, draw, away, hd, da, ha, totalMarkets } = getOdds(fix);
 
@@ -184,29 +231,7 @@ function MatchRow({ fix }: { fix: Fixture }) {
 
       {/* Row 2: 6 odds buttons */}
       <div className="grid grid-cols-6 gap-1 ml-[44px]">
-        {oddCells.map(({ label, val }) =>
-          val !== null ? (
-            <button
-              key={label}
-              onClick={(e) => e.preventDefault()}
-              className="py-1.5 rounded flex flex-col items-center justify-center gap-0 transition-colors bg-[#E4F4EC] border border-[#19E66B]/30 hover:bg-[#D0EAD9]"
-            >
-              <span className="text-[9px] text-gray-400 leading-none mb-[2px]">{label}</span>
-              <span className="text-[11.5px] font-bold leading-none text-[#0D8A3C]">{val}</span>
-            </button>
-          ) : (
-            <div
-              key={label}
-              className="py-1.5 rounded flex flex-col items-center justify-center gap-0 bg-gray-50 border border-gray-100 opacity-90 transition-colors hover:bg-gray-100"
-            >
-              <span className="text-[9px] text-gray-400 leading-none mb-[2px]">{label}</span>
-              <svg viewBox="0 0 24 24" className="w-[13px] h-[13px] text-gray-400 mt-[1px]" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="5" y="11" width="14" height="10" rx="2" ry="2"/>
-                <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
-              </svg>
-            </div>
-          )
-        )}
+        {oddCells.map(({ label, val }) => <AnimatedOddButton key={label} label={label} val={val} />)}
       </div>
     </Link>
   );
@@ -423,7 +448,50 @@ export function FixtureTabs({
       };
       loadRemaining();
     }
-  }, [sport, leagueId, activeTab, timeRange, API_BASE, filterDate]);
+  }, [sport, leagueId, activeTab, timeRange, API_BASE, filterDate, isCacheValid]);
+
+  // ── Polling for Live Odds Updates ──────────────────────────────────────────
+  useEffect(() => {
+    // Only poll for live tab (10s) or today's prematch (30s)
+    const interval = setInterval(() => {
+      const isLive = activeTab === 'live';
+      const url = isLive 
+        ? `${API_BASE}/api/v1/fixtures/live?sport=${sport}`
+        : `${API_BASE}/api/v1/fixtures?date=${new Date().toISOString().split('T')[0]}&sport=${sport}`;
+        
+      fetch(url, { cache: 'no-store' }).then(r => r.json()).then(data => {
+        if (!Array.isArray(data)) return;
+        setAllFixtures(prev => {
+          const next = [...prev];
+          let changed = false;
+          for (const f of data) {
+            const idx = next.findIndex(x => x.id === f.id);
+            if (idx !== -1) {
+              // Deep compare odds and basic live states to avoid needless renders
+              if (
+                JSON.stringify(next[idx].advanced_odds) !== JSON.stringify(f.advanced_odds) ||
+                next[idx].home_score !== f.home_score ||
+                next[idx].away_score !== f.away_score ||
+                next[idx].elapsed !== f.elapsed
+              ) {
+                next[idx] = f;
+                changed = true;
+              }
+            } else if (isLive) {
+              // Only push new matches if we are in live view, otherwise wait for standard progressive reload
+              next.push(f);
+              changed = true;
+            }
+          }
+          if (!changed) return prev;
+          next.sort((a, b) => new Date(a.kickoff_at).getTime() - new Date(b.kickoff_at).getTime());
+          return next;
+        });
+      }).catch(() => {});
+    }, activeTab === 'live' ? 10000 : 30000);
+
+    return () => clearInterval(interval);
+  }, [activeTab, sport, API_BASE]);
 
   function getLeaguePriority(leagueName: string): number {
     const name = (leagueName || '').toLowerCase();
