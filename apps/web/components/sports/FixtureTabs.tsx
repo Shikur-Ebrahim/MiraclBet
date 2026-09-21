@@ -188,16 +188,24 @@ function MatchRow({ fix }: { fix: Fixture }) {
           <button
             key={label}
             onClick={(e) => e.preventDefault()}
+            disabled={val === null}
             className={`py-1.5 rounded flex flex-col items-center justify-center gap-0 transition-colors ${
               val !== null
                 ? 'bg-[#E4F4EC] border border-[#19E66B]/30 hover:bg-[#D0EAD9]'
-                : 'bg-[#F2F4F7]'
+                : 'bg-gray-50 border border-gray-100 cursor-not-allowed opacity-80'
             }`}
           >
-            <span className="text-[9px] text-gray-400 leading-none">{label}</span>
-            <span className={`text-[11px] font-bold leading-tight ${val !== null ? 'text-[#0D8A3C]' : 'text-gray-300'}`}>
-              {val ?? '—'}
-            </span>
+            <span className="text-[9px] text-gray-400 leading-none mb-[2px]">{label}</span>
+            {val !== null ? (
+              <span className="text-[11.5px] font-bold leading-none text-[#0D8A3C]">
+                {val}
+              </span>
+            ) : (
+              <svg viewBox="0 0 24 24" className="w-[11px] h-[11px] text-gray-300" fill="currentColor">
+                <path d="M17 9V7c0-2.8-2.2-5-5-5S7 4.2 7 7v2c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V11c0-1.1-.9-2-2-2zm-8-2c0-1.7 1.3-3 3-3s3 1.3 3 3v2H9V7zm8 14H7V11h10v10z"/>
+                <circle cx="12" cy="16" r="1.5"/>
+              </svg>
+            )}
           </button>
         ))}
       </div>
