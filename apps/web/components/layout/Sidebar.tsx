@@ -383,55 +383,9 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
             ))
           )}
         </div>
-
-        {/* ── SPORTS SECTION ── */}
-        <div>
-          <button
-            onClick={() => setExpandedSection(expandedSection === 'sports' ? null : 'sports')}
-            className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#19E66B' }}>
-                <svg viewBox="0 0 24 24" className="w-5 h-5 text-[#072414]" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10"/>
-                  <path d="M12 8l1.5 3H17l-2.5 2 1 3.5L12 14.5l-3.5 2 1-3.5L7 11h3.5z" fill="currentColor" opacity="0.5"/>
-                </svg>
-              </div>
-              <span className="font-bold text-white">Sports</span>
-            </div>
-            <svg viewBox="0 0 24 24" className={clsx('w-5 h-5 text-white/50 transition-transform', expandedSection === 'sports' ? 'rotate-180' : '')} fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="6 9 12 15 18 9"/>
-            </svg>
-          </button>
-
-          {expandedSection === 'sports' && (
-            <div className="pt-1">
-              {sportsList.map(sport => (
-                <button
-                  key={sport.slug}
-                  onClick={() => { onSelectSport(sport.slug); onClose(); }}
-                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors group rounded-lg"
-                >
-                  <div className="flex items-center gap-4">
-                    <span className="text-xl">{sport.emoji}</span>
-                    <span className="text-sm font-medium text-white/90 group-hover:text-white">{sport.name}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {sport.count > 0 && (
-                      <span className="text-xs font-semibold text-white/40">{sport.count}</span>
-                    )}
-                    <svg viewBox="0 0 24 24" className="w-4 h-4 text-white/20 group-hover:text-white/50" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polyline points="9 18 15 12 9 6"/>
-                    </svg>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
       </div>
     </div>
+
     </>
   );
 }

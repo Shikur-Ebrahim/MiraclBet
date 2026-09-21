@@ -373,10 +373,15 @@ export function FixtureTabs({
     if (!markets || markets.length === 0) return false;
     if (!getOdds(f).hasRealOdds) return false;
     
-    // STRICT DATE FILTER — compare in UTC (same timezone as the server DB)
+    // STRICT DATE FILTER — compare in local time (same timezone as user display)
     if (filterDate) {
-      const utcDateStr = new Date(f.kickoff_at).toISOString().split('T')[0];
-      if (utcDateStr !== filterDate) {
+      const d = new Date(f.kickoff_at);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const localDateStr = `${y}-${m}-${day}`;
+      
+      if (localDateStr !== filterDate) {
         return false;
       }
     }

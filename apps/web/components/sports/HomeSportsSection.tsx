@@ -8,14 +8,16 @@ import { Sidebar } from '@/components/layout/Sidebar';
 
 function buildDays() {
   const now = new Date();
-  // Build UTC-based dates so they always match what the server stores
-  const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const list = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(todayUTC);
-    d.setUTCDate(todayUTC.getUTCDate() + i);
-    const value = d.toISOString().split('T')[0]; // UTC date string e.g. "2026-09-21"
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
+    // Local date string in YYYY-MM-DD format
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const value = `${y}-${m}-${day}`;
+    
     const short = i === 0 ? 'Today' : i === 1 ? 'Tomorrow'
-      : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+      : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
     return { value, short };
   });
   return [{ value: '', short: 'All' }, ...list];
@@ -96,7 +98,11 @@ export function HomeSportsSection() {
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         onSelectSport={s => { setActiveSport(s); setSelectedCountry(null); setSelectedLeague(null); }}
-        onSelectLeague={() => { setActiveSport('football'); setSelectedCountry(null); setSelectedLeague(null); }}
+        onSelectLeague={(id, name) => {
+          setActiveSport('football');
+          setSelectedCountry(null); // Clear country so league takes precedence, or we could find the country for this league
+          setSelectedLeague({ id, name, country: '' }); // We'll set a basic object, the dropdowns will catch it
+        }}
       />
 
       <SportsNav
