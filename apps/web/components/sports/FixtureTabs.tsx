@@ -144,7 +144,6 @@ function AnimatedOddButton({ label, val }: { label: string, val: string | null }
 
   return (
     <button
-      onClick={(e) => e.preventDefault()}
       className={`py-1.5 rounded flex flex-col items-center justify-center gap-0 transition-all duration-300 ${
         flash === 'up' ? 'bg-[#16A34A] border-[#16A34A]' :
         flash === 'down' ? 'bg-[#DC2626] border-[#DC2626]' :
