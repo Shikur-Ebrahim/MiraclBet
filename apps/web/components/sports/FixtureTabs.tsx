@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
 
 interface Fixture {
   id: string;
@@ -174,8 +173,6 @@ function AnimatedOddButton({
 
 // ─── Match Row ────────────────────────────────────────────────────────────────
 function MatchRow({ fix }: { fix: Fixture }) {
-  const router = useRouter();
-  // Only ONE odd can be selected per match (null = none selected)
   const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
 
   const kickoff = new Date(fix.kickoff_at);
@@ -193,19 +190,21 @@ function MatchRow({ fix }: { fix: Fixture }) {
     { label: '12', val: ha },
   ];
 
-  const goToMatch = () => {
-    sessionStorage.setItem('homeScrollPos', window.scrollY.toString());
-    sessionStorage.setItem(`match_cache_${fix.id}`, JSON.stringify(fix));
-    router.push(`/match/${fix.id}`);
+  const cacheAndNav = () => {
+    try {
+      sessionStorage.setItem('homeScrollPos', window.scrollY.toString());
+      sessionStorage.setItem(`match_cache_${fix.id}`, JSON.stringify(fix));
+    } catch {}
   };
 
   return (
-    <div
-      onClick={goToMatch}
-      className="block px-3 py-2.5 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
-    >
-      {/* Row 1: date + teams + market count */}
-      <div className="flex items-start gap-2 mb-2">
+    <div className="border-b border-gray-100">
+      {/* ── Clickable area: date + teams + badge → navigates to match ── */}
+      <a
+        href={`/match/${fix.id}`}
+        onClick={cacheAndNav}
+        className="flex items-start gap-2 px-3 pt-2.5 pb-1 hover:bg-gray-50 transition-colors"
+      >
         {/* Date/time */}
         <div className="shrink-0 text-center min-w-[36px]">
           {fix.is_live ? (
@@ -239,21 +238,18 @@ function MatchRow({ fix }: { fix: Fixture }) {
           </div>
         </div>
 
-        {/* Market count badge — also navigates to match */}
+        {/* Market count badge */}
         {totalMarkets > 0 && (
           <div className="shrink-0 self-center">
-            <span
-              className="text-[10px] font-bold px-1.5 py-0.5 rounded"
-              style={{ background: '#1a2e22', color: '#19E66B' }}
-            >
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: '#1a2e22', color: '#19E66B' }}>
               +{totalMarkets}
             </span>
           </div>
         )}
-      </div>
+      </a>
 
-      {/* Row 2: 6 odds buttons */}
-      <div className="grid grid-cols-6 gap-1 ml-[44px]">
+      {/* ── Odds row: completely separate from the link, no propagation issues ── */}
+      <div className="grid grid-cols-6 gap-1 px-3 pb-2.5 ml-[44px]">
         {oddCells.map(({ label, val }) => (
           <AnimatedOddButton
             key={label}
