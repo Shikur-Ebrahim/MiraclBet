@@ -177,7 +177,10 @@ function MatchRow({ fix, priorityDate }: { fix: Fixture; priorityDate?: string }
   return (
     <Link
       href={`/match/${fix.id}`}
-      onClick={() => sessionStorage.setItem('homeScrollPos', window.scrollY.toString())}
+      onClick={() => {
+        sessionStorage.setItem('homeScrollPos', window.scrollY.toString());
+        sessionStorage.setItem(`match_cache_${fix.id}`, JSON.stringify(fix));
+      }}
       className="block px-3 py-2.5 border-b border-gray-100 hover:bg-gray-50 transition-colors"
     >
       {/* Row 1: date + teams + market count */}

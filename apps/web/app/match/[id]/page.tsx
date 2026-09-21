@@ -153,24 +153,50 @@ export default function MatchPage() {
 
   const findMatch = useCallback(async () => {
     const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
+    
+    // 1. Instant Zero-Latency Load from session cache (if clicked from homepage)
     try {
-      const sources = [
-        `${API_BASE}/api/v1/fixtures/live`,
-        `${API_BASE}/api/v1/fixtures?date=${new Date().toISOString().split('T')[0]}`,
-      ];
-      for (let i = 1; i <= 3; i++) {
-        const d = new Date();
-        d.setDate(d.getDate() + i);
-        sources.push(`${API_BASE}/api/v1/fixtures?date=${d.toISOString().split('T')[0]}`);
+      const cached = sessionStorage.getItem(`match_cache_${id}`);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        setMatch(parsed);
+        const d = new Date(parsed.kickoff_at);
+        const dateStr = d.toISOString().split('T')[0];
+        setSourceUrl(parsed.is_live ? `${API_BASE}/api/v1/fixtures/live` : `${API_BASE}/api/v1/fixtures?date=${dateStr}`);
+        setLoading(false);
+        // We do NOT return here! We want to instantly show the cached match so the screen isn't blank,
+        // but we still let the parallel fetch run below to guarantee we have the absolute latest odds within 200ms!
       }
-      for (const url of sources) {
-        const data = await fetch(url).then(r => r.json());
-        const found = (Array.isArray(data) ? data : []).find((f: MatchDetails) => f.id === id);
-        if (found) {
-          setMatch(found);
-          setSourceUrl(url);
-          return;
-        }
+    } catch (e) { /* fallback to API fetch */ }
+
+    // 2. Fallback: fetch from all sources concurrently and grab the first one
+    const baseUTC = new Date();
+    const sources = [
+      `${API_BASE}/api/v1/fixtures/live`
+    ];
+    for (let i = 0; i <= 7; i++) {
+      const d = new Date(Date.UTC(baseUTC.getUTCFullYear(), baseUTC.getUTCMonth(), baseUTC.getUTCDate() + i));
+      sources.push(`${API_BASE}/api/v1/fixtures?date=${d.toISOString().split('T')[0]}`);
+    }
+
+    try {
+      // Fire all fetches in parallel
+      const fetchPromises = sources.map(url => 
+        fetch(url, { cache: 'no-store' })
+          .then(r => r.json())
+          .then(data => {
+            const found = (Array.isArray(data) ? data : []).find((f: MatchDetails) => f.id === id);
+            return found ? { match: found, url } : null;
+          })
+          .catch(() => null)
+      );
+
+      const results = await Promise.all(fetchPromises);
+      const validResult = results.find(res => res !== null);
+
+      if (validResult) {
+        setMatch(validResult.match);
+        setSourceUrl(validResult.url);
       }
     } catch (e) {
       console.error(e);
