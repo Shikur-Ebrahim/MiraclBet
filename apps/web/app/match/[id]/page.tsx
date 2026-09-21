@@ -42,7 +42,7 @@ interface MatchDetails {
 
 // ─── Odd Button with Animation ─────────────────────────────────────────────────
 function OddButton({ value, odd, onClick, selected }: {
-  label?: string; value: string; odd: string;
+  value: string; odd: string;
   onClick?: () => void; selected?: boolean;
 }) {
   const [flash, setFlash] = useState<'up' | 'down' | null>(null);
@@ -54,7 +54,7 @@ function OddButton({ value, odd, onClick, selected }: {
       const numPrev = parseFloat(prevVal.current);
       if (!isNaN(numVal) && !isNaN(numPrev)) {
         setFlash(numVal > numPrev ? 'up' : 'down');
-        const t = setTimeout(() => setFlash(null), 2000); // 2 seconds flash
+        const t = setTimeout(() => setFlash(null), 2000);
         return () => clearTimeout(t);
       }
     }
@@ -67,18 +67,19 @@ function OddButton({ value, odd, onClick, selected }: {
     <button
       onClick={onClick}
       className={`flex items-center justify-between rounded px-3 py-2.5 transition-all duration-300 border ${
-        flash === 'up' ? 'bg-[#16A34A] border-[#16A34A]' :
+        flash === 'up'   ? 'bg-[#16A34A] border-[#16A34A]' :
         flash === 'down' ? 'bg-[#DC2626] border-[#DC2626]' :
-        selected ? 'bg-[#E8FFF2] border-[#19E66B]' : 'bg-white hover:bg-[#F0FDF4] border-gray-200 hover:border-[#19E66B]/40'
+        selected         ? 'bg-[#0D8A3C] border-[#0D8A3C]' :  // solid dark green like homepage
+                           'bg-white hover:bg-[#F0FDF4] border-gray-200 hover:border-[#19E66B]/40'
       }`}
     >
       <span className={`text-[12px] transition-colors duration-300 ${
-        flash ? 'text-white/90' : selected ? 'text-[#0D8A3C] font-semibold' : 'text-gray-500'
+        flash ? 'text-white/90' : selected ? 'text-white font-semibold' : 'text-gray-500'
       }`}>
         {value}
       </span>
       <span className={`text-[13px] font-bold transition-colors duration-300 ${
-        flash ? 'text-white' : selected ? 'text-[#0D8A3C]' : 'text-[#19E66B]'
+        flash ? 'text-white' : selected ? 'text-white' : 'text-[#19E66B]'
       }`}>
         {displayVal}
       </span>
@@ -86,10 +87,16 @@ function OddButton({ value, odd, onClick, selected }: {
   );
 }
 
-// ─── Market Collapsible Card (light theme) ───────────────────────────────────
-function MarketCard({ market }: { market: Market }) {
+// ─── Market Collapsible Card ───────────────────────────────────────────────────
+function MarketCard({
+  market, globalSelMarketId, globalSelIdx, onSelect,
+}: {
+  market: Market;
+  globalSelMarketId: number | null;
+  globalSelIdx: number | null;
+  onSelect: (marketId: number, idx: number) => void;
+}) {
   const [expanded, setExpanded] = useState(true);
-  const [selected, setSelected] = useState<string | null>(null);
 
   const cols = market.values.length === 2 ? 2 : market.values.length === 3 ? 3 : market.values.length % 2 === 0 ? 2 : 3;
 
@@ -117,15 +124,18 @@ function MarketCard({ market }: { market: Market }) {
       {expanded && (
         <div className="p-2 bg-white">
           <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
-            {market.values.map((v, i) => (
-              <OddButton
-                key={i}
-                value={v.value}
-                odd={v.odd}
-                selected={selected === `${i}`}
-                onClick={() => setSelected(selected === `${i}` ? null : `${i}`)}
-              />
-            ))}
+            {market.values.map((v, i) => {
+              const isSelected = globalSelMarketId === market.id && globalSelIdx === i;
+              return (
+                <OddButton
+                  key={i}
+                  value={v.value}
+                  odd={v.odd}
+                  selected={isSelected}
+                  onClick={() => onSelect(isSelected ? -1 : market.id, isSelected ? -1 : i)}
+                />
+              );
+            })}
           </div>
         </div>
       )}
@@ -136,10 +146,13 @@ function MarketCard({ market }: { market: Market }) {
 // Group markets into tabs like a real sportsbook
 const MARKET_GROUPS: { label: string; filter: (m: string) => boolean }[] = [
   { label: 'All', filter: () => true },
-  { label: 'Main Market', filter: (m) => ['1x2', 'match winner', 'double chance', 'draw no bet', 'both teams to score'].includes(m.toLowerCase()) },
-  { label: 'Total', filter: (m) => m.toLowerCase().includes('total') || m.toLowerCase().includes('over/under') },
-  { label: 'Half Time', filter: (m) => m.toLowerCase().includes('half') },
+  { label: 'Main Market', filter: (m) => ['1x2', 'match winner', 'double chance', 'draw no bet', 'both teams to score', 'home/away'].includes(m.toLowerCase()) },
+  { label: 'Total', filter: (m) => m.toLowerCase().includes('total') || m.toLowerCase().includes('over/under') || m.toLowerCase().includes('goal line') },
+  { label: 'Half Time', filter: (m) => m.toLowerCase().includes('half') || m.toLowerCase().includes('ht/ft') },
   { label: 'Corners', filter: (m) => m.toLowerCase().includes('corner') },
+  { label: 'Handicap', filter: (m) => m.toLowerCase().includes('handicap') },
+  { label: 'Score', filter: (m) => m.toLowerCase().includes('correct score') || m.toLowerCase().includes('exact score') || m.toLowerCase().includes('exact goals') },
+  { label: 'Other', filter: () => true }, // will show markets not in other tabs
 ];
 
 export default function MatchPage() {
@@ -150,6 +163,8 @@ export default function MatchPage() {
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('All');
+  // Global selection: only ONE odd can be selected across ALL markets at once
+  const [globalSel, setGlobalSel] = useState<{ marketId: number; idx: number } | null>(null);
 
   const findMatch = useCallback(async () => {
     const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
@@ -309,10 +324,28 @@ export default function MatchPage() {
   const timeStr = kickoff.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   const allMarkets = match.advanced_odds?.markets ?? [];
-  const activeTabFilter = MARKET_GROUPS.find(g => g.label === activeTab)?.filter || (() => true);
-  const visibleMarkets = activeTab === 'All'
-    ? allMarkets
-    : allMarkets.filter(m => activeTabFilter(m.name));
+
+  // Build per-tab market lists
+  const nonOtherGroups = MARKET_GROUPS.filter(g => g.label !== 'All' && g.label !== 'Other');
+  const categorizedIds = new Set(
+    allMarkets
+      .filter(m => nonOtherGroups.some(g => g.filter(m.name)))
+      .map(m => m.id)
+  );
+
+  const getMarketsForTab = (label: string) => {
+    if (label === 'All') return allMarkets;
+    if (label === 'Other') return allMarkets.filter(m => !categorizedIds.has(m.id));
+    const grp = MARKET_GROUPS.find(g => g.label === label);
+    return grp ? allMarkets.filter(m => grp.filter(m.name)) : [];
+  };
+
+  const visibleMarkets = getMarketsForTab(activeTab);
+
+  const handleSelect = (marketId: number, idx: number) => {
+    if (marketId === -1) setGlobalSel(null);
+    else setGlobalSel({ marketId, idx });
+  };
 
   return (
     <div className="min-h-screen bg-white text-gray-900 flex flex-col font-sans">
@@ -359,7 +392,7 @@ export default function MatchPage() {
                   <svg viewBox="0 0 24 24" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2">
                     <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
                   </svg>
-                  <span>{dateStr} {timeStr}</span>
+                  <span>{new Date(match.kickoff_at).toLocaleDateString()} {new Date(match.kickoff_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
               </>
             )}
@@ -377,11 +410,11 @@ export default function MatchPage() {
         </div>
       </div>
 
-      {/* Market Tabs */}
+      {/* Market Tabs — only show tabs that have at least one market */}
       <div className="px-3 py-2.5 border-b border-gray-100 bg-white overflow-x-auto scrollbar-hide flex gap-2">
         {MARKET_GROUPS.map(g => {
-          const count = g.label === 'All' ? allMarkets.length : allMarkets.filter(m => g.filter(m.name)).length;
-          if (count === 0 && g.label !== 'All') return null;
+          const count = getMarketsForTab(g.label).length;
+          if (count === 0) return null;
           const isActive = activeTab === g.label;
           return (
             <button
@@ -394,7 +427,7 @@ export default function MatchPage() {
               }`}
             >
               {g.label}
-              {count > 0 && <span className="ml-1 text-[10px] opacity-70">({count})</span>}
+              <span className="ml-1 text-[10px] opacity-70">({count})</span>
             </button>
           );
         })}
@@ -404,7 +437,13 @@ export default function MatchPage() {
       <div className="flex-1 overflow-y-auto pb-8 bg-gray-50">
         {visibleMarkets.length > 0 ? (
           visibleMarkets.map(market => (
-            <MarketCard key={market.id} market={market} />
+            <MarketCard
+              key={market.id}
+              market={market}
+              globalSelMarketId={globalSel?.marketId ?? null}
+              globalSelIdx={globalSel?.idx ?? null}
+              onSelect={handleSelect}
+            />
           ))
         ) : (
           <div className="text-center py-10 text-gray-400 text-sm">
