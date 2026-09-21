@@ -126,7 +126,7 @@ func (h *FixturesHandler) ByDate(w http.ResponseWriter, r *http.Request) {
 				WHERE DATE(f.starts_at AT TIME ZONE 'UTC') = $1
 				  AND COALESCE(f.sport_slug,'football') = $2
 				  AND (f.league_external_id = $3 OR l.external_id = $3)
-				ORDER BY f.starts_at ASC LIMIT 200`,
+				ORDER BY COALESCE(f.league_priority, 99) ASC, f.starts_at ASC LIMIT 200`,
 				date.Format("2006-01-02"), sport, leagueID)
 		} else {
 			fixtures = h.queryFixturesWithArgs(ctx, `
@@ -143,7 +143,7 @@ func (h *FixturesHandler) ByDate(w http.ResponseWriter, r *http.Request) {
 				LEFT JOIN odds o ON o.fixture_id = f.id
 				WHERE DATE(f.starts_at AT TIME ZONE 'UTC') = $1
 				  AND COALESCE(f.sport_slug,'football') = $2
-				ORDER BY f.starts_at ASC LIMIT 200`,
+				ORDER BY COALESCE(f.league_priority, 99) ASC, f.starts_at ASC LIMIT 200`,
 				date.Format("2006-01-02"), sport)
 		}
 

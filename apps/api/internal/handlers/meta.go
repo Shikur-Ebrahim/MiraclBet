@@ -59,7 +59,7 @@ func (h *MetaHandler) GetLeagues(w http.ResponseWriter, r *http.Request) {
 		query += fmt.Sprintf(` AND EXISTS (SELECT 1 FROM fixtures f WHERE f.league_external_id = l.external_id AND f.starts_at >= CURRENT_DATE AND f.starts_at < CURRENT_DATE + INTERVAL '%s days' + INTERVAL '1 day')`, days)
 	}
 
-	query += ` ORDER BY l.country ASC, l.is_top_league DESC, l.sort_order ASC, l.name ASC`
+	query += ` ORDER BY COALESCE(l.league_priority, 99) ASC, l.is_top_league DESC, l.country ASC, l.name ASC`
 
 	rows, err := h.db.Pool.Query(ctx, query)
 
@@ -166,9 +166,9 @@ func (h *MetaHandler) GetTopLeagues(w http.ResponseWriter, r *http.Request) {
 		query += fmt.Sprintf(` AND EXISTS (SELECT 1 FROM fixtures f WHERE f.league_external_id = l.external_id AND f.starts_at >= CURRENT_DATE AND f.starts_at < CURRENT_DATE + INTERVAL '%s days' + INTERVAL '1 day')`, days)
 	}
 
-	query += ` ORDER BY l.is_top_league DESC, l.sort_order ASC, l.name ASC LIMIT 15`
+	query += ` ORDER BY COALESCE(l.league_priority, 99) ASC, l.is_top_league DESC, l.name ASC LIMIT 15`
 
-	// Query DB — returns is_top_league rows first, then by sort_order
+	// Query DB — returns top leagues by priority first
 	rows, err := h.db.Pool.Query(ctx, query)
 
 	if err == nil && rows != nil {
@@ -190,22 +190,22 @@ func (h *MetaHandler) GetTopLeagues(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Fallback: seeded well-known top leagues with CDN logos
+	// Fallback: exact top-15 leagues in priority order
 	writeJSON(w, []LeagueResponse{
-		{ID: "2",   Name: "UEFA Champions League",  Country: "World",         LogoURL: "https://media.api-sports.io/football/leagues/2.png",   Season: 2025, IsTopLeague: true},
-		{ID: "3",   Name: "UEFA Europa League",     Country: "World",         LogoURL: "https://media.api-sports.io/football/leagues/3.png",   Season: 2025, IsTopLeague: true},
-		{ID: "848", Name: "UEFA Conference League", Country: "World",         LogoURL: "https://media.api-sports.io/football/leagues/848.png", Season: 2025, IsTopLeague: true},
-		{ID: "5",   Name: "UEFA Nations League",    Country: "World",         LogoURL: "https://media.api-sports.io/football/leagues/5.png",   Season: 2025, IsTopLeague: true},
-		{ID: "39",  Name: "Premier League",         Country: "England",       LogoURL: "https://media.api-sports.io/football/leagues/39.png",  Season: 2025, IsTopLeague: true},
-		{ID: "140", Name: "La Liga",                Country: "Spain",         LogoURL: "https://media.api-sports.io/football/leagues/140.png", Season: 2025, IsTopLeague: true},
-		{ID: "135", Name: "Serie A",                Country: "Italy",         LogoURL: "https://media.api-sports.io/football/leagues/135.png", Season: 2025, IsTopLeague: true},
-		{ID: "78",  Name: "Bundesliga",             Country: "Germany",       LogoURL: "https://media.api-sports.io/football/leagues/78.png",  Season: 2025, IsTopLeague: true},
-		{ID: "61",  Name: "Ligue 1",               Country: "France",        LogoURL: "https://media.api-sports.io/football/leagues/61.png",  Season: 2025, IsTopLeague: true},
-		{ID: "13",  Name: "Copa Libertadores",      Country: "South America", LogoURL: "https://media.api-sports.io/football/leagues/13.png",  Season: 2025, IsTopLeague: true},
-		{ID: "235", Name: "Premier League",         Country: "Russia",        LogoURL: "https://media.api-sports.io/football/leagues/235.png", Season: 2025, IsTopLeague: true},
-		{ID: "332", Name: "Premier League",         Country: "Egypt",         LogoURL: "https://media.api-sports.io/football/leagues/332.png", Season: 2025, IsTopLeague: true},
-		{ID: "88",  Name: "Eredivisie",             Country: "Netherlands",   LogoURL: "https://media.api-sports.io/football/leagues/88.png",  Season: 2025, IsTopLeague: true},
-		{ID: "94",  Name: "Primeira Liga",          Country: "Portugal",      LogoURL: "https://media.api-sports.io/football/leagues/94.png",  Season: 2025, IsTopLeague: true},
-		{ID: "203", Name: "Süper Lig",              Country: "Turkey",        LogoURL: "https://media.api-sports.io/football/leagues/203.png", Season: 2025, IsTopLeague: true},
+		{ID: "39",  Name: "Premier League",              Country: "England",    LogoURL: "https://media.api-sports.io/football/leagues/39.png",  Season: 2025, IsTopLeague: true},
+		{ID: "140", Name: "La Liga",                     Country: "Spain",      LogoURL: "https://media.api-sports.io/football/leagues/140.png", Season: 2025, IsTopLeague: true},
+		{ID: "135", Name: "Serie A",                     Country: "Italy",      LogoURL: "https://media.api-sports.io/football/leagues/135.png", Season: 2025, IsTopLeague: true},
+		{ID: "78",  Name: "Bundesliga",                  Country: "Germany",    LogoURL: "https://media.api-sports.io/football/leagues/78.png",  Season: 2025, IsTopLeague: true},
+		{ID: "61",  Name: "Ligue 1",                     Country: "France",     LogoURL: "https://media.api-sports.io/football/leagues/61.png",  Season: 2025, IsTopLeague: true},
+		{ID: "71",  Name: "Brasileirão Série A",         Country: "Brazil",     LogoURL: "https://media.api-sports.io/football/leagues/71.png",  Season: 2025, IsTopLeague: true},
+		{ID: "94",  Name: "Primeira Liga",               Country: "Portugal",   LogoURL: "https://media.api-sports.io/football/leagues/94.png",  Season: 2025, IsTopLeague: true},
+		{ID: "88",  Name: "Eredivisie",                  Country: "Netherlands",LogoURL: "https://media.api-sports.io/football/leagues/88.png",  Season: 2025, IsTopLeague: true},
+		{ID: "144", Name: "Belgian Pro League",          Country: "Belgium",    LogoURL: "https://media.api-sports.io/football/leagues/144.png", Season: 2025, IsTopLeague: true},
+		{ID: "203", Name: "Süper Lig",                   Country: "Turkey",     LogoURL: "https://media.api-sports.io/football/leagues/203.png", Season: 2025, IsTopLeague: true},
+		{ID: "128", Name: "Argentine Primera División",  Country: "Argentina",  LogoURL: "https://media.api-sports.io/football/leagues/128.png", Season: 2025, IsTopLeague: true},
+		{ID: "253", Name: "MLS",                         Country: "USA",        LogoURL: "https://media.api-sports.io/football/leagues/253.png", Season: 2025, IsTopLeague: true},
+		{ID: "307", Name: "Saudi Pro League",            Country: "Saudi Arabia",LogoURL: "https://media.api-sports.io/football/leagues/307.png", Season: 2025, IsTopLeague: true},
+		{ID: "239", Name: "Paraguayan Primera División", Country: "Paraguay",   LogoURL: "https://media.api-sports.io/football/leagues/239.png", Season: 2025, IsTopLeague: true},
+		{ID: "98",  Name: "J1 League",                   Country: "Japan",      LogoURL: "https://media.api-sports.io/football/leagues/98.png",  Season: 2025, IsTopLeague: true},
 	})
 }

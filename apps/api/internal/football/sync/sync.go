@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sort"
 	"time"
 
 	"github.com/miraclbet/api/internal/database"
@@ -21,7 +22,8 @@ func New(db *database.DB, p provider.FootballProvider, q *quota.QuotaService) *S
 	return &Syncer{db: db, provider: p, quota: q}
 }
 
-// SyncMultipleDays fetches today + N days and saves them to the DB
+// SyncMultipleDays fetches today + N days and saves them to the DB.
+// Top-15 league fixtures are always saved first.
 func (s *Syncer) SyncMultipleDays(ctx context.Context, days int) error {
 	today := time.Now().UTC()
 	for i := 0; i < days; i++ {
@@ -74,6 +76,16 @@ func (s *Syncer) saveFixtures(ctx context.Context, fixtures []provider.ProviderF
 		return nil
 	}
 
+	// ── Sort: top-15 leagues first, then by kickoff time ──────────────────────
+	sort.SliceStable(fixtures, func(i, j int) bool {
+		pi := LeagueAPIPriority(fixtures[i].LeagueExternalID)
+		pj := LeagueAPIPriority(fixtures[j].LeagueExternalID)
+		if pi != pj {
+			return pi < pj
+		}
+		return fixtures[i].KickoffAt.Before(fixtures[j].KickoffAt)
+	})
+
 	liveStatuses := map[string]bool{
 		"1H": true, "HT": true, "2H": true, "ET": true, "P": true, "LIVE": true,
 	}
@@ -86,32 +98,40 @@ func (s *Syncer) saveFixtures(ctx context.Context, fixtures []provider.ProviderF
 			league_external_id, league_id, league_name, league_logo_url,
 			sport_slug,
 			starts_at, status_short, elapsed,
-			score_home, score_away, is_live
+			score_home, score_away, is_live,
+			league_priority
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, 
 			(SELECT id FROM leagues WHERE external_id = $6 LIMIT 1),
-			$7, $8, 'football', $9, $10, $11, $12, $13, $14
+			$7, $8, 'football', $9, $10, $11, $12, $13, $14, $15
 		) ON CONFLICT (external_id) DO UPDATE SET
-			home_team_name    = EXCLUDED.home_team_name,
-			away_team_name    = EXCLUDED.away_team_name,
-			home_team_logo    = EXCLUDED.home_team_logo,
-			away_team_logo    = EXCLUDED.away_team_logo,
+			home_team_name     = EXCLUDED.home_team_name,
+			away_team_name     = EXCLUDED.away_team_name,
+			home_team_logo     = EXCLUDED.home_team_logo,
+			away_team_logo     = EXCLUDED.away_team_logo,
 			league_external_id = EXCLUDED.league_external_id,
-			league_id         = (SELECT id FROM leagues WHERE external_id = EXCLUDED.league_external_id LIMIT 1),
-			league_name       = EXCLUDED.league_name,
-			league_logo_url   = EXCLUDED.league_logo_url,
-			sport_slug        = 'football',
-			starts_at         = EXCLUDED.starts_at,
-			status_short      = EXCLUDED.status_short,
-			elapsed           = EXCLUDED.elapsed,
-			score_home        = EXCLUDED.score_home,
-			score_away        = EXCLUDED.score_away,
-			is_live           = EXCLUDED.is_live
+			league_id          = (SELECT id FROM leagues WHERE external_id = EXCLUDED.league_external_id LIMIT 1),
+			league_name        = EXCLUDED.league_name,
+			league_logo_url    = EXCLUDED.league_logo_url,
+			sport_slug         = 'football',
+			starts_at          = EXCLUDED.starts_at,
+			status_short       = EXCLUDED.status_short,
+			elapsed            = EXCLUDED.elapsed,
+			score_home         = EXCLUDED.score_home,
+			score_away         = EXCLUDED.score_away,
+			is_live            = EXCLUDED.is_live,
+			league_priority    = EXCLUDED.league_priority
 	`
 
 	saved := 0
+	topSaved := 0
 	for _, f := range fixtures {
 		isLive := liveStatuses[f.Status]
+		priority := LeagueAPIPriority(f.LeagueExternalID)
+		if priority == 99 {
+			priority = LeagueNamePriority(f.LeagueName)
+		}
+
 		_, err := s.db.Pool.Exec(ctx, query,
 			f.ExternalID,
 			f.HomeTeamName, f.AwayTeamName,
@@ -119,15 +139,19 @@ func (s *Syncer) saveFixtures(ctx context.Context, fixtures []provider.ProviderF
 			f.LeagueExternalID, f.LeagueName, f.LeagueLogo,
 			f.KickoffAt, f.Status, f.Elapsed,
 			f.HomeScore, f.AwayScore, isLive,
+			priority,
 		)
 		if err != nil {
 			log.Printf("[sync] error saving fixture %s: %v", f.ExternalID, err)
 		} else {
 			saved++
+			if priority <= 15 {
+				topSaved++
+			}
 		}
 	}
 
-	log.Printf("[sync] Saved/updated %d/%d fixtures", saved, len(fixtures))
+	log.Printf("[sync] Saved/updated %d/%d fixtures (%d from top-15 leagues)", saved, len(fixtures), topSaved)
 	return nil
 }
 
@@ -151,4 +175,3 @@ func (s *Syncer) CleanupFinishedMatches(ctx context.Context) error {
 	}
 	return nil
 }
-
