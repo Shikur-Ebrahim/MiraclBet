@@ -56,9 +56,13 @@ func main() {
     liveTicker := time.NewTicker(1 * time.Minute)
     defer liveTicker.Stop()
 
-    // Every 10 minutes — refresh today's & tomorrow's prematch odds
-    oddsTicker := time.NewTicker(10 * time.Minute)
-    defer oddsTicker.Stop()
+    // Every 5 minutes — refresh TODAY's prematch odds (High Priority)
+    todayOddsTicker := time.NewTicker(5 * time.Minute)
+    defer todayOddsTicker.Stop()
+
+    // Every 15 minutes — refresh TOMORROW's prematch odds (Medium Priority)
+    tomorrowOddsTicker := time.NewTicker(15 * time.Minute)
+    defer tomorrowOddsTicker.Stop()
 
     // Every 1 hour — delete finished matches older than 24h
     cleanupTicker := time.NewTicker(1 * time.Hour)
@@ -110,12 +114,15 @@ func main() {
             _ = syncer.SyncLiveFixtures(ctx)
             _ = syncer.SyncLiveOdds(ctx)
 
-        case <-oddsTicker.C:
-            // Every 10 min: refresh prematch odds for today + tomorrow
-            log.Println("[worker] tick: prematch odds today + tomorrow...")
-            today := time.Now().UTC()
-            _ = syncer.SyncOddsByDate(ctx, today)
-            _ = syncer.SyncOddsByDate(ctx, today.AddDate(0, 0, 1))
+        case <-todayOddsTicker.C:
+            // Every 5 min: refresh prematch odds for today (HIGH PRIORITY)
+            log.Println("[worker] tick: prematch odds today...")
+            _ = syncer.SyncOddsByDate(ctx, time.Now().UTC())
+
+        case <-tomorrowOddsTicker.C:
+            // Every 15 min: refresh prematch odds for tomorrow (MEDIUM PRIORITY)
+            log.Println("[worker] tick: prematch odds tomorrow...")
+            _ = syncer.SyncOddsByDate(ctx, time.Now().UTC().AddDate(0, 0, 1))
 
         case <-cleanupTicker.C:
             // Every hour: delete finished matches older than 24h

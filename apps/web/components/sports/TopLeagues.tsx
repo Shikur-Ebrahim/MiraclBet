@@ -142,33 +142,6 @@ export function SportsNav({
         )}
       </div>
 
-      {/* VikingBet Style Time Tracker / Slider */}
-      <div className="flex items-center gap-4 px-3 mb-1">
-        <div className="text-[11px] leading-[1.1] text-white font-medium whitespace-pre-wrap min-w-[40px]">
-          {getLabel()}
-        </div>
-        <div 
-          className="flex-1 relative h-6 flex items-center cursor-pointer select-none"
-          onClick={handleSliderClick}
-        >
-          {/* Segmented Track */}
-          <div className="absolute inset-x-0 h-1.5 flex gap-1 items-center">
-            {[0, 1, 2, 3, 4, 5, 6].map((i) => (
-              <div 
-                key={i} 
-                className={`flex-1 h-full rounded-full transition-colors duration-300 ${i <= timeRange ? 'bg-gray-300' : 'bg-gray-700'}`} 
-              />
-            ))}
-          </div>
-          {/* Thumb */}
-          <div 
-            className="absolute h-5 w-5 rounded-full bg-gray-200 shadow-md transition-all duration-300 pointer-events-none"
-            style={{ 
-              left: `calc(${(timeRange / 6) * 100}% - ${(timeRange / 6) * 20}px)`, 
-            }}
-          />
-        </div>
-      </div>
     </section>
   );
 }

@@ -507,27 +507,21 @@ export function FixtureTabs({
     return 99; // Default for others
   }
 
-  // When country is selected, show ALL its matches (even without standard odds)
-  // Otherwise only show fixtures with real displayable odds
-  const baseFixtures = (() => {
+  // ALWAYS strictly drop matches without displayable odds
+  const baseFixtures = allFixtures.filter(f => {
+    const markets = f.advanced_odds?.markets;
+    if (!markets || markets.length === 0) return false;
+    if (!getOdds(f).hasRealOdds) return false;
+    
+    // If a country filter is applied, also enforce it
     if (filterCountry) {
-      // Country selected: show all matches from that country across all loaded days
-      const countryMatches = allFixtures.filter(f =>
-        f.country === filterCountry ||
-        f.country?.toLowerCase() === filterCountry.toLowerCase()
-      );
-      return countryMatches.length > 0 ? countryMatches : allFixtures.filter(f =>
-        f.league?.toLowerCase().includes(filterCountry.toLowerCase())
-      );
+      const c = filterCountry.toLowerCase();
+      const matchCountry = f.country?.toLowerCase() === c;
+      const matchLeague = f.league?.toLowerCase().includes(c);
+      return matchCountry || matchLeague;
     }
-    // No country filter: only show fixtures with real displayable odds
-    const withOdds = allFixtures.filter(f => {
-      const markets = f.advanced_odds?.markets;
-      if (!markets || markets.length === 0) return false;
-      return getOdds(f).hasRealOdds;
-    });
-    return withOdds.length > 0 ? withOdds : allFixtures;
-  })();
+    return true;
+  });
 
   // Build displayFixtures:
   // - country + league both active → show ALL country matches, selected league first
