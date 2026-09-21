@@ -21,24 +21,57 @@ function buildDays() {
 interface CountryItem { country: string; flag?: string; }
 interface LeagueItem  { id: string; name: string; logo?: string; country: string; }
 
+// ─── Global State Cache to instantly restore exact user filters on Back ───
+const globalHomeState = {
+  isValid: false,
+  activeSport: 'football',
+  activeTab: 'prematch' as 'prematch' | 'live',
+  timeRange: 6,
+  searchQuery: '',
+  selectedDayValue: '',
+  selectedCountry: null as CountryItem | null,
+  selectedLeague: null as LeagueItem | null,
+  timestamp: 0,
+};
+
 export function HomeSportsSection() {
-  const [activeSport, setActiveSport] = useState('football');
-  const [activeTab, setActiveTab]   = useState<'prematch' | 'live'>('prematch');
-  const [timeRange, setTimeRange]   = useState(6);
+  const isFresh = globalHomeState.isValid && (Date.now() - globalHomeState.timestamp < 5 * 60 * 1000);
+  const days = buildDays();
+
+  const [activeSport, setActiveSport] = useState(isFresh ? globalHomeState.activeSport : 'football');
+  const [activeTab, setActiveTab]   = useState<'prematch' | 'live'>(isFresh ? globalHomeState.activeTab : 'prematch');
+  const [timeRange, setTimeRange]   = useState(isFresh ? globalHomeState.timeRange : 6);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // Search query — typed directly into nav search bar
-  const [searchQuery, setSearchQuery] = useState('');
-
-  const days = buildDays();
-  const [selectedDay, setSelectedDay] = useState(days[0]);
+  const [searchQuery, setSearchQuery] = useState(isFresh ? globalHomeState.searchQuery : '');
+  
+  const [selectedDay, setSelectedDay] = useState(() => {
+    if (isFresh && globalHomeState.selectedDayValue) {
+      return days.find(d => d.value === globalHomeState.selectedDayValue) || days[0];
+    }
+    return days[0];
+  });
+  
   const [openDropdown, setOpenDropdown] = useState<'days' | 'countries' | 'leagues' | null>(null);
 
   const [allCountries, setAllCountries] = useState<CountryItem[]>([]);
   const [allLeagues,   setAllLeagues]   = useState<LeagueItem[]>([]);
 
-  const [selectedCountry, setSelectedCountry] = useState<CountryItem | null>(null);
-  const [selectedLeague,  setSelectedLeague]  = useState<LeagueItem  | null>(null);
+  const [selectedCountry, setSelectedCountry] = useState<CountryItem | null>(isFresh ? globalHomeState.selectedCountry : null);
+  const [selectedLeague,  setSelectedLeague]  = useState<LeagueItem  | null>(isFresh ? globalHomeState.selectedLeague : null);
+
+  // Sync to global state
+  useEffect(() => {
+    globalHomeState.isValid = true;
+    globalHomeState.activeSport = activeSport;
+    globalHomeState.activeTab = activeTab;
+    globalHomeState.timeRange = timeRange;
+    globalHomeState.searchQuery = searchQuery;
+    globalHomeState.selectedDayValue = selectedDay.value;
+    globalHomeState.selectedCountry = selectedCountry;
+    globalHomeState.selectedLeague = selectedLeague;
+    globalHomeState.timestamp = Date.now();
+  }, [activeSport, activeTab, timeRange, searchQuery, selectedDay, selectedCountry, selectedLeague]);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 

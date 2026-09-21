@@ -131,6 +131,7 @@ function MatchRow({ fix }: { fix: Fixture }) {
   return (
     <Link
       href={`/match/${fix.id}`}
+      onClick={() => sessionStorage.setItem('homeScrollPos', window.scrollY.toString())}
       className="block px-3 py-2.5 border-b border-gray-100 hover:bg-gray-50 transition-colors"
     >
       {/* Row 1: date + teams + market count */}
@@ -242,6 +243,15 @@ function leaguePopularity(name: string): number {
   return 99;
 }
 
+// ─── Global Cache to restore scroll position instantly on Back navigation ──
+const globalFixtureCache = {
+  key: '',
+  data: [] as Fixture[],
+  timestamp: 0,
+  page: 0,
+  collapsedLeagues: [] as string[],
+};
+
 export function FixtureTabs({
   sport = 'football',
   timeRange = 6,
@@ -254,62 +264,94 @@ export function FixtureTabs({
   onFixturesLoaded,
   onLeaguesLoaded,
 }: FixtureTabsProps) {
-  const [allFixtures, setAllFixtures] = useState<Fixture[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [page, setPage] = useState(0);
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
+  const cacheKey = `${sport}-${activeTab}-${timeRange}-${filterDate || ''}`;
+  const isCacheValid = globalFixtureCache.key === cacheKey && (Date.now() - globalFixtureCache.timestamp < 5 * 60 * 1000);
+
+  const [allFixtures, setAllFixtures] = useState<Fixture[]>(() => isCacheValid ? globalFixtureCache.data : []);
+  const [loading, setLoading] = useState(allFixtures.length === 0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(() => isCacheValid ? globalFixtureCache.page : 0);
+  const [collapsedLeagues, setCollapsedLeagues] = useState<Set<string>>(() => 
+    isCacheValid ? new Set(globalFixtureCache.collapsedLeagues) : new Set()
+  );
+
+  // Sync to cache
+  useEffect(() => {
+    if (allFixtures.length > 0) {
+      globalFixtureCache.key = cacheKey;
+      globalFixtureCache.data = allFixtures;
+      globalFixtureCache.timestamp = Date.now();
+      globalFixtureCache.page = page;
+      globalFixtureCache.collapsedLeagues = Array.from(collapsedLeagues);
+    }
+  }, [allFixtures, cacheKey, page, collapsedLeagues]);
+
+  // Handle precise scroll restoration
+  useEffect(() => {
+    if (!loading && isCacheValid) {
+      const savedScroll = sessionStorage.getItem('homeScrollPos');
+      if (savedScroll) {
+        requestAnimationFrame(() => {
+          window.scrollTo(0, parseInt(savedScroll, 10));
+          sessionStorage.removeItem('homeScrollPos');
+        });
+      }
+    }
+  }, [loading, isCacheValid]);
 
   // Notify parent whenever fixtures change — emit countries + leagues
   useEffect(() => {
     if (allFixtures.length === 0) return;
 
-    // Countries (alphabetical)
-    if (onFixturesLoaded) {
-      const seen = new Set<string>();
-      const list: { country: string; flag?: string }[] = [];
-      for (const f of allFixtures) {
-        if (f.country && !seen.has(f.country)) {
-          seen.add(f.country);
-          list.push({ country: f.country, flag: f.country_flag_url });
-        }
+    const cMap = new Map<string, { country: string; flag?: string }>();
+    const lMap = new Map<string, { id: string; name: string; logo?: string; country: string }>();
+
+    for (const f of allFixtures) {
+      if (f.country && f.country !== 'World') {
+        cMap.set(f.country, { country: f.country, flag: f.country_flag_url });
       }
-      list.sort((a, b) => a.country.localeCompare(b.country));
-      onFixturesLoaded(list);
+      if (f.league_external_id && f.league) {
+        lMap.set(String(f.league_external_id), {
+          id: String(f.league_external_id),
+          name: f.league,
+          logo: f.league_logo_url,
+          country: f.country || '',
+        });
+      }
     }
 
-    // Leagues (popularity-sorted, deduplicated by league_external_id or name)
+    if (onFixturesLoaded) {
+      const cList = Array.from(cMap.values()).sort((a, b) => a.country.localeCompare(b.country));
+      onFixturesLoaded(cList);
+    }
+
     if (onLeaguesLoaded) {
-      const seenL = new Set<string>();
-      const leagues: { id: string; name: string; logo?: string; country: string }[] = [];
-      for (const f of allFixtures) {
-        const key = f.league_external_id || f.league;
-        if (key && !seenL.has(key)) {
-          seenL.add(key);
-          leagues.push({
-            id: f.league_external_id || f.league,
-            name: f.league,
-            logo: f.league_logo_url,
-            country: f.country,
-          });
-        }
-      }
-      leagues.sort((a, b) => leaguePopularity(a.name) - leaguePopularity(b.name) || a.name.localeCompare(b.name));
-      onLeaguesLoaded(leagues);
+      const lList = Array.from(lMap.values()).sort((a, b) => {
+        const pA = leaguePopularity(a.name);
+        const pB = leaguePopularity(b.name);
+        if (pA !== pB) return pA - pB;
+        return a.name.localeCompare(b.name);
+      });
+      onLeaguesLoaded(lList);
     }
   }, [allFixtures, onFixturesLoaded, onLeaguesLoaded]);
 
   // Reset page when filters change
-  useEffect(() => { setPage(0); }, [sport, leagueId, activeTab, timeRange, filterDate, filterCountry]);
+  useEffect(() => { setPage(0); }, [sport, leagueId, activeTab, timeRange, filterDate, filterCountry, filterSearch]);
 
   useEffect(() => {
+    // Skip fetch if restored from cache
+    if (isCacheValid && allFixtures.length > 0) {
+      return;
+    }
+
     setAllFixtures([]);
     setLoading(true);
     setLoadingMore(false);
 
     if (activeTab === 'live') {
-      let url = `${API_BASE}/api/v1/fixtures/live?sport=${sport}`;
-      if (leagueId) url += `&league=${leagueId}`;
+      const url = `${API_BASE}/api/v1/fixtures/live?sport=${sport}`;
       fetch(url, { cache: 'no-store' })
         .then(r => r.json())
         .then(data => setAllFixtures(Array.isArray(data) ? data : []))
@@ -332,19 +374,14 @@ export function FixtureTabs({
             combined.push(f);
           }
         }
-        // Sort by priority league, then by time
-        combined.sort((a, b) => {
-          // (priority sort handled below in displayFixtures)
-          return new Date(a.kickoff_at).getTime() - new Date(b.kickoff_at).getTime();
-        });
+        // Sort by time
+        combined.sort((a, b) => new Date(a.kickoff_at).getTime() - new Date(b.kickoff_at).getTime());
         return combined;
       });
     };
 
     const buildUrl = (dateStr: string) => {
-      let url = `${API_BASE}/api/v1/fixtures?date=${dateStr}&sport=${sport}`;
-      if (leagueId) url += `&league=${leagueId}`;
-      return url;
+      return `${API_BASE}/api/v1/fixtures?date=${dateStr}&sport=${sport}`;
     };
 
     // Step 1: Load selected date instantly → first paint
@@ -480,8 +517,7 @@ export function FixtureTabs({
   const totalPages = Math.ceil(displayFixtures.length / PAGE_SIZE);
   const pageFixtures = displayFixtures.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
-  // Track which leagues are collapsed
-  const [collapsedLeagues, setCollapsedLeagues] = useState<Set<string>>(new Set());
+  // Track which leagues are collapsed (state moved up)
   const toggleLeague = (league: string) => {
     setCollapsedLeagues(prev => {
       const next = new Set(prev);
