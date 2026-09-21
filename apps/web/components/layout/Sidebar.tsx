@@ -45,6 +45,27 @@ function getFlag(country: string): string {
   return COUNTRY_FLAGS[country] || '🏳️';
 }
 
+// ─── Exact Top-15 Priority (matches user spec) ──────────────────────────────
+function leaguePriority(name: string): number {
+  const n = (name || '').toLowerCase();
+  if (n.includes('premier league') && !n.includes('russia') && !n.includes('egypt') && !n.includes('saudi') && !n.includes('australian') && !n.includes('american')) return 1;
+  if (n.includes('la liga') && !n.includes('peru')) return 2;
+  if (n.includes('serie a') && !n.includes('brazil')) return 3;
+  if (n.includes('bundesliga') && !n.includes('2. ') && !n.includes('2nd') && !n.includes('austria')) return 4;
+  if (n.includes('ligue 1')) return 5;
+  if (n.includes('brasileiro') || n.includes('brasileirao') || (n.includes('serie a') && n.includes('brazil'))) return 6;
+  if (n.includes('primeira liga') || (n.includes('liga portugal') && !n.includes('2'))) return 7;
+  if (n.includes('eredivisie')) return 8;
+  if (n.includes('belgian pro league') || (n.includes('pro league') && n.includes('belgi'))) return 9;
+  if (n.includes('süper lig') || n.includes('super lig')) return 10;
+  if (n.includes('primera división') || n.includes('primera division') || (n.includes('argentina') && !n.includes('cup'))) return 11;
+  if (n.includes('mls') || n.includes('major league soccer')) return 12;
+  if (n.includes('saudi') && n.includes('pro league')) return 13;
+  if (n.includes('paraguayan primera') || (n.includes('paraguay') && !n.includes('cup'))) return 14;
+  if (n.includes('j1 league') || n.includes('j.league') || n.includes('j. league')) return 15;
+  return 99;
+}
+
 export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: SidebarProps) {
   const [activeTab, setActiveTab] = useState<'prematch' | 'live'>('prematch');
   const [timeRange, setTimeRange] = useState(6);
@@ -104,14 +125,24 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
     });
   }, [allLeagues, searchQuery]);
 
-  // Separate Top Leagues (flat list, max 15)
+  // Top Leagues: use our own priority sort — includes API top flag or matches our list
   const topLeagues = useMemo(() => {
-    return filteredLeagues.filter(l => l.is_top_league).slice(0, 15);
+    const inTop15 = (l: LeagueInfo) => leaguePriority(l.name) <= 15;
+    return filteredLeagues
+      .filter(l => l.is_top_league || inTop15(l))
+      .sort((a, b) => {
+        const pa = leaguePriority(a.name);
+        const pb = leaguePriority(b.name);
+        if (pa !== pb) return pa - pb;
+        return a.name.localeCompare(b.name);
+      })
+      .slice(0, 15);
   }, [filteredLeagues]);
 
-  // Group the REMAINING leagues by country
+  // Group the REMAINING leagues by country (exclude top leagues)
   const groupedByCountry = useMemo(() => {
-    const remaining = filteredLeagues.filter(l => !l.is_top_league);
+    const topIds = new Set(topLeagues.map(l => l.id));
+    const remaining = filteredLeagues.filter(l => !topIds.has(l.id));
     const groups: Record<string, LeagueInfo[]> = {};
     for (const league of remaining) {
       const country = league.country || 'World';
@@ -123,7 +154,7 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
       if (b === 'World') return 1;
       return a.localeCompare(b);
     });
-  }, [filteredLeagues]);
+  }, [filteredLeagues, topLeagues]);
 
   const toggleCountry = (country: string) => {
     setExpandedCountries(prev => {

@@ -254,24 +254,30 @@ interface FixtureTabsProps {
 // League popularity ranking — lower = more popular
 function leaguePopularity(name: string): number {
   const n = (name || '').toLowerCase();
-  if (n.includes('champions league')) return 1;
-  if (n.includes('premier league') && !n.includes('russia') && !n.includes('egypt')) return 2;
-  if (n.includes('la liga')) return 3;
-  if (n.includes('serie a') && n.includes('ital')) return 4;
-  if (n.includes('bundesliga') && !n.includes('2')) return 5;
-  if (n.includes('ligue 1')) return 6;
-  if (n.includes('europa league')) return 7;
-  if (n.includes('conference league')) return 8;
-  if (n.includes('copa libertadores')) return 9;
-  if (n.includes('world cup') || n.includes('euro ') || n.includes('copa america')) return 10;
-  if (n.includes('eredivisie')) return 11;
-  if (n.includes('primeira liga')) return 12;
-  if (n.includes('super lig') || n.includes('süper lig')) return 13;
-  if (n.includes('mls')) return 14;
-  if (n.includes('brasileiro') || n.includes('serie a brazil')) return 15;
-  if (n.includes('premier league')) return 16; // other premier leagues
-  if (n.includes('nations league')) return 17;
-  if (n.includes('championship')) return 50;
+  // Top 15 priority leagues (exact order from user)
+  if (n.includes('premier league') && (n.includes('england') || n.includes('english') || (!n.includes('russia') && !n.includes('egypt') && !n.includes('saudi') && !n.includes('australian') && !n.includes('american') && !n.includes('pakistan')))) return 1;
+  if (n.includes('la liga') && (n.includes('spain') || n.includes('spanish') || !n.includes('peru'))) return 2;
+  if ((n.includes('serie a') && (n.includes('ital') || !n.includes('brazil'))) ) return 3;
+  if (n.includes('bundesliga') && !n.includes('2. ') && !n.includes('2nd') && !n.includes('austria')) return 4;
+  if (n.includes('ligue 1')) return 5;
+  if (n.includes('brasileiro') || n.includes('brasileirao') || (n.includes('serie a') && n.includes('brazil'))) return 6;
+  if (n.includes('primeira liga') || (n.includes('liga portugal') && !n.includes('2'))) return 7;
+  if (n.includes('eredivisie')) return 8;
+  if (n.includes('belgian pro league') || (n.includes('pro league') && n.includes('belgi'))) return 9;
+  if (n.includes('süper lig') || n.includes('super lig') || n.includes('tff')) return 10;
+  if (n.includes('primera división') || n.includes('primera division') || (n.includes('argentina') && !n.includes('cup'))) return 11;
+  if (n.includes('mls') || n.includes('major league soccer')) return 12;
+  if (n.includes('saudi') && n.includes('pro league')) return 13;
+  if (n.includes('paraguayan primera') || (n.includes('paraguay') && !n.includes('cup'))) return 14;
+  if (n.includes('j1 league') || n.includes('j.league')) return 15;
+  // Secondary important leagues
+  if (n.includes('champions league')) return 20;
+  if (n.includes('europa league')) return 21;
+  if (n.includes('conference league')) return 22;
+  if (n.includes('copa libertadores')) return 23;
+  if (n.includes('world cup') || n.includes('euro ') || n.includes('copa america')) return 24;
+  if (n.includes('nations league')) return 30;
+  if (n.includes('championship')) return 60;
   return 99;
 }
 
