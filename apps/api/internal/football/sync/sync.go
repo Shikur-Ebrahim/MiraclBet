@@ -155,23 +155,36 @@ func (s *Syncer) saveFixtures(ctx context.Context, fixtures []provider.ProviderF
 	return nil
 }
 
-// CleanupFinishedMatches deletes matches that have ended more than 24 hours ago.
-// This keeps the DB lean — only upcoming/live matches stay in the database.
+// CleanupFinishedMatches deletes stale matches from the DB:
+// 1. Finished/cancelled matches older than 24h
+// 2. Past-date matches that never started (NS) — yesterday and older
 func (s *Syncer) CleanupFinishedMatches(ctx context.Context) error {
-	query := `
+	// Delete finished/cancelled matches older than 24 hours
+	q1 := `
 		DELETE FROM fixtures
 		WHERE status_short IN ('FT', 'AET', 'PEN', 'AWD', 'WO', 'CANC', 'ABD', 'INT')
 		AND starts_at < NOW() - INTERVAL '24 hours'
 	`
-	res, err := s.db.Pool.Exec(ctx, query)
+	res1, err := s.db.Pool.Exec(ctx, q1)
 	if err != nil {
 		log.Printf("[cleanup] error deleting finished matches: %v", err)
-		return err
+	} else if res1.RowsAffected() > 0 {
+		log.Printf("[cleanup] deleted %d finished matches older than 24h", res1.RowsAffected())
 	}
-	if res.RowsAffected() > 0 {
-		log.Printf("[cleanup] deleted %d finished matches older than 24h", res.RowsAffected())
-	} else {
-		log.Printf("[cleanup] no finished matches to delete")
+
+	// Delete past-date matches that never kicked off (status NS or empty)
+	// This cleans up old 20/09 matches that are still "Not Started" but the day has passed
+	q2 := `
+		DELETE FROM fixtures
+		WHERE (status_short = 'NS' OR status_short = '' OR status_short IS NULL)
+		AND starts_at < CURRENT_DATE AT TIME ZONE 'UTC'
+	`
+	res2, err2 := s.db.Pool.Exec(ctx, q2)
+	if err2 != nil {
+		log.Printf("[cleanup] error deleting past NS matches: %v", err2)
+	} else if res2.RowsAffected() > 0 {
+		log.Printf("[cleanup] deleted %d past NS matches from previous days", res2.RowsAffected())
 	}
+
 	return nil
 }

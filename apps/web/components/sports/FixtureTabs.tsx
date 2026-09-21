@@ -398,18 +398,30 @@ export function FixtureTabs({
 
     // ── Progressive loading for prematch ─────────────────────────────────────
     const daysToLoad = filterDate ? 0 : timeRange;
-    const baseDate = filterDate ? new Date(filterDate + 'T00:00:00') : new Date();
+    // Use UTC base date so it matches server timezone
+    const baseDate = filterDate
+      ? new Date(filterDate + 'T00:00:00Z')  // treat as UTC midnight
+      : new Date();
     const seen = new Set<string>();
 
     const mergeFixtures = (fresh: Fixture[]) => {
       setAllFixtures(prev => {
-        const combined = [...prev];
+        // Build a dedup key from BOTH id AND team names (handles duplicate DB rows)
+        const getDupKey = (f: Fixture) => `${f.id}|${f.home_team}|${f.away_team}|${f.kickoff_at?.slice(0,10)}`;
+        
+        // Seed the seen set from current state to prevent double-adds
+        const existing = new Map<string, Fixture>();
+        for (const f of prev) {
+          existing.set(getDupKey(f), f);
+        }
         for (const f of fresh) {
-          if (!seen.has(f.id)) {
-            seen.add(f.id);
-            combined.push(f);
+          const key = getDupKey(f);
+          if (!seen.has(key) && !existing.has(key)) {
+            seen.add(key);
+            existing.set(key, f);
           }
         }
+        const combined = Array.from(existing.values());
         // Sort by time
         combined.sort((a, b) => new Date(a.kickoff_at).getTime() - new Date(b.kickoff_at).getTime());
         return combined;
