@@ -249,35 +249,7 @@ interface FixtureTabsProps {
   onLeaguesLoaded?: (leagues: { id: string; name: string; logo?: string; country: string }[]) => void;
 }
 
-// League popularity ranking — lower = more popular
-function leaguePopularity(name: string): number {
-  const n = (name || '').toLowerCase();
-  // Top 15 priority leagues (exact order from user)
-  if (n.includes('premier league') && (n.includes('england') || n.includes('english') || (!n.includes('russia') && !n.includes('egypt') && !n.includes('saudi') && !n.includes('australian') && !n.includes('american') && !n.includes('pakistan')))) return 1;
-  if (n.includes('la liga') && (n.includes('spain') || n.includes('spanish') || !n.includes('peru'))) return 2;
-  if ((n.includes('serie a') && (n.includes('ital') || !n.includes('brazil'))) ) return 3;
-  if (n.includes('bundesliga') && !n.includes('2. ') && !n.includes('2nd') && !n.includes('austria')) return 4;
-  if (n.includes('ligue 1')) return 5;
-  if (n.includes('brasileiro') || n.includes('brasileirao') || (n.includes('serie a') && n.includes('brazil'))) return 6;
-  if (n.includes('primeira liga') || (n.includes('liga portugal') && !n.includes('2'))) return 7;
-  if (n.includes('eredivisie')) return 8;
-  if (n.includes('belgian pro league') || (n.includes('pro league') && n.includes('belgi'))) return 9;
-  if (n.includes('süper lig') || n.includes('super lig') || n.includes('tff')) return 10;
-  if (n.includes('primera división') || n.includes('primera division') || (n.includes('argentina') && !n.includes('cup'))) return 11;
-  if (n.includes('mls') || n.includes('major league soccer')) return 12;
-  if (n.includes('saudi') && n.includes('pro league')) return 13;
-  if (n.includes('paraguayan primera') || (n.includes('paraguay') && !n.includes('cup'))) return 14;
-  if (n.includes('j1 league') || n.includes('j.league')) return 15;
-  // Secondary important leagues
-  if (n.includes('champions league')) return 20;
-  if (n.includes('europa league')) return 21;
-  if (n.includes('conference league')) return 22;
-  if (n.includes('copa libertadores')) return 23;
-  if (n.includes('world cup') || n.includes('euro ') || n.includes('copa america')) return 24;
-  if (n.includes('nations league')) return 30;
-  if (n.includes('championship')) return 60;
-  return 99;
-}
+
 
 // ─── Global ALL-DAYS store: loaded ONCE, used for instant local filtering ──
 // This eliminates all loading on day-filter switches. All 7 days live here.
@@ -343,14 +315,59 @@ export function FixtureTabs({
     }
   }, [loading, isCacheValid]);
 
-  // Notify parent whenever fixtures change — emit countries + leagues
-  useEffect(() => {
-    if (allFixtures.length === 0) return;
+  function getLeaguePriority(leagueName: string | undefined): number {
+    if (!leagueName) return 999;
+    const name = leagueName.toLowerCase();
+    
+    if (name.includes('premier league') && !name.includes('women') && !name.includes('2')) return 1;
+    if (name.includes('la liga')) return 2;
+    if (name.includes('serie a')) return 3;
+    if (name.includes('bundesliga') && !name.includes('2') && !name.includes('3')) return 4;
+    if (name.includes('ligue 1')) return 5;
+    if (name.includes('brasileiro serie a') || name.includes('brasileirão')) return 6;
+    if (name.includes('primeira liga')) return 7;
+    if (name.includes('eredivisie')) return 8;
+    if (name.includes('belgian pro league') || name.includes('first division a')) return 9;
+    if (name.includes('süper lig') || name.includes('super lig')) return 10;
+    if (name.includes('liga profesional argentina') || name.includes('argentine primera')) return 11;
+    if (name.includes('mls') || name.includes('major league soccer')) return 12;
+    if (name.includes('saudi pro league')) return 13;
+    if (name.includes('primera division') && name.includes('paraguay')) return 14;
+    if (name.includes('j1 league')) return 15;
+    
+    return 999;
+  }
 
+  // ALWAYS strictly drop matches without displayable odds
+  const baseFixtures = allFixtures.filter(f => {
+    const markets = f.advanced_odds?.markets;
+    if (!markets || markets.length === 0) return false;
+    if (!getOdds(f).hasRealOdds) return false;
+    
+    // STRICT DATE FILTER — compare in UTC (same timezone as the server DB)
+    if (filterDate) {
+      const utcDateStr = new Date(f.kickoff_at).toISOString().split('T')[0];
+      if (utcDateStr !== filterDate) {
+        return false;
+      }
+    }
+
+    // If a country filter is applied, also enforce it
+    if (filterCountry) {
+      const c = filterCountry.toLowerCase();
+      const matchCountry = f.country?.toLowerCase() === c;
+      const matchLeague = f.league?.toLowerCase().includes(c);
+      return matchCountry || matchLeague;
+    }
+    return true;
+  });
+
+  // Notify parent whenever fixtures change — emit countries + leagues for the CURRENT day filter
+  useEffect(() => {
     const cMap = new Map<string, { country: string; flag?: string }>();
     const lMap = new Map<string, { id: string; name: string; logo?: string; country: string }>();
 
-    for (const f of allFixtures) {
+    for (const f of baseFixtures) {
       if (f.country && f.country !== 'World') {
         cMap.set(f.country, { country: f.country, flag: f.country_flag_url });
       }
@@ -371,14 +388,14 @@ export function FixtureTabs({
 
     if (onLeaguesLoaded) {
       const lList = Array.from(lMap.values()).sort((a, b) => {
-        const pA = leaguePopularity(a.name);
-        const pB = leaguePopularity(b.name);
+        const pA = getLeaguePriority(a.name);
+        const pB = getLeaguePriority(b.name);
         if (pA !== pB) return pA - pB;
         return a.name.localeCompare(b.name);
       });
       onLeaguesLoaded(lList);
     }
-  }, [allFixtures, onFixturesLoaded, onLeaguesLoaded]);
+  }, [baseFixtures, onFixturesLoaded, onLeaguesLoaded]);
 
   // Reset page when filters change
   useEffect(() => { setPage(0); }, [sport, leagueId, activeTab, timeRange, filterDate, filterCountry, filterSearch]);
@@ -514,52 +531,6 @@ export function FixtureTabs({
     return () => clearInterval(interval);
   }, [activeTab, sport, API_BASE]);
 
-  function getLeaguePriority(leagueName: string | undefined): number {
-    if (!leagueName) return 999;
-    const name = leagueName.toLowerCase();
-    
-    if (name.includes('premier league') && !name.includes('women') && !name.includes('2')) return 1;
-    if (name.includes('la liga')) return 2;
-    if (name.includes('serie a')) return 3;
-    if (name.includes('bundesliga') && !name.includes('2') && !name.includes('3')) return 4;
-    if (name.includes('ligue 1')) return 5;
-    if (name.includes('brasileiro serie a') || name.includes('brasileirão')) return 6;
-    if (name.includes('primeira liga')) return 7;
-    if (name.includes('eredivisie')) return 8;
-    if (name.includes('belgian pro league') || name.includes('first division a')) return 9;
-    if (name.includes('süper lig') || name.includes('super lig')) return 10;
-    if (name.includes('liga profesional argentina') || name.includes('argentine primera')) return 11;
-    if (name.includes('mls') || name.includes('major league soccer')) return 12;
-    if (name.includes('saudi pro league')) return 13;
-    if (name.includes('primera division') && name.includes('paraguay')) return 14;
-    if (name.includes('j1 league')) return 15;
-    
-    return 999;
-  }
-
-  // ALWAYS strictly drop matches without displayable odds
-  const baseFixtures = allFixtures.filter(f => {
-    const markets = f.advanced_odds?.markets;
-    if (!markets || markets.length === 0) return false;
-    if (!getOdds(f).hasRealOdds) return false;
-    
-    // STRICT DATE FILTER — compare in UTC (same timezone as the server DB)
-    if (filterDate) {
-      const utcDateStr = new Date(f.kickoff_at).toISOString().split('T')[0];
-      if (utcDateStr !== filterDate) {
-        return false;
-      }
-    }
-
-    // If a country filter is applied, also enforce it
-    if (filterCountry) {
-      const c = filterCountry.toLowerCase();
-      const matchCountry = f.country?.toLowerCase() === c;
-      const matchLeague = f.league?.toLowerCase().includes(c);
-      return matchCountry || matchLeague;
-    }
-    return true;
-  });
 
   // Build displayFixtures:
   // - country + league both active → show ALL country matches, selected league first
