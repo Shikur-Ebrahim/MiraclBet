@@ -154,17 +154,16 @@ export default function MatchPage() {
   const findMatch = useCallback(async () => {
     const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
     let knownSourceUrl: string | null = null;
-    let initialMatch: MatchDetails | null = null;
 
     // 1. Instant Zero-Latency Load from session cache
     try {
       const cached = sessionStorage.getItem(`match_cache_${id}`);
       if (cached) {
         const parsed = JSON.parse(cached);
-        initialMatch = parsed;
         setMatch(parsed);
-        const d = new Date(parsed.kickoff_at);
-        const dateStr = d.toISOString().split('T')[0];
+        // Use UTC date from kickoff to match what the backend expects
+        const kickoffUTC = new Date(parsed.kickoff_at);
+        const dateStr = kickoffUTC.toISOString().split('T')[0];
         knownSourceUrl = parsed.is_live ? `${API_BASE}/api/v1/fixtures/live` : `${API_BASE}/api/v1/fixtures?date=${dateStr}`;
         setSourceUrl(knownSourceUrl);
         setLoading(false);

@@ -146,18 +146,18 @@ function AnimatedOddButton({ label, val }: { label: string, val: string | null }
   return (
     <button
       onClick={(e) => {
-        e.preventDefault();
+        e.stopPropagation(); // stop click from bubbling to parent div (which would navigate)
         setSelected(!selected);
       }}
-      className={`py-1.5 rounded flex flex-col items-center justify-center gap-0 transition-all duration-300 ${
+      className={`py-1.5 rounded flex flex-col items-center justify-center gap-0 transition-all duration-300 border ${
         flash === 'up' ? 'bg-[#16A34A] border-[#16A34A]' :
         flash === 'down' ? 'bg-[#DC2626] border-[#DC2626]' :
-        selected ? 'bg-[#E8FFF2] border-[#19E66B]' :
-        'bg-[#E4F4EC] border border-[#19E66B]/30 hover:bg-[#D0EAD9]'
+        selected ? 'bg-[#0D8A3C] border-[#0D8A3C]' :
+        'bg-[#E4F4EC] border-[#19E66B]/30 hover:bg-[#D0EAD9]'
       }`}
     >
-      <span className={`text-[9px] leading-none mb-[2px] transition-colors duration-300 ${flash ? 'text-white/90' : selected ? 'text-[#0D8A3C]' : 'text-gray-400'}`}>{label}</span>
-      <span className={`text-[11.5px] font-bold leading-none transition-colors duration-300 ${flash ? 'text-white' : 'text-[#0D8A3C]'}`}>{displayVal}</span>
+      <span className={`text-[9px] leading-none mb-[2px] transition-colors duration-300 ${flash ? 'text-white/90' : selected ? 'text-white' : 'text-gray-400'}`}>{label}</span>
+      <span className={`text-[11.5px] font-bold leading-none transition-colors duration-300 ${flash ? 'text-white' : selected ? 'text-white' : 'text-[#0D8A3C]'}`}>{displayVal}</span>
     </button>
   );
 }
