@@ -70,6 +70,8 @@ func (h *FixturesHandler) Live(w http.ResponseWriter, r *http.Request) {
 			LEFT JOIN leagues l ON f.league_id = l.id
 			LEFT JOIN odds o ON o.fixture_id = f.id
 			WHERE f.is_live = true AND COALESCE(f.sport_slug,'football') = $1
+			  AND f.advanced_odds IS NOT NULL 
+			  AND f.advanced_odds != '{}'::jsonb
 			ORDER BY f.starts_at DESC LIMIT 200`, sport)
 		if len(fixtures) > 0 {
 			writeJSON(w, fixtures)
@@ -126,6 +128,8 @@ func (h *FixturesHandler) ByDate(w http.ResponseWriter, r *http.Request) {
 				WHERE DATE(f.starts_at AT TIME ZONE 'UTC') = $1
 				  AND COALESCE(f.sport_slug,'football') = $2
 				  AND (f.league_external_id = $3 OR l.external_id = $3)
+				  AND f.advanced_odds IS NOT NULL 
+				  AND f.advanced_odds != '{}'::jsonb
 				ORDER BY COALESCE(f.league_priority, 99) ASC, f.starts_at ASC LIMIT 200`,
 				date.Format("2006-01-02"), sport, leagueID)
 		} else {
@@ -143,6 +147,8 @@ func (h *FixturesHandler) ByDate(w http.ResponseWriter, r *http.Request) {
 				LEFT JOIN odds o ON o.fixture_id = f.id
 				WHERE DATE(f.starts_at AT TIME ZONE 'UTC') = $1
 				  AND COALESCE(f.sport_slug,'football') = $2
+				  AND f.advanced_odds IS NOT NULL 
+				  AND f.advanced_odds != '{}'::jsonb
 				ORDER BY COALESCE(f.league_priority, 99) ASC, f.starts_at ASC LIMIT 200`,
 				date.Format("2006-01-02"), sport)
 		}

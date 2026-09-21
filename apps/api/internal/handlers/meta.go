@@ -51,12 +51,12 @@ func (h *MetaHandler) GetLeagues(w http.ResponseWriter, r *http.Request) {
 	`
 
 	if live {
-		query += ` AND EXISTS (SELECT 1 FROM fixtures f WHERE f.league_external_id = l.external_id AND f.is_live = true)`
+		query += ` AND EXISTS (SELECT 1 FROM fixtures f WHERE f.league_external_id = l.external_id AND f.is_live = true AND f.advanced_odds IS NOT NULL AND f.advanced_odds != '{}'::jsonb)`
 	} else if date != "" {
 		// Filter leagues that have fixtures on a specific date
-		query += fmt.Sprintf(` AND EXISTS (SELECT 1 FROM fixtures f WHERE f.league_external_id = l.external_id AND DATE(f.starts_at) = '%s')`, date)
+		query += fmt.Sprintf(` AND EXISTS (SELECT 1 FROM fixtures f WHERE f.league_external_id = l.external_id AND DATE(f.starts_at) = '%s' AND f.advanced_odds IS NOT NULL AND f.advanced_odds != '{}'::jsonb)`, date)
 	} else if days != "" {
-		query += fmt.Sprintf(` AND EXISTS (SELECT 1 FROM fixtures f WHERE f.league_external_id = l.external_id AND f.starts_at >= CURRENT_DATE AND f.starts_at < CURRENT_DATE + INTERVAL '%s days' + INTERVAL '1 day')`, days)
+		query += fmt.Sprintf(` AND EXISTS (SELECT 1 FROM fixtures f WHERE f.league_external_id = l.external_id AND f.starts_at >= CURRENT_DATE AND f.starts_at < CURRENT_DATE + INTERVAL '%s days' + INTERVAL '1 day' AND f.advanced_odds IS NOT NULL AND f.advanced_odds != '{}'::jsonb)`, days)
 	}
 
 	query += ` ORDER BY COALESCE(l.league_priority, 99) ASC, l.is_top_league DESC, l.country ASC, l.name ASC`
@@ -93,11 +93,11 @@ func (h *MetaHandler) GetSports(w http.ResponseWriter, r *http.Request) {
 	live := r.URL.Query().Get("live") == "true"
 	days := r.URL.Query().Get("days")
 
-	fixtureJoin := "f.starts_at > NOW()"
+	fixtureJoin := "f.starts_at > NOW() AND f.advanced_odds IS NOT NULL AND f.advanced_odds != '{}'::jsonb"
 	if live {
-		fixtureJoin = "f.is_live = true"
+		fixtureJoin = "f.is_live = true AND f.advanced_odds IS NOT NULL AND f.advanced_odds != '{}'::jsonb"
 	} else if days != "" {
-		fixtureJoin = fmt.Sprintf("f.starts_at >= CURRENT_DATE AND f.starts_at < CURRENT_DATE + INTERVAL '%s days' + INTERVAL '1 day'", days)
+		fixtureJoin = fmt.Sprintf("f.starts_at >= CURRENT_DATE AND f.starts_at < CURRENT_DATE + INTERVAL '%s days' + INTERVAL '1 day' AND f.advanced_odds IS NOT NULL AND f.advanced_odds != '{}'::jsonb", days)
 	}
 
 	query := fmt.Sprintf(`
@@ -161,9 +161,9 @@ func (h *MetaHandler) GetTopLeagues(w http.ResponseWriter, r *http.Request) {
 	`
 
 	if live {
-		query += ` AND EXISTS (SELECT 1 FROM fixtures f WHERE f.league_external_id = l.external_id AND f.is_live = true)`
+		query += ` AND EXISTS (SELECT 1 FROM fixtures f WHERE f.league_external_id = l.external_id AND f.is_live = true AND f.advanced_odds IS NOT NULL AND f.advanced_odds != '{}'::jsonb)`
 	} else if days != "" {
-		query += fmt.Sprintf(` AND EXISTS (SELECT 1 FROM fixtures f WHERE f.league_external_id = l.external_id AND f.starts_at >= CURRENT_DATE AND f.starts_at < CURRENT_DATE + INTERVAL '%s days' + INTERVAL '1 day')`, days)
+		query += fmt.Sprintf(` AND EXISTS (SELECT 1 FROM fixtures f WHERE f.league_external_id = l.external_id AND f.starts_at >= CURRENT_DATE AND f.starts_at < CURRENT_DATE + INTERVAL '%s days' + INTERVAL '1 day' AND f.advanced_odds IS NOT NULL AND f.advanced_odds != '{}'::jsonb)`, days)
 	}
 
 	query += ` ORDER BY COALESCE(l.league_priority, 99) ASC, l.is_top_league DESC, l.name ASC LIMIT 15`
