@@ -7,13 +7,15 @@ import { SportsNav } from '@/components/sports/TopLeagues';
 import { Sidebar } from '@/components/layout/Sidebar';
 
 function buildDays() {
-  const today = new Date();
+  const now = new Date();
+  // Build UTC-based dates so they always match what the server stores
+  const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const list = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
-    const value = d.toISOString().split('T')[0];
+    const d = new Date(todayUTC);
+    d.setUTCDate(todayUTC.getUTCDate() + i);
+    const value = d.toISOString().split('T')[0]; // UTC date string e.g. "2026-09-21"
     const short = i === 0 ? 'Today' : i === 1 ? 'Tomorrow'
-      : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+      : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
     return { value, short };
   });
   return [{ value: '', short: 'All' }, ...list];

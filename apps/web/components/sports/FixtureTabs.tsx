@@ -513,9 +513,10 @@ export function FixtureTabs({
     if (!markets || markets.length === 0) return false;
     if (!getOdds(f).hasRealOdds) return false;
     
-    // STRICT LOCAL DATE FILTER (bulletproof against cache/live bleed)
+    // STRICT DATE FILTER — compare in UTC (same timezone as the server DB)
     if (filterDate) {
-      if (!f.kickoff_at.startsWith(filterDate)) {
+      const utcDateStr = new Date(f.kickoff_at).toISOString().split('T')[0];
+      if (utcDateStr !== filterDate) {
         return false;
       }
     }
