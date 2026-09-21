@@ -184,30 +184,29 @@ function MatchRow({ fix }: { fix: Fixture }) {
 
       {/* Row 2: 6 odds buttons */}
       <div className="grid grid-cols-6 gap-1 ml-[44px]">
-        {oddCells.map(({ label, val }) => (
-          <button
-            key={label}
-            onClick={(e) => e.preventDefault()}
-            disabled={val === null}
-            className={`py-1.5 rounded flex flex-col items-center justify-center gap-0 transition-colors ${
-              val !== null
-                ? 'bg-[#E4F4EC] border border-[#19E66B]/30 hover:bg-[#D0EAD9]'
-                : 'bg-gray-50 border border-gray-100 cursor-not-allowed opacity-80'
-            }`}
-          >
-            <span className="text-[9px] text-gray-400 leading-none mb-[2px]">{label}</span>
-            {val !== null ? (
-              <span className="text-[11.5px] font-bold leading-none text-[#0D8A3C]">
-                {val}
-              </span>
-            ) : (
-              <svg viewBox="0 0 24 24" className="w-[11px] h-[11px] text-gray-300" fill="currentColor">
-                <path d="M17 9V7c0-2.8-2.2-5-5-5S7 4.2 7 7v2c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V11c0-1.1-.9-2-2-2zm-8-2c0-1.7 1.3-3 3-3s3 1.3 3 3v2H9V7zm8 14H7V11h10v10z"/>
-                <circle cx="12" cy="16" r="1.5"/>
+        {oddCells.map(({ label, val }) =>
+          val !== null ? (
+            <button
+              key={label}
+              onClick={(e) => e.preventDefault()}
+              className="py-1.5 rounded flex flex-col items-center justify-center gap-0 transition-colors bg-[#E4F4EC] border border-[#19E66B]/30 hover:bg-[#D0EAD9]"
+            >
+              <span className="text-[9px] text-gray-400 leading-none mb-[2px]">{label}</span>
+              <span className="text-[11.5px] font-bold leading-none text-[#0D8A3C]">{val}</span>
+            </button>
+          ) : (
+            <div
+              key={label}
+              className="py-1.5 rounded flex flex-col items-center justify-center gap-0 bg-gray-50 border border-gray-100 opacity-90 transition-colors hover:bg-gray-100"
+            >
+              <span className="text-[9px] text-gray-400 leading-none mb-[2px]">{label}</span>
+              <svg viewBox="0 0 24 24" className="w-[13px] h-[13px] text-gray-400 mt-[1px]" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="5" y="11" width="14" height="10" rx="2" ry="2"/>
+                <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
               </svg>
-            )}
-          </button>
-        ))}
+            </div>
+          )
+        )}
       </div>
     </Link>
   );
