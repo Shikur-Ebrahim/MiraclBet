@@ -246,7 +246,6 @@ interface FixtureTabsProps {
   filterDate?: string;
   filterCountry?: string;
   filterSearch?: string;
-  priorityDate?: string;
   onFixturesLoaded?: (countries: { country: string; flag?: string }[]) => void;
   onLeaguesLoaded?: (leagues: { id: string; name: string; logo?: string; country: string }[]) => void;
 }
@@ -298,7 +297,6 @@ export function FixtureTabs({
   filterDate,
   filterCountry,
   filterSearch,
-  priorityDate,
   onFixturesLoaded,
   onLeaguesLoaded,
 }: FixtureTabsProps) {
@@ -572,15 +570,7 @@ export function FixtureTabs({
       if (!aIsSelected && bIsSelected) return 1;
     }
 
-    // 1. Priority date first
-    if (priorityDate) {
-      const aIsToday = a.kickoff_at.startsWith(priorityDate);
-      const bIsToday = b.kickoff_at.startsWith(priorityDate);
-      if (aIsToday && !bIsToday) return -1;
-      if (!aIsToday && bIsToday) return 1;
-    }
-
-    // 2. Top leagues priority
+    // 1. Top leagues priority
     const pA = getLeaguePriority(a.league);
     const pB = getLeaguePriority(b.league);
     if (pA !== pB) return pA - pB;
