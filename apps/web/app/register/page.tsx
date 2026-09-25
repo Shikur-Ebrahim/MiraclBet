@@ -3,11 +3,13 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { Container } from '@/components/ui/Container';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -17,9 +19,19 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="py-20 flex items-center justify-center min-h-[70vh]">
-      <Container size="sm" className="max-w-lg">
-        <Card className="p-8 border border-brand">
+    <div className="pt-4 pb-12 flex items-start justify-center min-h-[70vh]">
+      <Container size="sm" className="max-w-md">
+        <Card className="p-8 border border-brand relative">
+          
+          <button 
+            onClick={() => router.push('/')}
+            className="absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/80 transition-colors"
+          >
+            <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+
           <div className="mb-8 -mx-8 -mt-8 rounded-t overflow-hidden relative" style={{ aspectRatio: '16/7', background: '#07100C' }}>
             <Image src="/logo.png" alt="MiraclBet" fill className="object-cover" priority />
           </div>
@@ -30,16 +42,6 @@ export default function RegisterPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-muted mb-1">Full Name</label>
-              <input 
-                type="text" 
-                required
-                className="w-full bg-dark border border-brand rounded px-4 py-2 text-white focus:outline-none focus:border-primary"
-                placeholder="Miracl"
-              />
-            </div>
-
             <div>
               <label className="block text-sm font-medium text-muted mb-1">Phone Number</label>
               <div className="flex">
@@ -77,13 +79,6 @@ export default function RegisterPage() {
                   placeholder="••••••••"
                 />
               </div>
-            </div>
-
-            <div className="flex items-start gap-3 mt-6">
-              <input type="checkbox" id="terms" required className="mt-1" />
-              <label htmlFor="terms" className="text-xs text-muted">
-                I confirm that I am over 18 years of age and accept the <a href="#" className="text-primary hover:underline">Terms & Conditions</a> and <a href="#" className="text-primary hover:underline">Privacy Policy</a>.
-              </label>
             </div>
 
             <Button type="submit" className="w-full font-bold mt-6" loading={loading}>

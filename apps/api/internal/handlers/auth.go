@@ -30,7 +30,6 @@ type LoginResponse struct {
 type User struct {
 	ID       string `json:"id"`
 	Phone    string `json:"phone"`
-	FullName string `json:"full_name"`
 	Role     string `json:"role"`
 }
 
@@ -45,8 +44,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var hash string
 
 	// Look up user by phone number
-	err := h.db.Pool.QueryRow(r.Context(), "SELECT id, phone, full_name, role, password_hash FROM users WHERE phone = $1", req.Phone).
-		Scan(&user.ID, &user.Phone, &user.FullName, &user.Role, &hash)
+	err := h.db.Pool.QueryRow(r.Context(), "SELECT id, phone, role, password_hash FROM users WHERE phone = $1", req.Phone).
+		Scan(&user.ID, &user.Phone, &user.Role, &hash)
 
 	if err != nil {
 		h.respondError(w, http.StatusUnauthorized, "Invalid phone number or password")

@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/Button';
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const [user, setUser] = useState<{ full_name: string; role: string } | null>(null);
+  const [user, setUser] = useState<{ phone: string; role: string } | null>(null);
 
   useEffect(() => {
     // Check if user is logged in and has ADMIN role
@@ -37,7 +37,7 @@ export default function AdminDashboard() {
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-white mb-2">Admin Dashboard</h1>
-            <p className="text-muted">Welcome back, {user.full_name}</p>
+            <p className="text-muted">Welcome back, Administrator</p>
           </div>
           <Button 
             variant="secondary" 

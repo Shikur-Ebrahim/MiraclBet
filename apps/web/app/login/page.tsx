@@ -56,9 +56,19 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="py-20 flex items-center justify-center min-h-[70vh]">
+    <div className="pt-4 pb-12 flex items-start justify-center min-h-[70vh]">
       <Container size="sm" className="max-w-md">
-        <Card className="p-8 border border-brand">
+        <Card className="p-8 border border-brand relative">
+          
+          <button 
+            onClick={() => router.push('/')}
+            className="absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/80 transition-colors"
+          >
+            <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+
           <div className="mb-8 -mx-8 -mt-8 rounded-t overflow-hidden relative" style={{ aspectRatio: '16/7', background: '#07100C' }}>
             <Image src="/logo.png" alt="MiraclBet" fill className="object-cover" priority />
           </div>
