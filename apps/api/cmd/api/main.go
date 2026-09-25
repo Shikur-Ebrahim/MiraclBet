@@ -13,6 +13,7 @@ import (
 	"github.com/miraclbet/api/internal/config"
 	"github.com/miraclbet/api/internal/database"
 	"github.com/miraclbet/api/internal/router"
+	"github.com/miraclbet/api/internal/storage"
 )
 
 func main() {
@@ -36,9 +37,19 @@ func main() {
 		}
 	}
 
+	var r2Service *storage.R2Service
+	if cfg.R2AccountID != "" {
+		r2Service, err = storage.NewR2Service(cfg)
+		if err != nil {
+			log.Printf("[api] WARNING: R2 connection failed: %v", err)
+		} else {
+			log.Printf("[api] R2 storage connected")
+		}
+	}
+
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%s", cfg.Port),
-		Handler:      router.New(cfg, db),
+		Handler:      router.New(cfg, db, r2Service),
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,

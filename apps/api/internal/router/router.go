@@ -8,9 +8,10 @@ import (
 	"github.com/miraclbet/api/internal/database"
 	"github.com/miraclbet/api/internal/handlers"
 	"github.com/miraclbet/api/internal/middleware"
+	"github.com/miraclbet/api/internal/storage"
 )
 
-func New(cfg *config.Config, db *database.DB) http.Handler {
+func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(chimiddleware.RequestID)
@@ -49,6 +50,15 @@ func New(cfg *config.Config, db *database.DB) http.Handler {
 		debugHandler := handlers.NewDebugHandler(cfg)
 		r.Get("/debug/odds", debugHandler.TestOdds)
 		r.Get("/debug/odds/live", debugHandler.TestLiveOdds)
+
+		// Admin Routes
+		r.Route("/admin", func(r chi.Router) {
+			paymentMethodsHandler := handlers.NewPaymentMethodsHandler(db, r2)
+			r.Get("/payment-methods", paymentMethodsHandler.List)
+			r.Post("/payment-methods", paymentMethodsHandler.Create)
+			r.Delete("/payment-methods/{id}", paymentMethodsHandler.Delete)
+			r.Put("/payment-methods/{id}/status", paymentMethodsHandler.UpdateStatus)
+		})
 	})
 
 	return r

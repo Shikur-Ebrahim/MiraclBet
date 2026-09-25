@@ -22,10 +22,17 @@ type Config struct {
 
     CORSAllowedOrigins []string
 
-    FootballAPIBaseURL   string
-    FootballAPIKey       string
+    FootballAPIBaseURL    string
+    FootballAPIKey        string
     FootballAPIDailyLimit int
-    FootballSyncEnabled  bool
+    FootballSyncEnabled   bool
+
+    // R2 Storage
+    R2AccountID      string
+    R2AccessKeyID    string
+    R2SecretAccessKey string
+    R2BucketName     string
+    R2PublicURL      string
 }
 
 func Load() (*Config, error) {
@@ -52,6 +59,12 @@ func Load() (*Config, error) {
         FootballAPIKey:        getEnv("FOOTBALL_API_KEY", ""),
         FootballAPIDailyLimit: dailyLimit,
         FootballSyncEnabled:   syncEnabled,
+
+        R2AccountID:       getEnv("R2_ACCOUNT_ID", ""),
+        R2AccessKeyID:     getEnv("R2_ACCESS_KEY_ID", ""),
+        R2SecretAccessKey: getEnv("R2_SECRET_ACCESS_KEY", ""),
+        R2BucketName:      getEnv("R2_BUCKET_NAME", ""),
+        R2PublicURL:       getEnv("R2_PUBLIC_URL", ""),
     }
 
     if cfg.DatabaseURL == "" {
