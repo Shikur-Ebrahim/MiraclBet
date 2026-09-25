@@ -83,26 +83,42 @@ export function Header() {
                 {/* Balance pill */}
                 <div style={{
                   display: 'flex', flexDirection: 'column', alignItems: 'flex-end',
-                  background: 'rgba(25,230,107,0.08)', border: '1px solid rgba(25,230,107,0.25)',
+                  background: '#1A2235', border: '1px solid #1E293B',
                   borderRadius: '8px', padding: '3px 10px', minWidth: '80px'
                 }}>
                   <span style={{ fontSize: '9px', color: '#9CA3AF', lineHeight: 1, marginBottom: '1px' }}>Balance</span>
-                  <span style={{ fontSize: '14px', fontWeight: 800, color: '#19E66B', lineHeight: 1 }}>
+                  <span style={{ fontSize: '14px', fontWeight: 800, color: '#FFFFFF', lineHeight: 1 }}>
                     {balance.toFixed(2)} Br
                   </span>
                 </div>
-                {/* 3-dot menu button */}
-                <div style={{
-                  width: '34px', height: '34px', borderRadius: '50%',
-                  background: '#1A2235',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  border: '1px solid #1E293B', flexShrink: 0, color: '#FFFFFF',
-                }}>
-                  <svg viewBox="0 0 24 24" style={{ width: '18px', height: '18px' }} fill="currentColor">
-                    <circle cx="12" cy="5" r="1.5" />
-                    <circle cx="12" cy="12" r="1.5" />
-                    <circle cx="12" cy="19" r="1.5" />
-                  </svg>
+                {/* Profile icon circle with 3-dot badge */}
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  {/* Main profile circle */}
+                  <div style={{
+                    width: '34px', height: '34px', borderRadius: '50%',
+                    background: '#1A2235',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    border: '1px solid #1E293B', color: '#FFFFFF',
+                  }}>
+                    <svg viewBox="0 0 24 24" style={{ width: '18px', height: '18px' }} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                      <circle cx="12" cy="7" r="4" />
+                    </svg>
+                  </div>
+                  {/* 3-dot badge at bottom-right of circle */}
+                  <div style={{
+                    position: 'absolute', bottom: '-2px', right: '-4px',
+                    background: '#1A2235', border: '1px solid #1E293B',
+                    borderRadius: '8px', padding: '1px 3px',
+                    display: 'flex', flexDirection: 'column', gap: '1.5px', alignItems: 'center',
+                    color: '#9CA3AF',
+                  }}>
+                    <svg viewBox="0 0 8 16" style={{ width: '5px', height: '10px' }} fill="currentColor">
+                      <circle cx="4" cy="2" r="1.5" />
+                      <circle cx="4" cy="8" r="1.5" />
+                      <circle cx="4" cy="14" r="1.5" />
+                    </svg>
+                  </div>
                 </div>
               </button>
             ) : (
