@@ -30,6 +30,16 @@ type PlaceBetResponse struct {
 	BetID   string `json:"bet_id,omitempty"`
 }
 
+// Minimal struct to extract just what we need from JSON for validation
+type JSONOdds struct {
+	Markets []struct {
+		ID           int    `json:"id"`
+		Status       string `json:"status"`
+		OddsVersion  int    `json:"odds_version"`
+		LastUpdateAt string `json:"last_update_at"`
+	} `json:"markets"`
+}
+
 func (h *BetsHandler) PlaceBet(w http.ResponseWriter, r *http.Request) {
 	var req PlaceBetRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -43,12 +53,13 @@ func (h *BetsHandler) PlaceBet(w http.ResponseWriter, r *http.Request) {
 		h.respondError(w, http.StatusInternalServerError, "Internal server error")
 		return
 	}
-	defer tx.Rollback(ctx) // Rollback if not committed
+	defer tx.Rollback(ctx)
 
-	// 1. Validate Match is LIVE and not finished
+	// 1. Validate Match is LIVE and fetch JSON atomically
 	var isLive bool
 	var statusShort string
-	err = tx.QueryRow(ctx, "SELECT is_live, status_short FROM fixtures WHERE external_id = $1 FOR SHARE", req.FixtureExternalID).Scan(&isLive, &statusShort)
+	var oddsJSON []byte
+	err = tx.QueryRow(ctx, "SELECT is_live, status_short, advanced_odds FROM fixtures WHERE external_id = $1 FOR UPDATE", req.FixtureExternalID).Scan(&isLive, &statusShort, &oddsJSON)
 	if err != nil {
 		h.respondError(w, http.StatusNotFound, "Match not found")
 		return
@@ -59,26 +70,39 @@ func (h *BetsHandler) PlaceBet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 2. Validate Market state atomically
+	// 2. Parse JSON to find the market
+	var ao JSONOdds
+	if err := json.Unmarshal(oddsJSON, &ao); err != nil {
+		h.respondError(w, http.StatusInternalServerError, "Internal parsing error")
+		return
+	}
+
+	marketFound := false
 	var mktStatus string
 	var mktVersion int
-	var lastUpdateAt time.Time
+	var lastUpdateAtStr string
 
-	err = tx.QueryRow(ctx, `
-		SELECT status, odds_version, last_update_at 
-		FROM live_market_states 
-		WHERE fixture_external_id = $1 AND market_id = $2 
-		FOR UPDATE
-	`, req.FixtureExternalID, req.MarketID).Scan(&mktStatus, &mktVersion, &lastUpdateAt)
+	for _, m := range ao.Markets {
+		if m.ID == req.MarketID {
+			marketFound = true
+			mktStatus = m.Status
+			mktVersion = m.OddsVersion
+			lastUpdateAtStr = m.LastUpdateAt
+			break
+		}
+	}
 
-	if err != nil {
+	if !marketFound {
 		h.respondError(w, http.StatusNotFound, "Market not found")
 		return
 	}
 
-	// Double-check staleness just in case the monitor hasn't run yet
-	if mktStatus == "OPEN" && time.Since(lastUpdateAt) > 2*time.Minute {
-		mktStatus = "SUSPENDED" // Treat as suspended inline
+	// Double-check staleness inline (in case monitor hasn't run yet)
+	if mktStatus == "OPEN" && lastUpdateAtStr != "" {
+		t, err := time.Parse(time.RFC3339, lastUpdateAtStr)
+		if err == nil && time.Since(t) > 2*time.Minute {
+			mktStatus = "SUSPENDED"
+		}
 	}
 
 	if mktStatus == "SUSPENDED" {

@@ -12,11 +12,12 @@ import (
 
 // MarketData holds one betting market (e.g. "Match Winner") with all its values
 type MarketData struct {
-	ID          int        `json:"id"`
-	Name        string     `json:"name"`
-	Status      string     `json:"status"`       // OPEN, SUSPENDED, CLOSED
-	OddsVersion int        `json:"odds_version"`
-	Values      []OddValue `json:"values"`
+	ID           int        `json:"id"`
+	Name         string     `json:"name"`
+	Status       string     `json:"status"`       // OPEN, SUSPENDED, CLOSED
+	OddsVersion  int        `json:"odds_version"`
+	LastUpdateAt string     `json:"last_update_at"`
+	Values       []OddValue `json:"values"`
 }
 
 // OddValue is a single selection within a market
@@ -28,6 +29,19 @@ type OddValue struct {
 // AdvancedOdds holds ALL markets returned by the API for a fixture
 type AdvancedOdds struct {
 	Markets []MarketData `json:"markets"`
+}
+
+// oddsEqual checks if two slices of OddValue are identical
+func oddsEqual(a, b []OddValue) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].Value != b[i].Value || a[i].Odd != b[i].Odd {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *Syncer) SyncLiveOdds(ctx context.Context) error {
@@ -77,8 +91,23 @@ func (s *Syncer) saveOdds(ctx context.Context, odds []provider.ProviderOdd) erro
 		WHERE external_id = $2
 	`
 	updated, skipped, errCount := 0, 0, 0
+	nowStr := time.Now().Format(time.RFC3339)
 
 	for _, o := range odds {
+		// 1. Fetch existing JSON to compare
+		var existingJSON []byte
+		err := s.db.Pool.QueryRow(ctx, "SELECT advanced_odds FROM fixtures WHERE external_id = $1", o.FixtureID).Scan(&existingJSON)
+		
+		existingMap := make(map[int]MarketData)
+		if err == nil && len(existingJSON) > 0 {
+			var existingAO AdvancedOdds
+			if json.Unmarshal(existingJSON, &existingAO) == nil {
+				for _, m := range existingAO.Markets {
+					existingMap[m.ID] = m
+				}
+			}
+		}
+
 		var allMarkets []MarketData
 		for _, m := range o.Markets {
 			var vals []OddValue
@@ -86,29 +115,24 @@ func (s *Syncer) saveOdds(ctx context.Context, odds []provider.ProviderOdd) erro
 				vals = append(vals, OddValue{Value: v.Value, Odd: v.Odd})
 			}
 			if len(vals) > 0 {
-				// Upsert state tracking for this market
-				var newVersion int
-				stateQuery := `
-					INSERT INTO live_market_states (fixture_external_id, market_id, status, odds_version, last_update_at)
-					VALUES ($1, $2, 'OPEN', 1, NOW())
-					ON CONFLICT (fixture_external_id, market_id) DO UPDATE SET
-						odds_version = live_market_states.odds_version + 1,
-						status = 'OPEN',
-						last_update_at = NOW()
-					RETURNING odds_version
-				`
-				err := s.db.Pool.QueryRow(ctx, stateQuery, o.FixtureID, m.ID).Scan(&newVersion)
-				if err != nil {
-					// Fallback if migration hasn't run yet or other DB error
-					newVersion = 1
+				newVersion := 1
+				oldMkt, exists := existingMap[m.ID]
+				if exists {
+					// Check if odds actually changed
+					if !oddsEqual(oldMkt.Values, vals) {
+						newVersion = oldMkt.OddsVersion + 1
+					} else {
+						newVersion = oldMkt.OddsVersion
+					}
 				}
 
 				allMarkets = append(allMarkets, MarketData{
-					ID:          m.ID,
-					Name:        m.Name,
-					Status:      "OPEN",
-					OddsVersion: newVersion,
-					Values:      vals,
+					ID:           m.ID,
+					Name:         m.Name,
+					Status:       "OPEN",
+					OddsVersion:  newVersion,
+					LastUpdateAt: nowStr,
+					Values:       vals,
 				})
 			}
 		}
