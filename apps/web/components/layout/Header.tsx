@@ -3,35 +3,55 @@
 import React, { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 
+type UserSession = { phone: string; role: string; balance?: number; id?: string };
+
 export function Header() {
-  const [user, setUser] = useState<{ phone: string; role: string; balance?: number } | null>(null);
+  const [user, setUser] = useState<UserSession | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  const loadUser = () => {
     const savedUser = localStorage.getItem('miraclbet_user');
     if (savedUser) {
-      try {
-        setUser(JSON.parse(savedUser));
-      } catch (e) {
-        // ignore
-      }
+      try { setUser(JSON.parse(savedUser)); } catch { setUser(null); }
+    } else {
+      setUser(null);
     }
+  };
 
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+  useEffect(() => {
+    // Load immediately on mount
+    loadUser();
+
+    // Listen for storage changes across tabs + same-tab custom event
+    const onStorage = () => loadUser();
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('miraclbet_auth_change', onStorage);
+
+    const onClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setDropdownOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('mousedown', onClickOutside);
+
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('miraclbet_auth_change', onStorage);
+      document.removeEventListener('mousedown', onClickOutside);
+    };
   }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('miraclbet_user');
-    setUser(null);
+    loadUser();
+    setDropdownOpen(false);
     window.location.href = '/';
   };
+
+  // Short ID from user id (last 6 chars) or phone last 6 digits
+  const shortId = user?.id ? user.id.slice(-6).toUpperCase() : user?.phone?.slice(-6) ?? '------';
+  const balance = user?.balance ?? 0;
 
   return (
     <header style={{ 
@@ -50,133 +70,132 @@ export function Header() {
           <span style={{ color: '#19E66B' }}>Bet</span>
         </a>
 
-        {/* Auth Buttons or Profile */}
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+        {/* Auth area */}
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           {user ? (
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }} ref={dropdownRef}>
-              
-              {/* Balance */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center' }}>
-                <span style={{ fontSize: '10px', color: '#9CA3AF', lineHeight: 1, marginBottom: '2px' }}>Balance</span>
-                <span style={{ fontSize: '14px', fontWeight: 700, color: '#19E66B', lineHeight: 1 }}>
-                  Br {user.balance ? user.balance.toFixed(2) : '0.00'}
-                </span>
-              </div>
+            <div style={{ position: 'relative' }} ref={dropdownRef}>
 
-              {/* Profile Dropdown Container */}
-              <div style={{ position: 'relative' }}>
-                <button
-                  onClick={() => setDropdownOpen(!dropdownOpen)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: '36px',
-                    height: '36px',
-                    borderRadius: '50%',
-                    background: 'rgba(255,255,255,0.1)',
-                    color: '#FFFFFF',
-                    border: '1px solid rgba(255,255,255,0.2)',
-                    cursor: 'pointer',
-                    padding: 0,
-                  }}
-                >
-                  <svg viewBox="0 0 24 24" style={{ width: '20px', height: '20px' }} fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                    <circle cx="12" cy="7" r="4" />
-                  </svg>
-                </button>
+              {/* Balance pill + profile icon clickable trigger */}
+              <button
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  background: 'none', border: 'none', cursor: 'pointer', padding: 0
+                }}
+              >
+                {/* Balance pill */}
+                <div style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'flex-end',
+                  background: 'rgba(25,230,107,0.08)', border: '1px solid rgba(25,230,107,0.25)',
+                  borderRadius: '8px', padding: '3px 10px', minWidth: '80px'
+                }}>
+                  <span style={{ fontSize: '9px', color: '#9CA3AF', lineHeight: 1, marginBottom: '1px' }}>Balance</span>
+                  <span style={{ fontSize: '14px', fontWeight: 800, color: '#19E66B', lineHeight: 1 }}>
+                    {balance.toFixed(2)} Br
+                  </span>
+                </div>
+                {/* Profile circle */}
+                <div style={{
+                  width: '34px', height: '34px', borderRadius: '50%',
+                  background: '#F5A623', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', fontWeight: 900, fontSize: '12px', color: '#000',
+                  border: '2px solid rgba(245,166,35,0.4)', flexShrink: 0,
+                }}>
+                  {shortId.slice(-2)}
+                </div>
+              </button>
 
-                {/* Dropdown Menu */}
-                {dropdownOpen && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '100%',
-                    right: 0,
-                    marginTop: '8px',
-                    width: '160px',
-                    background: '#111827',
-                    border: '1px solid #1E293B',
-                    borderRadius: '8px',
-                    overflow: 'hidden',
-                    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.5)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                  }}>
-                    {user.role === 'ADMIN' && (
-                      <Link 
-                        href="/admin"
-                        onClick={() => setDropdownOpen(false)}
-                        style={{ padding: '12px 16px', fontSize: '14px', color: '#FFFFFF', textDecoration: 'none', borderBottom: '1px solid #1E293B' }}
-                      >
-                        Admin Dashboard
-                      </Link>
-                    )}
-                    <Link 
-                      href="/deposit"
-                      onClick={() => setDropdownOpen(false)}
-                      style={{ padding: '12px 16px', fontSize: '14px', color: '#FFFFFF', textDecoration: 'none', borderBottom: '1px solid #1E293B' }}
-                    >
+              {/* Dropdown */}
+              {dropdownOpen && (
+                <div style={{
+                  position: 'absolute', top: 'calc(100% + 8px)', right: 0,
+                  width: '220px', background: '#111827',
+                  border: '1px solid #1E293B', borderRadius: '12px',
+                  overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+                }}>
+                  {/* Profile header */}
+                  <div style={{ padding: '16px', textAlign: 'center', borderBottom: '1px solid #1E293B' }}>
+                    <div style={{
+                      width: '56px', height: '56px', borderRadius: '50%',
+                      background: '#F5A623', display: 'flex', alignItems: 'center',
+                      justifyContent: 'center', fontWeight: 900, fontSize: '18px',
+                      color: '#000', margin: '0 auto 10px'
+                    }}>
+                      {shortId.slice(-2)}
+                    </div>
+                    <div style={{
+                      background: '#1A2235', borderRadius: '6px', padding: '5px 10px',
+                      fontSize: '12px', color: '#9CA3AF', marginBottom: '8px'
+                    }}>
+                      Your ID — {shortId}
+                    </div>
+                    <div style={{ background: '#1A2235', borderRadius: '6px', padding: '8px 10px' }}>
+                      <div style={{ fontSize: '10px', color: '#9CA3AF', marginBottom: '2px', textAlign: 'left' }}>Balance</div>
+                      <div style={{ fontSize: '20px', fontWeight: 900, color: '#FFFFFF', textAlign: 'right' }}>
+                        {balance.toFixed(2)} <span style={{ color: '#F5A623' }}>Br</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Deposit button */}
+                  <div style={{ padding: '10px 12px', borderBottom: '1px solid #1E293B' }}>
+                    <Link href="/deposit" onClick={() => setDropdownOpen(false)} style={{
+                      display: 'block', textAlign: 'center', padding: '11px',
+                      background: '#F5A623', color: '#000', fontWeight: 800,
+                      fontSize: '14px', borderRadius: '8px', textDecoration: 'none',
+                    }}>
                       Deposit
                     </Link>
-                    <Link 
-                      href="/withdraw"
+                  </div>
+
+                  {/* Menu items */}
+                  {[
+                    { label: 'Withdrawal', href: '/withdraw' },
+                    { label: 'Transaction History', href: '/transactions' },
+                    { label: 'Bet History', href: '/bets' },
+                    { label: 'Betslip Check', href: '/betslip' },
+                    ...(user.role === 'ADMIN' ? [{ label: 'Admin Dashboard', href: '/admin' }] : []),
+                  ].map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
                       onClick={() => setDropdownOpen(false)}
-                      style={{ padding: '12px 16px', fontSize: '14px', color: '#FFFFFF', textDecoration: 'none', borderBottom: '1px solid #1E293B' }}
-                    >
-                      Withdraw
-                    </Link>
-                    <button
-                      onClick={handleLogout}
                       style={{
-                        padding: '12px 16px',
-                        fontSize: '14px',
-                        fontWeight: 600,
-                        color: '#ef4444',
-                        background: 'transparent',
-                        border: 'none',
-                        textAlign: 'left',
-                        cursor: 'pointer',
+                        display: 'block', padding: '12px 16px', fontSize: '14px',
+                        color: '#FFFFFF', textDecoration: 'none',
+                        borderBottom: '1px solid #1E293B',
                       }}
                     >
-                      Logout
-                    </button>
-                  </div>
-                )}
-              </div>
+                      {item.label}
+                    </Link>
+                  ))}
+
+                  <button onClick={handleLogout} style={{
+                    display: 'block', width: '100%', padding: '12px 16px',
+                    fontSize: '14px', fontWeight: 600, color: '#ef4444',
+                    background: 'transparent', border: 'none',
+                    textAlign: 'left', cursor: 'pointer',
+                  }}>
+                    Log out
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <>
-              <a
-                href="/login"
-                style={{
-                  textDecoration: 'none',
-                  padding: '7px 16px',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  color: '#FFFFFF',
-                  border: '1px solid rgba(255,255,255,0.4)',
-                  borderRadius: '6px',
-                  display: 'inline-block',
-                  whiteSpace: 'nowrap',
-                }}
-              >
+              <a href="/login" style={{
+                textDecoration: 'none', padding: '7px 16px', fontSize: '13px',
+                fontWeight: 600, color: '#FFFFFF',
+                border: '1px solid rgba(255,255,255,0.4)', borderRadius: '6px',
+                display: 'inline-block', whiteSpace: 'nowrap',
+              }}>
                 Log In
               </a>
-              <a
-                href="/register"
-                style={{
-                  textDecoration: 'none',
-                  padding: '7px 16px',
-                  fontSize: '13px',
-                  fontWeight: 700,
-                  color: '#000000',
-                  background: '#F5A623',
-                  borderRadius: '6px',
-                  display: 'inline-block',
-                  whiteSpace: 'nowrap',
-                }}
-              >
+              <a href="/register" style={{
+                textDecoration: 'none', padding: '7px 16px', fontSize: '13px',
+                fontWeight: 700, color: '#000000', background: '#F5A623',
+                borderRadius: '6px', display: 'inline-block', whiteSpace: 'nowrap',
+              }}>
                 Registration
               </a>
             </>

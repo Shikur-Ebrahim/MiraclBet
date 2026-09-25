@@ -3,13 +3,11 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
 import { Container } from '@/components/ui/Container';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 
 export default function LoginPage() {
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -36,20 +34,18 @@ export default function LoginPage() {
       // Save user session
       localStorage.setItem('miraclbet_user', JSON.stringify(data.user));
 
-      // Redirect based on role
+      // Fire custom event so Header updates instantly on same tab
+      window.dispatchEvent(new Event('miraclbet_auth_change'));
+
+      // Immediate redirect — no delay
       if (data.user.role === 'ADMIN') {
-        router.push('/admin');
-      } else if (data.user.role === 'WORKER') {
-        router.push('/staff'); // placeholder for future
+        window.location.href = '/admin';
       } else {
-        router.push('/');
+        window.location.href = '/';
       }
+
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError(String(err));
-      }
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
@@ -61,7 +57,7 @@ export default function LoginPage() {
         <Card className="p-8 border border-brand relative">
           
           <button 
-            onClick={() => router.push('/')}
+            onClick={() => { window.location.href = '/'; }}
             className="absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/80 transition-colors"
           >
             <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2">
@@ -73,13 +69,13 @@ export default function LoginPage() {
             <Image src="/logo.png" alt="MiraclBet" fill className="object-cover" priority />
           </div>
           
-          <div className="text-center mb-8">
+          <div className="text-center mb-6">
             <h1 className="text-2xl font-bold text-white">Welcome Back</h1>
             <p className="text-muted text-sm mt-2">Sign in to your MiraclBet account</p>
           </div>
 
           {error && (
-            <div className="bg-red-500/10 border border-red-500/50 text-red-500 text-sm p-3 rounded mb-6 text-center">
+            <div className="bg-red-500/10 border border-red-500/50 text-red-500 text-sm p-3 rounded mb-4 text-center">
               {error}
             </div>
           )}
@@ -100,7 +96,6 @@ export default function LoginPage() {
                   onChange={(e) => setPhone(e.target.value)}
                   className="w-full bg-dark border border-brand rounded-r px-4 py-2 text-white focus:outline-none focus:border-primary"
                   placeholder="908456723"
-                  title="Enter your 9-digit Ethiopian phone number"
                 />
               </div>
             </div>
