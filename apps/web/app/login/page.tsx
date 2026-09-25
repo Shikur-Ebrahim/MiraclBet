@@ -27,13 +27,21 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-muted mb-1">Email</label>
-              <input 
-                type="email" 
-                required
-                className="w-full bg-dark border border-brand rounded px-4 py-2 text-white focus:outline-none focus:border-primary"
-                placeholder="you@example.com"
-              />
+              <label className="block text-sm font-medium text-muted mb-1">Phone Number</label>
+              <div className="flex">
+                <span className="inline-flex items-center px-4 rounded-l border border-r-0 border-brand bg-surface text-white font-semibold text-sm">
+                  +251
+                </span>
+                <input 
+                  type="tel" 
+                  required
+                  pattern="[0-9]{9}"
+                  maxLength={9}
+                  className="w-full bg-dark border border-brand rounded-r px-4 py-2 text-white focus:outline-none focus:border-primary"
+                  placeholder="908456723"
+                  title="Enter your 9-digit Ethiopian phone number"
+                />
+              </div>
             </div>
             
             <div>
