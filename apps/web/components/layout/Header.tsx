@@ -91,14 +91,18 @@ export function Header() {
                     {balance.toFixed(2)} Br
                   </span>
                 </div>
-                {/* Profile circle */}
+                {/* Plain profile icon circle */}
                 <div style={{
                   width: '34px', height: '34px', borderRadius: '50%',
-                  background: '#F5A623', display: 'flex', alignItems: 'center',
-                  justifyContent: 'center', fontWeight: 900, fontSize: '12px', color: '#000',
-                  border: '2px solid rgba(245,166,35,0.5)', flexShrink: 0,
+                  background: '#1A2235',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  border: '1px solid #1E293B', flexShrink: 0,
+                  color: '#FFFFFF',
                 }}>
-                  {shortId.slice(-2)}
+                  <svg viewBox="0 0 24 24" style={{ width: '18px', height: '18px' }} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                  </svg>
                 </div>
               </button>
             ) : (

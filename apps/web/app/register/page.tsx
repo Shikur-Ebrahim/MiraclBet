@@ -11,11 +11,9 @@ import { Button } from '@/components/ui/Button';
 export default function RegisterPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
@@ -25,7 +23,6 @@ export default function RegisterPage() {
     setError('');
     setSuccess(false);
 
-    // Validate phone number locally
     if (phone.length !== 9 || (phone[0] !== '9' && phone[0] !== '7')) {
       setError('Please enter a valid Ethiopian phone number starting with 9 or 7');
       setLoading(false);
@@ -57,47 +54,16 @@ export default function RegisterPage() {
         throw new Error(data.message || 'Registration failed');
       }
 
-      // Show success state
+      // Show inline success message then redirect to login
       setSuccess(true);
-      
-      // Save user session
-      localStorage.setItem('miraclbet_user', JSON.stringify(data.user));
-
-      // Redirect after 2 seconds
-      setTimeout(() => {
-        if (data.user.role === 'ADMIN') router.push('/admin');
-        else router.push('/');
-      }, 2000);
+      setTimeout(() => router.push('/login'), 2000);
 
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError(String(err));
-      }
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
   };
-
-  if (success) {
-    return (
-      <div className="pt-4 pb-12 flex items-start justify-center min-h-[70vh]">
-        <Container size="sm" className="max-w-md">
-          <Card className="p-8 border border-brand text-center relative">
-            <div className="w-16 h-16 bg-[#19E66B]/20 text-[#19E66B] rounded-full flex items-center justify-center mx-auto mb-6">
-              <svg viewBox="0 0 24 24" className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-            </div>
-            <h1 className="text-2xl font-bold text-white mb-2">Account Created!</h1>
-            <p className="text-muted">You have successfully joined MiraclBet.</p>
-            <p className="text-sm text-primary mt-4">Redirecting...</p>
-          </Card>
-        </Container>
-      </div>
-    );
-  }
 
   return (
     <div className="pt-4 pb-12 flex items-start justify-center min-h-[70vh]">
@@ -113,7 +79,7 @@ export default function RegisterPage() {
             </svg>
           </button>
 
-          <div className="mb-8 -mx-8 -mt-8 rounded-t overflow-hidden relative" style={{ aspectRatio: '16/7', background: '#07100C' }}>
+          <div className="mb-6 -mx-8 -mt-8 rounded-t overflow-hidden relative" style={{ aspectRatio: '16/7', background: '#07100C' }}>
             <Image src="/logo.png" alt="MiraclBet" fill className="object-cover" priority />
           </div>
           
@@ -123,7 +89,7 @@ export default function RegisterPage() {
           </div>
 
           {error && (
-            <div className="bg-red-500/10 border border-red-500/50 text-red-500 text-sm p-3 rounded mb-6 text-center">
+            <div className="bg-red-500/10 border border-red-500/50 text-red-500 text-sm p-3 rounded mb-4 text-center">
               {error}
             </div>
           )}
@@ -144,39 +110,43 @@ export default function RegisterPage() {
                   maxLength={9}
                   className="w-full bg-dark border border-brand rounded-r px-4 py-2 text-white focus:outline-none focus:border-primary"
                   placeholder="908456723"
-                  title="Enter your 9-digit Ethiopian phone number starting with 9 or 7"
                 />
               </div>
             </div>
             
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-muted mb-1">Password</label>
-                <input 
-                  type="password" 
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-dark border border-brand rounded px-4 py-2 text-white focus:outline-none focus:border-primary"
-                  placeholder="••••••••"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-muted mb-1">Confirm Password</label>
-                <input 
-                  type="password" 
-                  required
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full bg-dark border border-brand rounded px-4 py-2 text-white focus:outline-none focus:border-primary"
-                  placeholder="••••••••"
-                />
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-muted mb-1">Password</label>
+              <input 
+                type="password" 
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-dark border border-brand rounded px-4 py-2 text-white focus:outline-none focus:border-primary"
+                placeholder="••••••••"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-muted mb-1">Confirm Password</label>
+              <input 
+                type="password" 
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full bg-dark border border-brand rounded px-4 py-2 text-white focus:outline-none focus:border-primary"
+                placeholder="••••••••"
+              />
             </div>
 
-            <Button type="submit" className="w-full font-bold mt-6" loading={loading}>
+            <Button type="submit" className="w-full font-bold mt-2" loading={loading}>
               Create Account
             </Button>
+
+            {/* Inline success message — no card, just simple text */}
+            {success && (
+              <p className="text-center text-[#19E66B] text-sm font-semibold pt-1">
+                ✓ Account created successfully! Redirecting to login...
+              </p>
+            )}
           </form>
 
           <p className="text-center text-sm text-muted mt-6">
