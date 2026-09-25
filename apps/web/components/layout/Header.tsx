@@ -14,8 +14,6 @@ export function Header() {
 
   const navLinks = [
     { href: '/', label: 'Home' },
-    { href: '/sports', label: 'Sports' },
-    { href: '/bets', label: 'My Bets' },
   ];
 
   return (
