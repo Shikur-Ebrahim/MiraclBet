@@ -17,15 +17,17 @@ export function Header() {
 
         {/* Auth Buttons — always visible, no hamburger */}
         <div className="flex items-center gap-2">
-          <Link href="/login">
-            <button className="px-4 py-1.5 text-[13px] font-semibold text-white border border-white/30 rounded-md hover:bg-white/10 transition-colors">
-              Log In
-            </button>
+          <Link 
+            href="/login" 
+            className="px-4 py-1.5 text-[13px] font-semibold text-white border border-white/30 rounded-md hover:bg-white/10 transition-colors"
+          >
+            Log In
           </Link>
-          <Link href="/register">
-            <button className="px-4 py-1.5 text-[13px] font-bold text-black bg-[#F5A623] rounded-md hover:bg-[#e09400] transition-colors">
-              Registration
-            </button>
+          <Link 
+            href="/register" 
+            className="px-4 py-1.5 text-[13px] font-bold text-black bg-[#F5A623] rounded-md hover:bg-[#e09400] transition-colors"
+          >
+            Registration
           </Link>
         </div>
 

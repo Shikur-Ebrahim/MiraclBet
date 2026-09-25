@@ -60,7 +60,7 @@ export default function AdminDashboard() {
             <p className="text-3xl font-black text-primary">342</p>
           </Card>
           <Card className="p-6 border border-brand bg-[#0d1424]">
-            <h3 className="text-lg font-semibold text-white mb-1">Today's Revenue</h3>
+            <h3 className="text-lg font-semibold text-white mb-1">Today&apos;s Revenue</h3>
             <p className="text-3xl font-black text-primary">Br 45,200</p>
           </Card>
         </div>
