@@ -117,8 +117,10 @@ func main() {
             _ = syncer.SyncLiveOdds(ctx)
 
         case <-todayOddsTicker.C:
-            // Every 5 min: refresh prematch odds for today (HIGH PRIORITY)
-            log.Println("[worker] tick: prematch odds today...")
+            // Every 5 min: refresh fixtures & prematch odds for today (HIGH PRIORITY)
+            // Syncing fixtures here catches matches that just finished (FT) and dropped out of the /live feed
+            log.Println("[worker] tick: fixtures & prematch odds today...")
+            _ = syncer.SyncFixtures(ctx, time.Now().UTC())
             _ = syncer.SyncOddsByDate(ctx, time.Now().UTC())
 
         case <-tomorrowOddsTicker.C:

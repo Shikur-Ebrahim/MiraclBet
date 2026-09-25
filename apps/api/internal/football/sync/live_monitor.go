@@ -75,8 +75,8 @@ func (s *Syncer) checkStaleOdds(ctx context.Context) {
 }
 
 func (s *Syncer) closeFinishedMatches(ctx context.Context) {
-	// Close markets in JSON for matches that are FT, AET, PEN, or no longer marked is_live
-	rows, err := s.db.Pool.Query(ctx, "SELECT external_id, advanced_odds FROM fixtures WHERE (is_live = false OR status_short IN ('FT', 'AET', 'PEN')) AND advanced_odds IS NOT NULL")
+	// Close markets in JSON for matches that are finished or cancelled
+	rows, err := s.db.Pool.Query(ctx, "SELECT external_id, advanced_odds FROM fixtures WHERE status_short IN ('FT', 'AET', 'PEN', 'AWD', 'CANC', 'ABD') AND advanced_odds IS NOT NULL")
 	if err != nil {
 		log.Printf("[monitor] error closing finished matches: %v", err)
 		return
