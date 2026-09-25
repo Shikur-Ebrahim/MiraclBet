@@ -57,7 +57,7 @@ func (h *DepositsHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	screenshotURL, err := h.r2.UploadFile(r.Context(), file, header.Filename, header.Header.Get("Content-Type"))
+	screenshotURL, err := h.r2.UploadFile(r.Context(), file, header)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to upload screenshot: %v", err), http.StatusInternalServerError)
 		return
