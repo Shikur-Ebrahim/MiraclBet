@@ -35,6 +35,7 @@ export default function DepositMethodsAdmin() {
   
   // Form state
   const [providerName, setProviderName] = useState(providers[0]);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [accountName, setAccountName] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -186,7 +187,7 @@ export default function DepositMethodsAdmin() {
                   border: '1px solid #E5E7EB', flexShrink: 0,
                 }}>
                   {method.logo_url ? (
-                    <img src={method.logo_url} alt={method.provider_name} width={56} height={56} style={{ objectFit: 'cover' }} />
+                    <img src={method.logo_url} alt={method.provider_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
                     <span style={{ fontSize: '24px' }}>🏦</span>
                   )}
@@ -261,14 +262,50 @@ export default function DepositMethodsAdmin() {
 
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               
-              <div>
+              <div style={{ position: 'relative' }}>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Bank / Provider Name</label>
-                <select 
-                  value={providerName} onChange={(e) => setProviderName(e.target.value)} required
-                  style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #D1D5DB', background: '#F9FAFB', fontSize: '15px', color: '#111827', outline: 'none' }}
+                <div 
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  style={{ 
+                    width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid #D1D5DB', 
+                    background: '#F9FAFB', fontSize: '15px', color: '#111827', cursor: 'pointer',
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                  }}
                 >
-                  {providers.map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
+                  <span style={{ fontWeight: 500 }}>{providerName}</span>
+                  <svg viewBox="0 0 24 24" style={{ width: '20px', height: '20px', color: '#6B7280', transform: isDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+
+                {isDropdownOpen && (
+                  <div style={{ 
+                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10,
+                    marginTop: '8px', background: '#FFFFFF', border: '1px solid #E5E7EB',
+                    borderRadius: '16px', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)',
+                    overflow: 'hidden', maxHeight: '240px', overflowY: 'auto'
+                  }}>
+                    {providers.map(p => (
+                      <div 
+                        key={p} 
+                        onClick={() => { setProviderName(p); setIsDropdownOpen(false); }}
+                        style={{ 
+                          padding: '14px 16px', fontSize: '15px', color: '#111827', cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          borderBottom: '1px solid #F3F4F6',
+                          background: providerName === p ? '#F0FDF4' : '#FFFFFF',
+                        }}
+                      >
+                        <span style={{ fontWeight: providerName === p ? 700 : 500 }}>{p}</span>
+                        {providerName === p && (
+                          <svg viewBox="0 0 24 24" style={{ width: '20px', height: '20px', color: '#16A34A' }} fill="none" stroke="currentColor" strokeWidth="3">
+                            <path d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div>
@@ -300,7 +337,9 @@ export default function DepositMethodsAdmin() {
                   }}
                 >
                   {logoPreview ? (
-                    <img src={logoPreview} alt="Preview" width={64} height={64} style={{ borderRadius: '8px', objectFit: 'cover' }} />
+                    <div style={{ width: '64px', height: '64px', overflow: 'hidden', borderRadius: '8px' }}>
+                      <img src={logoPreview} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </div>
                   ) : (
                     <div style={{ color: '#6B7280' }}>
                       <svg viewBox="0 0 24 24" style={{ width: '32px', height: '32px', margin: '0 auto' }} fill="none" stroke="currentColor" strokeWidth="2">
