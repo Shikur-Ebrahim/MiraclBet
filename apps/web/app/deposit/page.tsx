@@ -36,7 +36,7 @@ export default function DepositPage() {
     }
 
     // Fetch methods
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/payment-methods`)
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/payment-methods`)
       .then(res => res.json())
       .then(data => {
         const active = (data || []).filter((m: PaymentMethod) => m.is_active);
