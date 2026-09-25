@@ -51,13 +51,21 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service) http.Handle
 		r.Get("/debug/odds", debugHandler.TestOdds)
 		r.Get("/debug/odds/live", debugHandler.TestLiveOdds)
 
+		paymentMethodsHandler := handlers.NewPaymentMethodsHandler(db, r2)
+		r.Get("/payment-methods", paymentMethodsHandler.List) // Public list for deposit page
+
+		depositsHandler := handlers.NewDepositsHandler(db, r2)
+		r.Post("/deposits", depositsHandler.Create) // User creates deposit
+
 		// Admin Routes
 		r.Route("/admin", func(r chi.Router) {
-			paymentMethodsHandler := handlers.NewPaymentMethodsHandler(db, r2)
 			r.Get("/payment-methods", paymentMethodsHandler.List)
 			r.Post("/payment-methods", paymentMethodsHandler.Create)
 			r.Delete("/payment-methods/{id}", paymentMethodsHandler.Delete)
 			r.Put("/payment-methods/{id}/status", paymentMethodsHandler.UpdateStatus)
+
+			r.Get("/deposits", depositsHandler.ListAdmin)
+			r.Put("/deposits/{id}/status", depositsHandler.UpdateStatus)
 		})
 	})
 
