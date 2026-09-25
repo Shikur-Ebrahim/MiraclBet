@@ -23,7 +23,7 @@ export function Header() {
             </button>
           </Link>
           <Link href="/register">
-            <button className="px-4 py-1.5 text-[13px] font-bold text-black bg-[#19E66B] rounded-md hover:bg-[#14b856] transition-colors">
+            <button className="px-4 py-1.5 text-[13px] font-bold text-black bg-[#F5A623] rounded-md hover:bg-[#e09400] transition-colors">
               Registration
             </button>
           </Link>
