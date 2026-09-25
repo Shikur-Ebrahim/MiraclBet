@@ -28,9 +28,10 @@ type LoginResponse struct {
 }
 
 type User struct {
-	ID       string `json:"id"`
-	Phone    string `json:"phone"`
-	Role     string `json:"role"`
+	ID      string  `json:"id"`
+	Phone   string  `json:"phone"`
+	Role    string  `json:"role"`
+	Balance float64 `json:"balance"`
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -44,8 +45,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var hash string
 
 	// Look up user by phone number
-	err := h.db.Pool.QueryRow(r.Context(), "SELECT id, phone, role, password_hash FROM users WHERE phone = $1", req.Phone).
-		Scan(&user.ID, &user.Phone, &user.Role, &hash)
+	err := h.db.Pool.QueryRow(r.Context(), "SELECT id, phone, role, COALESCE(balance, 0), password_hash FROM users WHERE phone = $1", req.Phone).
+		Scan(&user.ID, &user.Phone, &user.Role, &user.Balance, &hash)
 
 	if err != nil {
 		h.respondError(w, http.StatusUnauthorized, "Invalid phone number or password")
@@ -106,10 +107,10 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	var user User
 	err = h.db.Pool.QueryRow(r.Context(), `
-		INSERT INTO users (phone, password_hash, role) 
-		VALUES ($1, $2, 'USER') 
-		RETURNING id, phone, role
-	`, req.Phone, string(hash)).Scan(&user.ID, &user.Phone, &user.Role)
+		INSERT INTO users (phone, password_hash, role, balance) 
+		VALUES ($1, $2, 'USER', 0.00) 
+		RETURNING id, phone, role, balance
+	`, req.Phone, string(hash)).Scan(&user.ID, &user.Phone, &user.Role, &user.Balance)
 
 	if err != nil {
 		// Mostly unique violation for duplicate phone
