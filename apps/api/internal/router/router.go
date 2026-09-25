@@ -38,6 +38,9 @@ func New(cfg *config.Config, db *database.DB) http.Handler {
 		r.Get("/meta/leagues/top", metaHandler.GetTopLeagues)
 		r.Get("/meta/leagues", metaHandler.GetLeagues)
 
+		authHandler := handlers.NewAuthHandler(db)
+		r.Post("/auth/login", authHandler.Login)
+
 		betsHandler := handlers.NewBetsHandler(db)
 		r.Post("/bets", betsHandler.PlaceBet)
 
