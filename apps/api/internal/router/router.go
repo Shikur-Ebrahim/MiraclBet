@@ -40,6 +40,7 @@ func New(cfg *config.Config, db *database.DB) http.Handler {
 
 		authHandler := handlers.NewAuthHandler(db)
 		r.Post("/auth/login", authHandler.Login)
+		r.Post("/auth/register", authHandler.Register)
 
 		betsHandler := handlers.NewBetsHandler(db)
 		r.Post("/bets", betsHandler.PlaceBet)
