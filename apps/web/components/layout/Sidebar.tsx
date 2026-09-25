@@ -170,8 +170,8 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
       {/* Backdrop overlay */}
       <div 
         className={clsx(
-          "fixed inset-0 bg-black/60 z-40 transition-opacity duration-300",
-          isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+          "fixed inset-0 bg-black/60 z-[45] transition-opacity duration-300",
+          isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         )} 
         onClick={onClose}
       />
@@ -179,7 +179,7 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
       {/* Sidebar drawer */}
       <div 
         className={clsx(
-          "fixed top-0 left-0 bottom-0 z-50 w-[85vw] max-w-sm flex flex-col shadow-2xl transition-transform duration-300",
+          "fixed top-0 left-0 bottom-0 z-[55] w-[85vw] max-w-sm flex flex-col shadow-2xl transition-transform duration-300",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
         style={{ background: '#072414' }}

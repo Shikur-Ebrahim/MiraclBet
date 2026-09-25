@@ -5,7 +5,7 @@ import Link from 'next/link';
 
 export function Header() {
   return (
-    <header className="sticky top-0 z-50 bg-[#0A0E1A] border-b border-[#1E293B]">
+    <header className="sticky top-0 z-[60] bg-[#0A0E1A] border-b border-[#1E293B]">
       <div className="flex items-center justify-between px-4 h-14">
 
         {/* Logo */}
