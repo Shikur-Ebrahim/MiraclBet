@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Container } from '@/components/ui/Container';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -19,6 +20,10 @@ export default function RegisterPage() {
     <div className="py-20 flex items-center justify-center min-h-[70vh]">
       <Container size="sm" className="max-w-lg">
         <Card className="p-8 border border-brand">
+          <div className="mb-8 -mx-8 -mt-8 rounded-t overflow-hidden relative" style={{ aspectRatio: '16/7', background: '#07100C' }}>
+            <Image src="/logo.png" alt="MiraclBet" fill className="object-cover" priority />
+          </div>
+          
           <div className="text-center mb-8">
             <h1 className="text-2xl font-bold text-white">Create Account</h1>
             <p className="text-muted text-sm mt-2">Join MiraclBet and start winning today</p>
@@ -31,7 +36,7 @@ export default function RegisterPage() {
                 type="text" 
                 required
                 className="w-full bg-dark border border-brand rounded px-4 py-2 text-white focus:outline-none focus:border-primary"
-                placeholder="John Doe"
+                placeholder="Miracl"
               />
             </div>
 
@@ -53,7 +58,7 @@ export default function RegisterPage() {
               </div>
             </div>
             
-            <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-muted mb-1">Password</label>
                 <input 
@@ -64,7 +69,7 @@ export default function RegisterPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">Confirm</label>
+                <label className="block text-sm font-medium text-muted mb-1">Confirm Password</label>
                 <input 
                   type="password" 
                   required
@@ -72,15 +77,6 @@ export default function RegisterPage() {
                   placeholder="••••••••"
                 />
               </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-muted mb-1">Date of Birth</label>
-              <input 
-                type="date" 
-                required
-                className="w-full bg-dark border border-brand rounded px-4 py-2 text-white focus:outline-none focus:border-primary"
-              />
             </div>
 
             <div className="flex items-start gap-3 mt-6">
