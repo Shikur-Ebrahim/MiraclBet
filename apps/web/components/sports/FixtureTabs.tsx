@@ -26,7 +26,14 @@ interface Fixture {
   odds_away: number;
   sport: string;
   advanced_odds?: {
-    markets?: { id: number; name: string; values: { value: string; odd: string }[] }[];
+    markets?: {
+      id: number;
+      name: string;
+      status?: string;        // OPEN | SUSPENDED | CLOSED
+      odds_version?: number;
+      last_update_at?: string;
+      values: { value: string; odd: string }[];
+    }[];
     match_winner?: { value: string; odd: string }[];
   };
 }
@@ -67,6 +74,16 @@ function findOdd(
   return null;
 }
 
+// Returns the status of the Match Winner market (OPEN, SUSPENDED, CLOSED, or null)
+function getMarketStatus(fix: Fixture): string | null {
+  const markets = fix.advanced_odds?.markets;
+  if (!markets) return null;
+  // Find 1x2/match winner market
+  const mkt = markets.find(m => m.id === 1) ||
+               markets.find(m => m.name.toLowerCase().includes('match winner') || m.name.toLowerCase().includes('1x2'));
+  return mkt?.status ?? null;
+}
+
 function getOdds(fix: Fixture) {
   const ao = fix.advanced_odds;
 
@@ -79,8 +96,9 @@ function getOdds(fix: Fixture) {
 
   const hasRealOdds = !!(home || draw || away || hd || da || ha);
   const totalMarkets = ao?.markets?.length ?? 0;
+  const marketStatus = getMarketStatus(fix);
 
-  return { home, draw, away, hd, da, ha, totalMarkets, hasRealOdds };
+  return { home, draw, away, hd, da, ha, totalMarkets, hasRealOdds, marketStatus };
 }
 
 const PAGE_SIZE = 50;
@@ -111,18 +129,20 @@ function SkeletonRow() {
 
 // ─── Odd Button with Animation ──────────────────────────────────────────────────
 function AnimatedOddButton({
-  label, val, selected, onSelect,
+  label, val, selected, onSelect, suspended, closed,
 }: {
   label: string;
   val: string | null;
   selected: boolean;
   onSelect: () => void;
+  suspended?: boolean;
+  closed?: boolean;
 }) {
   const [flash, setFlash] = useState<'up' | 'down' | null>(null);
   const prevVal = useRef(val);
 
   useEffect(() => {
-    if (val !== null && prevVal.current !== null && val !== prevVal.current) {
+    if (val !== null && prevVal.current !== null && val !== prevVal.current && !suspended && !closed) {
       const numVal = parseFloat(val);
       const numPrev = parseFloat(prevVal.current);
       if (!isNaN(numVal) && !isNaN(numPrev)) {
@@ -132,11 +152,12 @@ function AnimatedOddButton({
       }
     }
     prevVal.current = val;
-  }, [val]);
+  }, [val, suspended, closed]);
 
-  if (val === null) {
+  // Locked state — suspended or closed
+  if (val === null || suspended || closed) {
     return (
-      <div className="py-1.5 rounded flex flex-col items-center justify-center gap-0 bg-gray-50 border border-gray-100 opacity-90">
+      <div className="py-1.5 rounded flex flex-col items-center justify-center gap-0 bg-gray-50 border border-gray-100 opacity-70">
         <span className="text-[9px] text-gray-400 leading-none mb-[2px]">{label}</span>
         <svg viewBox="0 0 24 24" className="w-[13px] h-[13px] text-gray-400 mt-[1px]" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <rect x="5" y="11" width="14" height="10" rx="2" ry="2"/>
@@ -151,7 +172,7 @@ function AnimatedOddButton({
   return (
     <button
       onClick={(e) => {
-        e.stopPropagation(); // stop parent div onClick (goToMatch) from firing
+        e.stopPropagation();
         onSelect();
       }}
       className={`py-1.5 rounded flex flex-col items-center justify-center gap-0 transition-all duration-300 border ${
@@ -179,7 +200,14 @@ function MatchRow({ fix }: { fix: Fixture }) {
   const dateStr = `${String(kickoff.getDate()).padStart(2, '0')}/${String(kickoff.getMonth() + 1).padStart(2, '0')}`;
   const timeStr = kickoff.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-  const { home, draw, away, hd, da, ha, totalMarkets } = getOdds(fix);
+  const { home, draw, away, hd, da, ha, totalMarkets, marketStatus } = getOdds(fix);
+
+  // A match is truly live only if is_live AND not finished
+  const finishedStatuses = ['FT', 'AET', 'PEN', 'AWD', 'CANC', 'ABD'];
+  const isActuallyLive = fix.is_live && !finishedStatuses.includes(fix.status?.toUpperCase() ?? '');
+
+  const isSuspended = isActuallyLive && marketStatus === 'SUSPENDED';
+  const isClosed    = isActuallyLive && marketStatus === 'CLOSED';
 
   const oddCells = [
     { label: '1',  val: home },
@@ -207,7 +235,7 @@ function MatchRow({ fix }: { fix: Fixture }) {
       >
         {/* Date/time */}
         <div className="shrink-0 text-center min-w-[36px]">
-          {fix.is_live ? (
+          {isActuallyLive ? (
             <span className="text-red-500 text-[11px] font-bold flex flex-col items-center gap-0.5">
               <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse inline-block" />
               {fix.elapsed ? `${fix.elapsed}'` : 'LIVE'}
@@ -227,28 +255,38 @@ function MatchRow({ fix }: { fix: Fixture }) {
               <Image src={fix.home_team_logo} alt={fix.home_team} width={14} height={14} className="object-contain shrink-0" unoptimized />
             )}
             <span className="text-[13px] font-semibold text-gray-900 truncate">{fix.home_team}</span>
-            {fix.is_live && <span className="ml-auto text-[12px] font-bold text-gray-800 shrink-0">{fix.home_score ?? 0}</span>}
+            {isActuallyLive && <span className="ml-auto text-[12px] font-bold text-gray-800 shrink-0">{fix.home_score ?? 0}</span>}
           </div>
           <div className="flex items-center gap-1.5">
             {fix.away_team_logo && (
               <Image src={fix.away_team_logo} alt={fix.away_team} width={14} height={14} className="object-contain shrink-0" unoptimized />
             )}
             <span className="text-[13px] font-semibold text-gray-900 truncate">{fix.away_team}</span>
-            {fix.is_live && <span className="ml-auto text-[12px] font-bold text-gray-800 shrink-0">{fix.away_score ?? 0}</span>}
+            {isActuallyLive && <span className="ml-auto text-[12px] font-bold text-gray-800 shrink-0">{fix.away_score ?? 0}</span>}
           </div>
         </div>
 
-        {/* Market count badge */}
-        {totalMarkets > 0 && (
-          <div className="shrink-0 self-center">
+        {/* Market count badge / suspended badge */}
+        <div className="shrink-0 self-center flex flex-col items-end gap-1">
+          {isSuspended && (
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-yellow-50 text-yellow-600 border border-yellow-200">
+              SUSP
+            </span>
+          )}
+          {isClosed && (
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-400">
+              CLOSED
+            </span>
+          )}
+          {totalMarkets > 0 && !isClosed && (
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: '#1a2e22', color: '#19E66B' }}>
               +{totalMarkets}
             </span>
-          </div>
-        )}
+          )}
+        </div>
       </a>
 
-      {/* ── Odds row: completely separate from the link, no propagation issues ── */}
+      {/* ── Odds row ── */}
       <div className="grid grid-cols-6 gap-1 px-3 pb-2.5 ml-[44px]">
         {oddCells.map(({ label, val }) => (
           <AnimatedOddButton
@@ -256,6 +294,8 @@ function MatchRow({ fix }: { fix: Fixture }) {
             label={label}
             val={val}
             selected={selectedLabel === label}
+            suspended={isSuspended}
+            closed={isClosed}
             onSelect={() => setSelectedLabel(selectedLabel === label ? null : label)}
           />
         ))}
