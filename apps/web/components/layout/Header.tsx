@@ -1,93 +1,35 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Container } from '../ui/Container';
-import { Button } from '../ui/Button';
-import { Menu, X } from 'lucide-react';
-import { clsx } from 'clsx';
 
 export function Header() {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const pathname = usePathname();
-
-  const navLinks = [
-    { href: '/', label: 'Home' },
-  ];
-
   return (
-    <header className="sticky top-0 z-50 bg-dark/95 backdrop-blur border-b border-brand">
-      <Container>
-        <div className="flex items-center justify-between h-16 sm:h-20">
-          <div className="flex items-center gap-8">
-            {/* Logo — bold text like Melbet */}
-            <Link href="/" className="flex items-center select-none">
-              <span className="text-2xl sm:text-3xl font-black tracking-tight leading-none">
-                <span style={{ color: '#F5F7F6' }}>Miracl</span><span style={{ color: '#19E66B' }}>Bet</span>
-              </span>
-            </Link>
-            
-            {/* Desktop Navigation */}
-            <nav className="hidden md:flex gap-6">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={clsx(
-                    'text-sm font-medium transition-colors hover:text-white',
-                    pathname === link.href ? 'text-primary' : 'text-muted'
-                  )}
-                >
-                  {link.label}
-                </Link>
-              ))}
-            </nav>
-          </div>
-          
-          {/* Desktop Auth Buttons */}
-          <div className="hidden md:flex items-center gap-4">
-            <Link href="/login">
-              <Button variant="ghost">Log In</Button>
-            </Link>
-            <Link href="/register">
-              <Button variant="primary">Join Now</Button>
-            </Link>
-          </div>
+    <header className="sticky top-0 z-50 bg-[#0A0E1A] border-b border-[#1E293B]">
+      <div className="flex items-center justify-between px-4 h-14">
 
-          {/* Mobile Menu Toggle */}
-          <div className="md:hidden">
-            <button className="text-white p-2" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
-              {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
+        {/* Logo */}
+        <Link href="/" className="flex items-center select-none shrink-0">
+          <span className="text-[22px] font-black tracking-tight leading-none">
+            <span className="text-white">Miracl</span><span className="text-[#19E66B]">Bet</span>
+          </span>
+        </Link>
+
+        {/* Auth Buttons — always visible, no hamburger */}
+        <div className="flex items-center gap-2">
+          <Link href="/login">
+            <button className="px-4 py-1.5 text-[13px] font-semibold text-white border border-white/30 rounded-md hover:bg-white/10 transition-colors">
+              Log In
             </button>
-          </div>
+          </Link>
+          <Link href="/register">
+            <button className="px-4 py-1.5 text-[13px] font-bold text-black bg-[#F5A623] rounded-md hover:bg-[#e09400] transition-colors">
+              Registration
+            </button>
+          </Link>
         </div>
-      </Container>
 
-      {/* Mobile Menu Dropdown */}
-      {isMobileMenuOpen && (
-        <div className="md:hidden bg-surface border-b border-brand absolute w-full left-0 top-[100%] shadow-xl">
-          <div className="px-4 py-4 flex flex-col gap-4">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="text-lg font-medium text-white p-2"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                {link.label}
-              </Link>
-            ))}
-            <hr className="border-brand my-2" />
-            <Link href="/login" onClick={() => setIsMobileMenuOpen(false)}>
-              <Button variant="secondary" className="w-full py-3 text-lg">Log In</Button>
-            </Link>
-            <Link href="/register" onClick={() => setIsMobileMenuOpen(false)}>
-              <Button variant="primary" className="w-full py-3 text-lg bg-primary text-dark border-none">Join Now</Button>
-            </Link>
-          </div>
-        </div>
-      )}
+      </div>
     </header>
   );
 }
