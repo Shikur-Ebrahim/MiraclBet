@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 type UserSession = { phone: string; role: string; balance?: number; id?: string };
 
@@ -85,9 +86,9 @@ export default function AdminDashboard() {
         {/* 2-column button grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           {adminMenus.map((item) => (
-            <button
+            <Link
               key={item.label}
-              onClick={() => router.push(item.href)}
+              href={item.href}
               style={{
                 background: '#FFFFFF',
                 border: `1.5px solid ${item.bg === '#F9FAFB' ? '#E5E7EB' : item.bg}`,
@@ -100,6 +101,7 @@ export default function AdminDashboard() {
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '10px',
+                textDecoration: 'none',
               }}
             >
               {/* Icon circle */}
@@ -122,7 +124,7 @@ export default function AdminDashboard() {
                   </svg>
                 </div>
               </div>
-            </button>
+            </Link>
           ))}
         </div>
 

@@ -186,7 +186,7 @@ export default function DepositMethodsAdmin() {
                   border: '1px solid #E5E7EB', flexShrink: 0,
                 }}>
                   {method.logo_url ? (
-                    <Image src={method.logo_url} alt={method.provider_name} width={56} height={56} style={{ objectFit: 'cover' }} />
+                    <img src={method.logo_url} alt={method.provider_name} width={56} height={56} style={{ objectFit: 'cover' }} />
                   ) : (
                     <span style={{ fontSize: '24px' }}>🏦</span>
                   )}
@@ -300,7 +300,7 @@ export default function DepositMethodsAdmin() {
                   }}
                 >
                   {logoPreview ? (
-                    <Image src={logoPreview} alt="Preview" width={64} height={64} style={{ borderRadius: '8px', objectFit: 'cover' }} />
+                    <img src={logoPreview} alt="Preview" width={64} height={64} style={{ borderRadius: '8px', objectFit: 'cover' }} />
                   ) : (
                     <div style={{ color: '#6B7280' }}>
                       <svg viewBox="0 0 24 24" style={{ width: '32px', height: '32px', margin: '0 auto' }} fill="none" stroke="currentColor" strokeWidth="2">
