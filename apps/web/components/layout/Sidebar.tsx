@@ -167,14 +167,13 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
 
   return (
     <>
-      {/* Backdrop overlay */}
-      <div 
-        className={clsx(
-          "fixed inset-0 bg-black/60 z-[45] transition-opacity duration-300",
-          isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-        )} 
-        onClick={onClose}
-      />
+      {/* Backdrop overlay — only in DOM when open so it never blocks touches */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 z-[45]"
+          onClick={onClose}
+        />
+      )}
 
       {/* Sidebar drawer */}
       <div 
