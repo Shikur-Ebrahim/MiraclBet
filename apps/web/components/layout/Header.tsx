@@ -1,34 +1,67 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export function Header() {
+  const router = useRouter();
+
   return (
-    <header className="sticky top-0 z-[60] bg-[#0A0E1A] border-b border-[#1E293B]">
-      <div className="flex items-center justify-between px-4 h-14">
+    <header style={{ 
+      position: 'sticky', 
+      top: 0, 
+      zIndex: 9999, 
+      background: '#0A0E1A', 
+      borderBottom: '1px solid #1E293B',
+      width: '100%'
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', height: '56px' }}>
 
         {/* Logo */}
-        <Link href="/" className="flex items-center select-none shrink-0">
-          <span className="text-[22px] font-black tracking-tight leading-none">
-            <span className="text-white">Miracl</span><span className="text-[#19E66B]">Bet</span>
-          </span>
-        </Link>
+        <span 
+          onClick={() => router.push('/')}
+          style={{ cursor: 'pointer', fontSize: '22px', fontWeight: 900, letterSpacing: '-0.5px', lineHeight: 1, userSelect: 'none' }}
+        >
+          <span style={{ color: '#FFFFFF' }}>Miracl</span>
+          <span style={{ color: '#19E66B' }}>Bet</span>
+        </span>
 
-        {/* Auth Buttons — always visible, no hamburger */}
-        <div className="flex items-center gap-2">
-          <Link 
-            href="/login" 
-            className="px-4 py-1.5 text-[13px] font-semibold text-white border border-white/30 rounded-md hover:bg-white/10 transition-colors"
+        {/* Auth Buttons */}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <span
+            onClick={() => router.push('/login')}
+            style={{
+              cursor: 'pointer',
+              padding: '6px 16px',
+              fontSize: '13px',
+              fontWeight: 600,
+              color: '#FFFFFF',
+              border: '1px solid rgba(255,255,255,0.3)',
+              borderRadius: '6px',
+              display: 'inline-block',
+              userSelect: 'none',
+              WebkitTapHighlightColor: 'transparent',
+            }}
           >
             Log In
-          </Link>
-          <Link 
-            href="/register" 
-            className="px-4 py-1.5 text-[13px] font-bold text-black bg-[#F5A623] rounded-md hover:bg-[#e09400] transition-colors"
+          </span>
+          <span
+            onClick={() => router.push('/register')}
+            style={{
+              cursor: 'pointer',
+              padding: '6px 16px',
+              fontSize: '13px',
+              fontWeight: 700,
+              color: '#000000',
+              background: '#F5A623',
+              borderRadius: '6px',
+              display: 'inline-block',
+              userSelect: 'none',
+              WebkitTapHighlightColor: 'transparent',
+            }}
           >
             Registration
-          </Link>
+          </span>
         </div>
 
       </div>
