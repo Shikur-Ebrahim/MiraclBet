@@ -1,11 +1,4 @@
-'use client';
-
-import React from 'react';
-import { useRouter } from 'next/navigation';
-
 export function Header() {
-  const router = useRouter();
-
   return (
     <header style={{ 
       position: 'sticky', 
@@ -18,50 +11,45 @@ export function Header() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', height: '56px' }}>
 
         {/* Logo */}
-        <span 
-          onClick={() => router.push('/')}
-          style={{ cursor: 'pointer', fontSize: '22px', fontWeight: 900, letterSpacing: '-0.5px', lineHeight: 1, userSelect: 'none' }}
-        >
+        <a href="/" style={{ textDecoration: 'none', fontSize: '22px', fontWeight: 900, letterSpacing: '-0.5px', lineHeight: 1, userSelect: 'none' }}>
           <span style={{ color: '#FFFFFF' }}>Miracl</span>
           <span style={{ color: '#19E66B' }}>Bet</span>
-        </span>
+        </a>
 
         {/* Auth Buttons */}
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <span
-            onClick={() => router.push('/login')}
+          <a
+            href="/login"
             style={{
-              cursor: 'pointer',
-              padding: '6px 16px',
+              textDecoration: 'none',
+              padding: '7px 16px',
               fontSize: '13px',
               fontWeight: 600,
               color: '#FFFFFF',
-              border: '1px solid rgba(255,255,255,0.3)',
+              border: '1px solid rgba(255,255,255,0.4)',
               borderRadius: '6px',
               display: 'inline-block',
-              userSelect: 'none',
-              WebkitTapHighlightColor: 'transparent',
+              whiteSpace: 'nowrap',
             }}
           >
             Log In
-          </span>
-          <span
-            onClick={() => router.push('/register')}
+          </a>
+          <a
+            href="/register"
             style={{
-              cursor: 'pointer',
-              padding: '6px 16px',
+              textDecoration: 'none',
+              padding: '7px 16px',
               fontSize: '13px',
               fontWeight: 700,
               color: '#000000',
               background: '#F5A623',
               borderRadius: '6px',
               display: 'inline-block',
-              userSelect: 'none',
-              WebkitTapHighlightColor: 'transparent',
+              whiteSpace: 'nowrap',
             }}
           >
             Registration
-          </span>
+          </a>
         </div>
 
       </div>

@@ -3,23 +3,34 @@
 import React, { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Sidebar } from './Sidebar';
+
+// Lazy import Sidebar only when needed
+import dynamic from 'next/dynamic';
+const Sidebar = dynamic(() => import('./Sidebar').then(m => ({ default: m.Sidebar })), { ssr: false });
 
 export function BottomNav() {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarMounted, setSidebarMounted] = useState(false);
 
   const isActive = (href: string) => pathname === href;
 
+  const openSidebar = () => {
+    setSidebarMounted(true); // Mount sidebar only on first open
+    setSidebarOpen(true);
+  };
+
   return (
     <>
-      {/* Sidebar — triggered by Menu button */}
-      <Sidebar
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        onSelectSport={() => setSidebarOpen(false)}
-        onSelectLeague={() => setSidebarOpen(false)}
-      />
+      {/* Sidebar — only mounted when Menu is clicked for the first time */}
+      {sidebarMounted && (
+        <Sidebar
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          onSelectSport={() => setSidebarOpen(false)}
+          onSelectLeague={() => setSidebarOpen(false)}
+        />
+      )}
 
       {/* Bottom Nav Bar — mobile only */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0A0E1A] border-t border-[#1E293B]">
@@ -87,7 +98,7 @@ export function BottomNav() {
 
           {/* Menu */}
           <button
-            onClick={() => setSidebarOpen(true)}
+            onClick={openSidebar}
             className={`flex flex-col items-center justify-center gap-[3px] transition-colors ${
               sidebarOpen ? 'text-[#19E66B]' : 'text-gray-400 hover:text-white'
             }`}
