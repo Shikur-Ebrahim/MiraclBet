@@ -91,17 +91,17 @@ export function Header() {
                     {balance.toFixed(2)} Br
                   </span>
                 </div>
-                {/* Plain profile icon circle */}
+                {/* 3-dot menu button */}
                 <div style={{
                   width: '34px', height: '34px', borderRadius: '50%',
                   background: '#1A2235',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  border: '1px solid #1E293B', flexShrink: 0,
-                  color: '#FFFFFF',
+                  border: '1px solid #1E293B', flexShrink: 0, color: '#FFFFFF',
                 }}>
-                  <svg viewBox="0 0 24 24" style={{ width: '18px', height: '18px' }} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                    <circle cx="12" cy="7" r="4" />
+                  <svg viewBox="0 0 24 24" style={{ width: '18px', height: '18px' }} fill="currentColor">
+                    <circle cx="12" cy="5" r="1.5" />
+                    <circle cx="12" cy="12" r="1.5" />
+                    <circle cx="12" cy="19" r="1.5" />
                   </svg>
                 </div>
               </button>
@@ -183,10 +183,12 @@ export function Header() {
         {/* Balance box */}
         <div style={{ margin: '0 16px 16px', background: '#1A2235', borderRadius: '10px', padding: '14px 16px' }}>
           <div style={{ fontSize: '11px', color: '#9CA3AF', marginBottom: '6px' }}>Balance</div>
-          <div style={{ fontSize: '26px', fontWeight: 900, color: '#fff' }}>
-            {balance.toFixed(2)}
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+            <span style={{ fontSize: '26px', fontWeight: 900, color: '#fff' }}>
+              {balance.toFixed(2)}
+            </span>
+            <span style={{ fontSize: '18px', fontWeight: 800, color: '#F5A623' }}>Br</span>
           </div>
-          <div style={{ fontSize: '18px', fontWeight: 800, color: '#F5A623', marginTop: '2px' }}>Br</div>
         </div>
 
         {/* Deposit button */}
