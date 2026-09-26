@@ -87,6 +87,13 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service) http.Handle
 
 			r.Get("/withdrawals", withdrawalsHandler.ListAdmin)
 			r.Put("/withdrawals/{id}/status", withdrawalsHandler.UpdateStatus)
+
+			usersAdminHandler := handlers.NewUsersAdminHandler(db)
+			r.Get("/users", usersAdminHandler.List)
+			r.Get("/users/{id}", usersAdminHandler.Get)
+			r.Put("/users/{id}/status", usersAdminHandler.ToggleStatus)
+			r.Put("/users/{id}/role", usersAdminHandler.UpdateRole)
+			r.Put("/users/{id}/balance", usersAdminHandler.AdjustBalance)
 		})
 	})
 
