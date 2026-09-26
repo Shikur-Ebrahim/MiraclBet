@@ -110,7 +110,7 @@ func (h *DepositsHandler) ListAdmin(w http.ResponseWriter, r *http.Request) {
 
 func (h *DepositsHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	
+
 	var req struct {
 		Status string `json:"status"` // 'accepted' or 'rejected'
 	}
@@ -124,7 +124,7 @@ func (h *DepositsHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Begin Transaction to update deposit status AND user balance securely
+	// Begin Transaction
 	tx, err := h.db.Pool.Begin(r.Context())
 	if err != nil {
 		http.Error(w, "Transaction failed to start", http.StatusInternalServerError)
@@ -132,14 +132,14 @@ func (h *DepositsHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback(r.Context())
 
-	// Lock the deposit row
+	// Lock the deposit row and read details
 	var currentStatus string
 	var amount float64
 	var userID string
 	err = tx.QueryRow(r.Context(), `
 		SELECT status, amount, user_id FROM deposits WHERE id = $1 FOR UPDATE
 	`, id).Scan(&currentStatus, &amount, &userID)
-	
+
 	if err == pgx.ErrNoRows {
 		http.Error(w, "Deposit not found", http.StatusNotFound)
 		return
@@ -153,22 +153,28 @@ func (h *DepositsHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update Deposit status
-	_, err = tx.Exec(r.Context(), `
-		UPDATE deposits SET status = $1, updated_at = NOW() WHERE id = $2
-	`, req.Status, id)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// If accepted, add balance to user
 	if req.Status == "accepted" {
+		// Mark as accepted
+		_, err = tx.Exec(r.Context(), `
+			UPDATE deposits SET status = 'accepted', updated_at = NOW() WHERE id = $1
+		`, id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		// Add balance to user instantly
 		_, err = tx.Exec(r.Context(), `
 			UPDATE users SET balance = balance + $1 WHERE id = $2
 		`, amount, userID)
 		if err != nil {
 			http.Error(w, "Failed to update user balance", http.StatusInternalServerError)
+			return
+		}
+	} else {
+		// REJECTED → hard delete the deposit record completely
+		_, err = tx.Exec(r.Context(), `DELETE FROM deposits WHERE id = $1`, id)
+		if err != nil {
+			http.Error(w, "Failed to delete deposit", http.StatusInternalServerError)
 			return
 		}
 	}
@@ -178,6 +184,41 @@ func (h *DepositsHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"success": "true"})
+	json.NewEncoder(w).Encode(map[string]string{"success": "true", "status": req.Status})
+}
+
+// CheckPending — returns pending deposit for a user (if any)
+func (h *DepositsHandler) CheckPending(w http.ResponseWriter, r *http.Request) {
+	userID := r.URL.Query().Get("user_id")
+	if userID == "" {
+		http.Error(w, "user_id required", http.StatusBadRequest)
+		return
+	}
+
+	var deposit Deposit
+	err := h.db.Pool.QueryRow(r.Context(), `
+		SELECT d.id, d.user_id, d.payment_method_id, d.amount, d.screenshot_url, d.status, d.created_at,
+		       p.provider_name
+		FROM deposits d
+		JOIN payment_methods p ON d.payment_method_id = p.id
+		WHERE d.user_id = $1 AND d.status = 'pending'
+		ORDER BY d.created_at DESC
+		LIMIT 1
+	`, userID).Scan(&deposit.ID, &deposit.UserID, &deposit.PaymentMethodID, &deposit.Amount,
+		&deposit.ScreenshotURL, &deposit.Status, &deposit.CreatedAt, &deposit.ProviderName)
+
+	if err == pgx.ErrNoRows {
+		// No pending deposit — return null
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(nil)
+		return
+	} else if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(deposit)
 }

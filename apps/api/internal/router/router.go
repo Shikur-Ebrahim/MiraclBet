@@ -55,7 +55,8 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service) http.Handle
 		r.Get("/payment-methods", paymentMethodsHandler.List) // Public list for deposit page
 
 		depositsHandler := handlers.NewDepositsHandler(db, r2)
-		r.Post("/deposits", depositsHandler.Create) // User creates deposit
+		r.Post("/deposits", depositsHandler.Create)          // User creates deposit
+		r.Get("/deposits/pending", depositsHandler.CheckPending) // Check if user has pending
 
 		// Admin Routes
 		r.Route("/admin", func(r chi.Router) {
