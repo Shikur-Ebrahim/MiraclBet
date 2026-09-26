@@ -71,7 +71,7 @@ export function Header() {
   const handleLogout = () => {
     localStorage.removeItem('miraclbet_user');
     setPanelOpen(false);
-    window.location.href = '/login';
+    window.location.href = '/';
   };
 
   const shortId = user?.id ? user.id.slice(-6).toUpperCase() : user?.phone?.slice(-6) ?? '------';
