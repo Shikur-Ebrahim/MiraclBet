@@ -1,13 +1,17 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useSearchParams } from 'next/navigation';
 import { Container } from '@/components/ui/Container';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 
-export default function LoginPage() {
+function LoginForm() {
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get('redirect');
+
   const [loading, setLoading] = useState(false);
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -38,11 +42,11 @@ export default function LoginPage() {
       // Fire custom event so Header updates instantly on same tab
       window.dispatchEvent(new Event('miraclbet_auth_change'));
 
-      // Immediate redirect — no delay
+      // Immediate redirect
       if (data.user.role === 'ADMIN') {
         window.location.href = '/admin';
       } else {
-        window.location.href = '/';
+        window.location.href = redirect ? redirect : '/';
       }
 
     } catch (err: unknown) {
@@ -137,5 +141,13 @@ export default function LoginPage() {
         </Card>
       </Container>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-[70vh] flex items-center justify-center">Loading...</div>}>
+      <LoginForm />
+    </Suspense>
   );
 }

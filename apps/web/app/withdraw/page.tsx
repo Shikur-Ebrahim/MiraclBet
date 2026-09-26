@@ -42,7 +42,7 @@ export default function WithdrawPage() {
   useEffect(() => {
     if (!mounted) return;
     const userStr = localStorage.getItem('miraclbet_user');
-    if (!userStr) { router.push('/login'); return; }
+    if (!userStr) { router.push('/login?redirect=/withdraw'); return; }
     const user = JSON.parse(userStr);
 
     const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
