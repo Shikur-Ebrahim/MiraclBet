@@ -54,6 +54,7 @@ export default function AdminUsersPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [balanceInput, setBalanceInput] = useState('');
   const [balanceMode, setBalanceMode] = useState<'adjust' | 'set'>('adjust');
+  const [adjustSign, setAdjustSign] = useState<'+' | '-'>('+');
   const [balanceError, setBalanceError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [editingBalance, setEditingBalance] = useState(false);
@@ -139,8 +140,13 @@ export default function AdminUsersPage() {
 
   const handleAdjustBalance = async () => {
     if (!selectedUser || !balanceInput) { setBalanceError('Enter an amount'); return; }
-    const amount = parseFloat(balanceInput);
-    if (isNaN(amount)) { setBalanceError('Invalid number'); return; }
+    let amount = parseFloat(balanceInput);
+    if (isNaN(amount) || amount < 0) { setBalanceError('Enter a valid positive number'); return; }
+    
+    if (balanceMode === 'adjust' && adjustSign === '-') {
+      amount = -amount;
+    }
+    
     setBalanceError('');
     setActionLoading(true);
     try {
@@ -359,22 +365,36 @@ export default function AdminUsersPage() {
 
                   {/* Mode selector */}
                   <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
-                    {(['adjust', 'set'] as const).map(m => (
-                      <button key={m} onClick={() => setBalanceMode(m)} style={{
-                        flex: 1, padding: '9px', borderRadius: '8px', fontSize: '13px', fontWeight: 700,
-                        background: balanceMode === m ? '#111827' : '#F1F5F9',
-                        color: balanceMode === m ? '#FFF' : '#6B7280',
-                        border: 'none', cursor: 'pointer'
-                      }}>
-                        {m === 'adjust' ? '+ / − Adjust' : '= Set Exact'}
-                      </button>
-                    ))}
+                    <button onClick={() => { setBalanceMode('adjust'); setAdjustSign('+'); }} style={{
+                      flex: 1, padding: '9px', borderRadius: '8px', fontSize: '13px', fontWeight: 700,
+                      background: balanceMode === 'adjust' && adjustSign === '+' ? '#111827' : '#F1F5F9',
+                      color: balanceMode === 'adjust' && adjustSign === '+' ? '#FFF' : '#6B7280',
+                      border: 'none', cursor: 'pointer'
+                    }}>
+                      + Add
+                    </button>
+                    <button onClick={() => { setBalanceMode('adjust'); setAdjustSign('-'); }} style={{
+                      flex: 1, padding: '9px', borderRadius: '8px', fontSize: '13px', fontWeight: 700,
+                      background: balanceMode === 'adjust' && adjustSign === '-' ? '#111827' : '#F1F5F9',
+                      color: balanceMode === 'adjust' && adjustSign === '-' ? '#FFF' : '#6B7280',
+                      border: 'none', cursor: 'pointer'
+                    }}>
+                      − Subtract
+                    </button>
+                    <button onClick={() => setBalanceMode('set')} style={{
+                      flex: 1, padding: '9px', borderRadius: '8px', fontSize: '13px', fontWeight: 700,
+                      background: balanceMode === 'set' ? '#111827' : '#F1F5F9',
+                      color: balanceMode === 'set' ? '#FFF' : '#6B7280',
+                      border: 'none', cursor: 'pointer'
+                    }}>
+                      = Set Exact
+                    </button>
                   </div>
 
                   <div style={{ fontSize: '12px', color: '#9CA3AF', marginBottom: '10px' }}>
-                    {balanceMode === 'adjust'
-                      ? 'Enter positive to add (e.g. 500) or negative to subtract (e.g. -200)'
-                      : 'Type the exact balance to set for this user'}
+                    {balanceMode === 'adjust' && adjustSign === '+' && 'Amount will be added to current balance.'}
+                    {balanceMode === 'adjust' && adjustSign === '-' && 'Amount will be deducted from current balance.'}
+                    {balanceMode === 'set' && 'Sets the exact balance to the value you enter below.'}
                   </div>
 
                   <div style={{ display: 'flex', gap: '8px' }}>
@@ -382,7 +402,7 @@ export default function AdminUsersPage() {
                       type="number"
                       value={balanceInput}
                       onChange={e => { setBalanceInput(e.target.value); setBalanceError(''); }}
-                      placeholder={balanceMode === 'adjust' ? 'e.g. 500 or -200' : 'e.g. 10000.00'}
+                      placeholder="e.g. 500"
                       style={{
                         flex: 1, padding: '12px 14px', borderRadius: '10px',
                         border: `1.5px solid ${balanceError ? '#FECACA' : '#D1D5DB'}`,
