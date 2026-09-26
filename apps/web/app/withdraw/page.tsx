@@ -276,7 +276,7 @@ export default function WithdrawPage() {
 
           <div>
             <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#D1D5DB', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Account Name</label>
-            <input type="text" value={accountName} onChange={e => setAccountName(e.target.value)} required placeholder="John Doe"
+            <input type="text" value={accountName} onChange={e => setAccountName(e.target.value)} required placeholder="Miracl bet"
               style={{ width: '100%', padding: '16px', borderRadius: '14px', background: '#111827', border: '1.5px solid #1E293B', color: '#FFF', fontSize: '16px', fontWeight: 600, outline: 'none', boxSizing: 'border-box' }} />
           </div>
 
