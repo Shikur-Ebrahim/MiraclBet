@@ -12,47 +12,65 @@ type PaymentMethod = {
   is_active: boolean;
 };
 
+function CopyIcon() {
+  return (
+    <svg viewBox="0 0 24 24" style={{ width: '16px', height: '16px' }} fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="9" y="9" width="13" height="13" rx="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" style={{ width: '16px', height: '16px' }} fill="none" stroke="#16A34A" strokeWidth="3">
+      <path d="M5 13l4 4L19 7" />
+    </svg>
+  );
+}
+
 export default function DepositPage() {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [selectedMethodId, setSelectedMethodId] = useState<string | null>(null);
-  const [amount, setAmount] = useState<string>('');
+  // Step: 1 = select method, 2 = enter amount & upload
+  const [step, setStep] = useState(1);
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
+  const [amount, setAmount] = useState('');
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
   const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!mounted) return; // Wait until client hydrated
-
-    // Check auth — only on client
+    if (!mounted) return;
     const userStr = localStorage.getItem('miraclbet_user');
-    if (!userStr) {
-      router.push('/login');
-      return;
-    }
+    if (!userStr) { router.push('/login'); return; }
 
-    // Fetch active payment methods
     fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/payment-methods`)
       .then(res => res.json())
       .then(data => {
         const active = (Array.isArray(data) ? data : []).filter((m: PaymentMethod) => m.is_active);
         setMethods(active);
-        if (active.length > 0) setSelectedMethodId(active[0].id);
       })
-      .catch(err => console.error(err))
+      .catch(console.error)
       .finally(() => setLoading(false));
   }, [mounted, router]);
+
+  const handleCopy = (text: string, field: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 2000);
+    });
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -64,19 +82,17 @@ export default function DepositPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedMethodId || !amount || !screenshotFile) {
+    if (!selectedMethod || !amount || !screenshotFile) {
       setError('Please fill all fields and upload a screenshot.');
       return;
     }
     setError('');
     setIsSubmitting(true);
-
     const userStr = localStorage.getItem('miraclbet_user');
     const user = userStr ? JSON.parse(userStr) : null;
-
     const formData = new FormData();
     formData.append('user_id', user?.id || '');
-    formData.append('payment_method_id', selectedMethodId);
+    formData.append('payment_method_id', selectedMethod.id);
     formData.append('amount', amount);
     formData.append('screenshot', screenshotFile);
 
@@ -85,147 +101,298 @@ export default function DepositPage() {
         method: 'POST',
         body: formData,
       });
-
-      if (!res.ok) throw new Error('Deposit submission failed');
-      
+      if (!res.ok) throw new Error('Failed to submit');
       setSuccess(true);
-      setTimeout(() => router.push('/'), 3000);
+      setTimeout(() => router.push('/'), 3500);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(err instanceof Error ? err.message : 'Something went wrong');
       setIsSubmitting(false);
     }
   };
 
   if (!mounted || loading) {
-    return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF' }}>Loading...</div>;
-  }
-
-  if (success) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center' }}>
-        <div style={{ width: '80px', height: '80px', borderRadius: '40px', background: 'rgba(22, 163, 74, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px' }}>
-          <svg viewBox="0 0 24 24" style={{ width: '40px', height: '40px', color: '#16A34A' }} fill="none" stroke="currentColor" strokeWidth="3">
-            <path d="M5 13l4 4L19 7" />
-          </svg>
-        </div>
-        <h1 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '12px' }}>Deposit Submitted!</h1>
-        <p style={{ color: '#9CA3AF', fontSize: '15px' }}>Your deposit is being verified by an admin. Your balance will be updated automatically shortly.</p>
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
+        <div style={{ width: '40px', height: '40px', border: '3px solid #1E293B', borderTop: '3px solid #19E66B', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        <div style={{ color: '#6B7280', fontSize: '14px' }}>Loading...</div>
       </div>
     );
   }
 
-  const selectedMethod = methods.find(m => m.id === selectedMethodId);
+  if (success) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px', textAlign: 'center' }}>
+        <div style={{ width: '90px', height: '90px', borderRadius: '45px', background: 'rgba(25, 230, 107, 0.12)', border: '2px solid rgba(25,230,107,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
+          <svg viewBox="0 0 24 24" style={{ width: '44px', height: '44px', color: '#19E66B' }} fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <h1 style={{ fontSize: '26px', fontWeight: 900, marginBottom: '12px', color: '#FFF' }}>Deposit Submitted!</h1>
+        <p style={{ color: '#9CA3AF', fontSize: '15px', lineHeight: 1.6, maxWidth: '300px' }}>
+          Your deposit request has been sent. An admin will verify it shortly and your balance will be updated.
+        </p>
+        <div style={{ marginTop: '24px', display: 'flex', gap: '8px', alignItems: 'center', color: '#6B7280', fontSize: '13px' }}>
+          <div style={{ width: '18px', height: '18px', border: '2px solid #19E66B', borderTop: '2px solid transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          Redirecting to home...
+        </div>
+      </div>
+    );
+  }
 
-  return (
-    <div style={{ padding: '24px 16px', maxWidth: '500px', margin: '0 auto', paddingBottom: '100px' }}>
-      <h1 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '8px', color: '#FFFFFF' }}>Deposit Funds</h1>
-      <p style={{ color: '#9CA3AF', fontSize: '14px', marginBottom: '24px' }}>Send funds to one of our accounts and upload the receipt.</p>
-
-      {error && <div style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#EF4444', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '14px', borderRadius: '12px', fontSize: '14px', marginBottom: '20px' }}>{error}</div>}
-
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-        
-        {/* Method Selection */}
-        <div>
-          <label style={{ display: 'block', fontSize: '14px', fontWeight: 700, color: '#D1D5DB', marginBottom: '12px' }}>Select Payment Method</label>
-          <div style={{ display: 'grid', gap: '12px' }}>
-            {methods.map(method => (
-              <div 
-                key={method.id}
-                onClick={() => setSelectedMethodId(method.id)}
-                style={{
-                  padding: '16px', borderRadius: '16px', cursor: 'pointer',
-                  border: `2px solid ${selectedMethodId === method.id ? '#F5A623' : '#1E293B'}`,
-                  background: selectedMethodId === method.id ? 'rgba(245, 166, 35, 0.05)' : '#111827',
-                  display: 'flex', alignItems: 'center', gap: '16px',
-                  transition: 'all 0.2s'
-                }}
-              >
-                <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: '#1E293B', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {method.logo_url ? (
-                    <img src={method.logo_url} alt={method.provider_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    <span style={{ fontSize: '20px' }}>🏦</span>
-                  )}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '15px', fontWeight: 800, color: '#FFF' }}>{method.provider_name}</div>
-                  <div style={{ fontSize: '13px', color: '#9CA3AF', marginTop: '2px' }}>{method.account_name}</div>
-                  <div style={{ fontSize: '14px', fontWeight: 700, color: '#F5A623', marginTop: '4px' }}>{method.account_number}</div>
-                </div>
-                <div style={{
-                  width: '24px', height: '24px', borderRadius: '12px', border: `2px solid ${selectedMethodId === method.id ? '#F5A623' : '#374151'}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center'
-                }}>
-                  {selectedMethodId === method.id && <div style={{ width: '12px', height: '12px', borderRadius: '6px', background: '#F5A623' }} />}
-                </div>
-              </div>
-            ))}
-          </div>
+  // ── Step 1: Select Payment Method ──
+  if (step === 1) {
+    return (
+      <div style={{ minHeight: '100vh', paddingBottom: '80px' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', borderBottom: '1px solid #1E293B', position: 'sticky', top: '56px', zIndex: 10, background: '#0A0E1A' }}>
+          <button onClick={() => router.push('/')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', padding: '4px' }}>
+            <svg viewBox="0 0 24 24" style={{ width: '22px', height: '22px' }} fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </button>
+          <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#FFF' }}>Deposit Funds</h1>
         </div>
 
-        {/* Selected Instructions */}
+        {/* Step indicator */}
+        <div style={{ display: 'flex', alignItems: 'center', padding: '20px 20px 8px' }}>
+          <div style={{ flex: 1, height: '3px', borderRadius: '2px', background: '#19E66B' }} />
+          <div style={{ width: '8px', height: '8px', borderRadius: '4px', background: '#19E66B', margin: '0 4px' }} />
+          <div style={{ flex: 1, height: '3px', borderRadius: '2px', background: '#1E293B' }} />
+          <div style={{ fontSize: '11px', color: '#6B7280', marginLeft: '8px', fontWeight: 600 }}>STEP 1/2</div>
+        </div>
+
+        <div style={{ padding: '12px 16px 24px' }}>
+          <p style={{ color: '#9CA3AF', fontSize: '14px', marginBottom: '20px', lineHeight: 1.5 }}>
+            Choose where to send your money:
+          </p>
+
+          {methods.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '48px 24px', color: '#6B7280', background: '#111827', borderRadius: '16px', border: '1px dashed #1E293B' }}>
+              <div style={{ fontSize: '32px', marginBottom: '12px' }}>🏦</div>
+              <div style={{ fontSize: '15px' }}>No payment methods available yet</div>
+              <div style={{ fontSize: '13px', marginTop: '6px', color: '#4B5563' }}>Please contact support</div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {methods.map(method => (
+                <button
+                  key={method.id}
+                  onClick={() => { setSelectedMethod(method); setStep(2); }}
+                  style={{
+                    width: '100%', textAlign: 'left', cursor: 'pointer',
+                    padding: '16px', borderRadius: '16px',
+                    border: '1.5px solid #1E293B',
+                    background: '#111827',
+                    display: 'flex', alignItems: 'center', gap: '14px',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {/* Logo */}
+                  <div style={{ width: '52px', height: '52px', borderRadius: '14px', background: '#1A2235', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid #1E293B' }}>
+                    {method.logo_url
+                      ? <img src={method.logo_url} alt={method.provider_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : <span style={{ fontSize: '22px' }}>🏦</span>
+                    }
+                  </div>
+
+                  {/* Info */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '16px', fontWeight: 800, color: '#FFF', marginBottom: '4px' }}>{method.provider_name}</div>
+                    <div style={{ fontSize: '13px', color: '#6B7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{method.account_name}</div>
+                  </div>
+
+                  {/* Arrow */}
+                  <svg viewBox="0 0 24 24" style={{ width: '20px', height: '20px', color: '#374151', flexShrink: 0 }} fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M9 18l6-6-6-6" />
+                  </svg>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Step 2: Account Info + Amount + Screenshot ──
+  return (
+    <div style={{ minHeight: '100vh', paddingBottom: '80px' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', borderBottom: '1px solid #1E293B', position: 'sticky', top: '56px', zIndex: 10, background: '#0A0E1A' }}>
+        <button onClick={() => { setStep(1); setError(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', padding: '4px' }}>
+          <svg viewBox="0 0 24 24" style={{ width: '22px', height: '22px' }} fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </button>
+        <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#FFF' }}>Send Payment</h1>
+      </div>
+
+      {/* Step indicator */}
+      <div style={{ display: 'flex', alignItems: 'center', padding: '20px 20px 8px' }}>
+        <div style={{ flex: 1, height: '3px', borderRadius: '2px', background: '#19E66B' }} />
+        <div style={{ width: '8px', height: '8px', borderRadius: '4px', background: '#19E66B', margin: '0 4px' }} />
+        <div style={{ flex: 1, height: '3px', borderRadius: '2px', background: '#19E66B' }} />
+        <div style={{ fontSize: '11px', color: '#19E66B', marginLeft: '8px', fontWeight: 600 }}>STEP 2/2</div>
+      </div>
+
+      <div style={{ padding: '12px 16px' }}>
+
+        {/* Selected method card */}
         {selectedMethod && (
-          <div style={{ background: '#1A2235', padding: '16px', borderRadius: '12px', borderLeft: '4px solid #F5A623' }}>
-            <p style={{ margin: 0, fontSize: '13px', color: '#D1D5DB', lineHeight: 1.5 }}>
-              Please transfer your funds to <strong>{selectedMethod.account_number}</strong> ({selectedMethod.provider_name}). Then enter the amount below and upload the transaction screenshot.
-            </p>
+          <div style={{ background: '#111827', borderRadius: '20px', overflow: 'hidden', border: '1px solid #1E293B', marginBottom: '24px' }}>
+            {/* Provider header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', borderBottom: '1px solid #1E293B' }}>
+              <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: '#1A2235', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #1E293B' }}>
+                {selectedMethod.logo_url
+                  ? <img src={selectedMethod.logo_url} alt={selectedMethod.provider_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : <span style={{ fontSize: '20px' }}>🏦</span>
+                }
+              </div>
+              <div>
+                <div style={{ fontSize: '16px', fontWeight: 800, color: '#FFF' }}>{selectedMethod.provider_name}</div>
+                <div style={{ fontSize: '12px', color: '#6B7280' }}>Transfer to this account</div>
+              </div>
+            </div>
+
+            {/* Account Name */}
+            <div style={{ padding: '14px 16px', borderBottom: '1px solid #1E293B' }}>
+              <div style={{ fontSize: '11px', color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Account Name</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '16px', fontWeight: 700, color: '#FFF' }}>{selectedMethod.account_name}</span>
+                <button
+                  onClick={() => handleCopy(selectedMethod.account_name, 'name')}
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid #1E293B', borderRadius: '8px', padding: '7px 12px', cursor: 'pointer', color: copiedField === 'name' ? '#16A34A' : '#9CA3AF', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', fontWeight: 600 }}
+                >
+                  {copiedField === 'name' ? <><CheckIcon /> Copied!</> : <><CopyIcon /> Copy</>}
+                </button>
+              </div>
+            </div>
+
+            {/* Account Number */}
+            <div style={{ padding: '14px 16px' }}>
+              <div style={{ fontSize: '11px', color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Account Number / Phone</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '20px', fontWeight: 900, color: '#19E66B', letterSpacing: '1px' }}>{selectedMethod.account_number}</span>
+                <button
+                  onClick={() => handleCopy(selectedMethod.account_number, 'number')}
+                  style={{ background: copiedField === 'number' ? 'rgba(22,163,74,0.15)' : 'rgba(25,230,107,0.08)', border: `1px solid ${copiedField === 'number' ? '#16A34A' : 'rgba(25,230,107,0.3)'}`, borderRadius: '8px', padding: '7px 12px', cursor: 'pointer', color: copiedField === 'number' ? '#16A34A' : '#19E66B', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', fontWeight: 700 }}
+                >
+                  {copiedField === 'number' ? <><CheckIcon /> Copied!</> : <><CopyIcon /> Copy</>}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
-        {/* Amount */}
-        <div>
-          <label style={{ display: 'block', fontSize: '14px', fontWeight: 700, color: '#D1D5DB', marginBottom: '8px' }}>Amount (Br)</label>
-          <input 
-            type="number" min="1" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} required
-            placeholder="Enter amount to deposit"
-            style={{ 
-              width: '100%', padding: '16px', borderRadius: '12px', background: '#111827', 
-              border: '1px solid #1E293B', color: '#FFF', fontSize: '16px', outline: 'none' 
-            }}
-          />
+        {/* Instruction banner */}
+        <div style={{ background: 'rgba(245, 166, 35, 0.06)', border: '1px solid rgba(245,166,35,0.2)', borderRadius: '12px', padding: '14px', marginBottom: '24px', display: 'flex', gap: '10px' }}>
+          <span style={{ fontSize: '18px', flexShrink: 0 }}>💡</span>
+          <p style={{ margin: 0, fontSize: '13px', color: '#D1D5DB', lineHeight: 1.6 }}>
+            Send your money to the account above. Then enter the exact amount below and upload a screenshot of the payment confirmation.
+          </p>
         </div>
 
-        {/* Screenshot */}
-        <div>
-          <label style={{ display: 'block', fontSize: '14px', fontWeight: 700, color: '#D1D5DB', marginBottom: '8px' }}>Payment Screenshot</label>
-          <div 
-            onClick={() => fileInputRef.current?.click()}
+        {/* Form */}
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+          {error && (
+            <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '10px', padding: '12px 14px', fontSize: '14px', color: '#F87171' }}>
+              {error}
+            </div>
+          )}
+
+          {/* Amount */}
+          <div>
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#D1D5DB', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Amount (Br)
+            </label>
+            <div style={{ position: 'relative' }}>
+              <input
+                type="number" min="10" step="any" value={amount}
+                onChange={e => setAmount(e.target.value)} required
+                placeholder="0.00"
+                style={{ width: '100%', padding: '16px 50px 16px 16px', borderRadius: '14px', background: '#111827', border: '1.5px solid #1E293B', color: '#FFF', fontSize: '20px', fontWeight: 800, outline: 'none', boxSizing: 'border-box' }}
+              />
+              <span style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', fontSize: '16px', fontWeight: 700, color: '#F5A623' }}>Br</span>
+            </div>
+            {/* Quick amounts */}
+            <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+              {[100, 200, 500, 1000].map(q => (
+                <button key={q} type="button" onClick={() => setAmount(String(q))} style={{
+                  flex: 1, padding: '8px 0', borderRadius: '8px', fontSize: '13px', fontWeight: 700,
+                  background: amount === String(q) ? 'rgba(245,166,35,0.15)' : '#111827',
+                  border: `1px solid ${amount === String(q) ? '#F5A623' : '#1E293B'}`,
+                  color: amount === String(q) ? '#F5A623' : '#6B7280', cursor: 'pointer',
+                }}>
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Screenshot upload */}
+          <div>
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#D1D5DB', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Payment Screenshot
+            </label>
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              style={{
+                border: `2px dashed ${screenshotPreview ? '#19E66B' : '#1E293B'}`,
+                borderRadius: '16px', padding: screenshotPreview ? '0' : '32px 24px',
+                textAlign: 'center', cursor: 'pointer',
+                background: screenshotPreview ? '#111827' : '#111827',
+                overflow: 'hidden', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px',
+              }}
+            >
+              {screenshotPreview ? (
+                <div style={{ width: '100%', position: 'relative' }}>
+                  <img src={screenshotPreview} alt="Receipt" style={{ width: '100%', maxHeight: '240px', objectFit: 'cover', display: 'block' }} />
+                  <div style={{ position: 'absolute', bottom: '10px', right: '10px', background: 'rgba(0,0,0,0.7)', borderRadius: '8px', padding: '6px 10px', fontSize: '12px', color: '#FFF', fontWeight: 600 }}>
+                    Tap to change
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: '#1A2235', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg viewBox="0 0 24 24" style={{ width: '28px', height: '28px', color: '#6B7280' }} fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <div style={{ fontSize: '15px', fontWeight: 700, color: '#D1D5DB' }}>Tap to upload screenshot</div>
+                  <div style={{ fontSize: '13px', color: '#4B5563' }}>JPG or PNG from your gallery</div>
+                </>
+              )}
+            </div>
+            <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" style={{ display: 'none' }} />
+          </div>
+
+          {/* Submit */}
+          <button
+            type="submit"
+            disabled={isSubmitting || !amount || !screenshotPreview}
             style={{
-              border: '2px dashed #374151', borderRadius: '16px', padding: '24px',
-              textAlign: 'center', cursor: 'pointer', background: '#111827',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px'
+              width: '100%', padding: '18px',
+              background: isSubmitting || !amount || !screenshotPreview ? '#1E293B' : '#19E66B',
+              color: isSubmitting || !amount || !screenshotPreview ? '#4B5563' : '#000',
+              border: 'none', borderRadius: '14px', fontSize: '16px', fontWeight: 900,
+              cursor: isSubmitting || !amount || !screenshotPreview ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s',
             }}
           >
-            {screenshotPreview ? (
-              <div style={{ width: '100%', maxWidth: '200px', borderRadius: '12px', overflow: 'hidden' }}>
-                <img src={screenshotPreview} alt="Receipt" style={{ width: '100%', height: 'auto', display: 'block' }} />
-              </div>
-            ) : (
-              <>
-                <svg viewBox="0 0 24 24" style={{ width: '40px', height: '40px', color: '#6B7280' }} fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <div style={{ fontSize: '15px', fontWeight: 600, color: '#D1D5DB' }}>Tap to upload screenshot</div>
-                <div style={{ fontSize: '13px', color: '#6B7280' }}>JPG, PNG accepted</div>
-              </>
-            )}
-          </div>
-          <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" required={!screenshotPreview} style={{ display: 'none' }} />
-        </div>
+            {isSubmitting ? (
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                <div style={{ width: '18px', height: '18px', border: '2.5px solid rgba(0,0,0,0.3)', borderTop: '2.5px solid #000', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                Submitting...
+              </span>
+            ) : 'Submit Deposit'}
+          </button>
 
-        <button 
-          type="submit" disabled={isSubmitting || !selectedMethodId || !amount || !screenshotPreview}
-          style={{
-            width: '100%', padding: '16px', background: isSubmitting ? '#9CA3AF' : '#F5A623', color: '#000',
-            border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 800,
-            cursor: isSubmitting ? 'not-allowed' : 'pointer', marginTop: '10px'
-          }}
-        >
-          {isSubmitting ? 'Submitting...' : 'Submit Deposit'}
-        </button>
-
-      </form>
+        </form>
+      </div>
     </div>
   );
 }
