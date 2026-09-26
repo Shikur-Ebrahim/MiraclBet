@@ -93,12 +93,14 @@ function OddButton({ value, odd, onClick, selected, disabled }: {
 
 // ─── Market Collapsible Card ───────────────────────────────────────────────────
 function MarketCard({
-  market, globalSelMarketId, globalSelIdx, onSelect,
+  market, globalSelMarketId, globalSelIdx, onSelect, matchId, slipSelections
 }: {
   market: Market;
   globalSelMarketId: number | null;
   globalSelIdx: number | null;
   onSelect: (marketId: number, idx: number) => void;
+  matchId?: string;
+  slipSelections?: {fixtureId: string; selectionId: string}[];
 }) {
   const [expanded, setExpanded] = useState(true);
 
@@ -140,7 +142,11 @@ function MarketCard({
         <div className="p-2 bg-white relative">
           <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
             {market.values.map((v, i) => {
-              const isSelected = globalSelMarketId === market.id && globalSelIdx === i;
+              const selId = `${matchId}-${market.id}-${i}`;
+              const isSelected = slipSelections 
+                ? slipSelections.some(s => s.fixtureId === matchId && s.selectionId === selId)
+                : (globalSelMarketId === market.id && globalSelIdx === i);
+              
               return (
                 <OddButton
                   key={i}
@@ -149,7 +155,7 @@ function MarketCard({
                   selected={isSelected}
                   disabled={isSuspended}
                   onClick={() => {
-                     if (!isSuspended) onSelect(isSelected ? -1 : market.id, isSelected ? -1 : i);
+                     if (!isSuspended) onSelect(market.id, i);
                   }}
                 />
               );
@@ -181,10 +187,19 @@ export default function MatchPage() {
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('All');
-  // Global selection: only ONE odd can be selected across ALL markets at once
-  const [globalSel, setGlobalSel] = useState<{ marketId: number; idx: number } | null>(null);
-  const [isPlacing, setIsPlacing] = useState(false);
-  const [betResult, setBetResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [slipSelections, setSlipSelections] = useState<{fixtureId: string; selectionId: string}[]>([]);
+  const [addedToSlip, setAddedToSlip] = useState(false);
+
+  // Sync with localStorage betslip
+  useEffect(() => {
+    const load = () => {
+      const stored = localStorage.getItem('miraclbet_betslip');
+      try { setSlipSelections(stored ? JSON.parse(stored) : []); } catch {}
+    };
+    load();
+    window.addEventListener('miraclbet_betslip_change', load);
+    return () => window.removeEventListener('miraclbet_betslip_change', load);
+  }, []);
 
   const findMatch = useCallback(async () => {
     const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
@@ -359,43 +374,40 @@ export default function MatchPage() {
   const visibleMarkets = getMarketsForTab(activeTab);
 
   const handleSelect = (marketId: number, idx: number) => {
-    if (marketId === -1) setGlobalSel(null);
-    else setGlobalSel({ marketId, idx });
-    setBetResult(null);
-  };
+    if (!match) return;
+    const market = allMarkets.find(m => m.id === marketId);
+    if (!market || marketId === -1) return;
+    const selection = market.values[idx];
+    if (!selection) return;
 
-  const placeBet = async () => {
-    if (!globalSel) return;
-    setIsPlacing(true);
-    setBetResult(null);
-    
-    const market = allMarkets.find(m => m.id === globalSel.marketId);
-    if (!market) return;
-    const selection = market.values[globalSel.idx];
+    const selId = `${match.id}-${marketId}-${idx}`;
+    const stored = localStorage.getItem('miraclbet_betslip');
+    const current: Array<{fixtureId: string; matchName: string; marketName: string; selectionId: string; selectionName: string; odds: number}> = stored ? JSON.parse(stored) : [];
 
-    try {
-      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
-      const res = await fetch(`${API_BASE}/api/v1/bets`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fixture_id: match.id,
-          market_id: market.id,
-          selection: selection.value,
-          odds: parseFloat(selection.odd),
-          odds_version: market.odds_version || 1
-        })
+    const existing = current.findIndex(s => s.fixtureId === match.id && s.selectionId === selId);
+    if (existing >= 0) {
+      // Deselect
+      current.splice(existing, 1);
+    } else {
+      // Remove any other selection from this fixture first
+      const filtered = current.filter(s => s.fixtureId !== match.id);
+      filtered.push({
+        fixtureId: match.id,
+        matchName: `${match.home_team} vs ${match.away_team}`,
+        marketName: market.name,
+        selectionId: selId,
+        selectionName: selection.value,
+        odds: parseFloat(selection.odd),
       });
-      const data = await res.json();
-      setBetResult(data);
-      if (data.success) {
-        setTimeout(() => setGlobalSel(null), 2000); // clear selection on success
-      }
-    } catch {
-      setBetResult({ success: false, message: 'Network error. Please try again.' });
-    } finally {
-      setIsPlacing(false);
+      current.splice(0, current.length, ...filtered);
     }
+
+    localStorage.setItem('miraclbet_betslip', JSON.stringify(current));
+    setSlipSelections(current.map(s => ({ fixtureId: s.fixtureId, selectionId: s.selectionId })));
+    window.dispatchEvent(new Event('miraclbet_betslip_change'));
+
+    setAddedToSlip(true);
+    setTimeout(() => setAddedToSlip(false), 2000);
   };
 
   return (
@@ -491,9 +503,11 @@ export default function MatchPage() {
             <MarketCard
               key={market.id}
               market={market}
-              globalSelMarketId={globalSel?.marketId ?? null}
-              globalSelIdx={globalSel?.idx ?? null}
+              globalSelMarketId={null} // replaced by slip checking inside card below, but prop kept for compat
+              globalSelIdx={null}
               onSelect={handleSelect}
+              matchId={match.id}
+              slipSelections={slipSelections}
             />
           ))
         ) : (
@@ -503,23 +517,10 @@ export default function MatchPage() {
         )}
       </div>
 
-      {/* Bet Slip Footer (Only visible when selection is active) */}
-      {globalSel && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] p-4 z-50">
-          {betResult && (
-            <div className={`mb-3 p-2 text-center text-sm font-bold rounded-lg ${betResult.success ? 'bg-[#E8FFF2] text-[#0D8A3C]' : 'bg-red-50 text-red-600'}`}>
-              {betResult.message}
-            </div>
-          )}
-          <button
-            onClick={placeBet}
-            disabled={isPlacing}
-            className={`w-full py-3.5 rounded-xl text-white font-bold text-sm shadow-md transition-all ${
-              isPlacing ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#0D8A3C] hover:bg-[#0A6B2E]'
-            }`}
-          >
-            {isPlacing ? 'Validating...' : 'Place Bet'}
-          </button>
+      {/* Added to Betslip Toast Notification */}
+      {addedToSlip && (
+        <div className="fixed bottom-[74px] left-1/2 -translate-x-1/2 bg-[#0D8A3C] text-white px-4 py-2 rounded-full shadow-lg text-sm font-bold animate-fade-in z-50">
+          Added to betslip!
         </div>
       )}
     </div>
