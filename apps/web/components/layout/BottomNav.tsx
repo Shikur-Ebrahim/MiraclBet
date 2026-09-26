@@ -38,7 +38,7 @@ export function BottomNav() {
 
           {/* Sport */}
           <button
-            onClick={() => router.push('/')}
+            onClick={() => window.location.href = '/'}
             className={`flex flex-col items-center justify-center gap-[3px] transition-colors ${
               isActive('/') ? 'text-[#19E66B]' : 'text-gray-400 hover:text-white'
             }`}
@@ -53,7 +53,7 @@ export function BottomNav() {
 
           {/* Deposit */}
           <button
-            onClick={() => router.push('/deposit')}
+            onClick={() => window.location.href = '/deposit'}
             className={`flex flex-col items-center justify-center gap-[3px] transition-colors ${
               isActive('/deposit') ? 'text-[#19E66B]' : 'text-gray-400 hover:text-white'
             }`}
@@ -68,7 +68,7 @@ export function BottomNav() {
 
           {/* Check (My Bets) */}
           <button
-            onClick={() => router.push('/bets')}
+            onClick={() => window.location.href = '/bets'}
             className={`flex flex-col items-center justify-center gap-[3px] transition-colors ${
               isActive('/bets') ? 'text-[#19E66B]' : 'text-gray-400 hover:text-white'
             }`}
@@ -82,7 +82,7 @@ export function BottomNav() {
 
           {/* Bet Slip */}
           <button
-            onClick={() => router.push('/betslip')}
+            onClick={() => window.location.href = '/betslip'}
             className={`flex flex-col items-center justify-center gap-[3px] transition-colors ${
               isActive('/betslip') ? 'text-[#19E66B]' : 'text-gray-400 hover:text-white'
             }`}
