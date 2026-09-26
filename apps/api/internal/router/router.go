@@ -55,6 +55,9 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service) http.Handle
 		paymentMethodsHandler := handlers.NewPaymentMethodsHandler(db, r2)
 		r.Get("/payment-methods", paymentMethodsHandler.List) // Public list for deposit page
 
+		withdrawalMethodsHandler := handlers.NewWithdrawalMethodsHandler(db, r2)
+		r.Get("/withdrawal-methods", withdrawalMethodsHandler.List) // Public list for withdrawal page
+
 		depositsHandler := handlers.NewDepositsHandler(db, r2)
 		r.Post("/deposits", depositsHandler.Create)          // User creates deposit
 		r.Get("/deposits/pending", depositsHandler.CheckPending) // Check if user has pending
@@ -65,6 +68,11 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service) http.Handle
 			r.Post("/payment-methods", paymentMethodsHandler.Create)
 			r.Delete("/payment-methods/{id}", paymentMethodsHandler.Delete)
 			r.Put("/payment-methods/{id}/status", paymentMethodsHandler.UpdateStatus)
+
+			r.Get("/withdrawal-methods", withdrawalMethodsHandler.List)
+			r.Post("/withdrawal-methods", withdrawalMethodsHandler.Create)
+			r.Delete("/withdrawal-methods/{id}", withdrawalMethodsHandler.Delete)
+			r.Put("/withdrawal-methods/{id}/status", withdrawalMethodsHandler.UpdateStatus)
 
 			r.Get("/deposits", depositsHandler.ListAdmin)
 			r.Put("/deposits/{id}/status", depositsHandler.UpdateStatus)
