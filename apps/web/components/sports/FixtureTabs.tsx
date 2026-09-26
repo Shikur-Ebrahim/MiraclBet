@@ -204,7 +204,15 @@ function MatchRow({ fix }: { fix: Fixture }) {
     };
     load();
     window.addEventListener('miraclbet_betslip_change', load);
-    return () => window.removeEventListener('miraclbet_betslip_change', load);
+    window.addEventListener('storage', load);
+    window.addEventListener('pageshow', load);
+    window.addEventListener('focus', load);
+    return () => {
+      window.removeEventListener('miraclbet_betslip_change', load);
+      window.removeEventListener('storage', load);
+      window.removeEventListener('pageshow', load);
+      window.removeEventListener('focus', load);
+    };
   }, []);
 
   const kickoff = new Date(fix.kickoff_at);

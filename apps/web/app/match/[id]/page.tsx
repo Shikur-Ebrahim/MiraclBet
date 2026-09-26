@@ -516,13 +516,6 @@ export default function MatchPage() {
           </div>
         )}
       </div>
-
-      {/* Added to Betslip Toast Notification */}
-      {addedToSlip && (
-        <div className="fixed bottom-[74px] left-1/2 -translate-x-1/2 bg-[#0D8A3C] text-white px-4 py-2 rounded-full shadow-lg text-sm font-bold animate-fade-in z-50">
-          Added to betslip!
-        </div>
-      )}
     </div>
   );
 }
