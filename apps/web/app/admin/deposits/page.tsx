@@ -53,13 +53,40 @@ export default function AdminDepositsPage() {
       });
       
       if (res.ok) {
-        setDeposits(prev => prev.map(d => d.id === id ? { ...d, status } : d));
+        if (status === 'rejected') {
+          // It's hard-deleted on backend, so remove it from list
+          setDeposits(prev => prev.filter(d => d.id !== id));
+        } else {
+          setDeposits(prev => prev.map(d => d.id === id ? { ...d, status } : d));
+        }
       } else {
         alert('Failed to update deposit status');
       }
     } catch (err) {
       console.error(err);
-      alert('Error connecting to server');
+      alert('Network error');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm(`Are you sure you want to DELETE this deposit? If it was accepted, the user's balance will be reduced.`)) return;
+
+    setProcessingId(id);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/deposits/${id}`, {
+        method: 'DELETE',
+      });
+      
+      if (res.ok) {
+        setDeposits(prev => prev.filter(d => d.id !== id));
+      } else {
+        alert('Failed to delete deposit');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error');
     } finally {
       setProcessingId(null);
     }
@@ -159,12 +186,26 @@ export default function AdminDepositsPage() {
                     </button>
                   </div>
                 ) : (
-                  <div style={{ 
-                    padding: '10px', textAlign: 'center', borderRadius: '8px', fontSize: '13px', fontWeight: 700,
-                    background: deposit.status === 'accepted' ? '#DCFCE7' : '#FEF2F2',
-                    color: deposit.status === 'accepted' ? '#16A34A' : '#DC2626'
-                  }}>
-                    {deposit.status.toUpperCase()}
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <div style={{ 
+                      flex: 1, padding: '10px', textAlign: 'center', borderRadius: '8px', fontSize: '13px', fontWeight: 700,
+                      background: deposit.status === 'accepted' ? '#DCFCE7' : '#FEF2F2',
+                      color: deposit.status === 'accepted' ? '#16A34A' : '#DC2626'
+                    }}>
+                      {deposit.status.toUpperCase()}
+                    </div>
+                    <button
+                      onClick={() => handleDelete(deposit.id)}
+                      disabled={processingId === deposit.id}
+                      style={{
+                        padding: '10px 16px', background: '#FEF2F2', color: '#DC2626',
+                        border: '1px solid #FECACA', borderRadius: '8px', fontSize: '13px', fontWeight: 700,
+                        cursor: processingId === deposit.id ? 'not-allowed' : 'pointer',
+                        opacity: processingId === deposit.id ? 0.5 : 1
+                      }}
+                    >
+                      Delete
+                    </button>
                   </div>
                 )}
               </div>

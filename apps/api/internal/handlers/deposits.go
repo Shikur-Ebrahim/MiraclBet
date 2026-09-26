@@ -222,3 +222,58 @@ func (h *DepositsHandler) CheckPending(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(deposit)
 }
+
+// Delete — hard deletes a deposit and reduces user balance if it was accepted
+func (h *DepositsHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	tx, err := h.db.Pool.Begin(r.Context())
+	if err != nil {
+		http.Error(w, "Transaction failed to start", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback(r.Context())
+
+	// Lock the deposit row
+	var currentStatus string
+	var amount float64
+	var userID string
+	err = tx.QueryRow(r.Context(), `
+		SELECT status, amount, user_id FROM deposits WHERE id = $1 FOR UPDATE
+	`, id).Scan(&currentStatus, &amount, &userID)
+	
+	if err == pgx.ErrNoRows {
+		http.Error(w, "Deposit not found", http.StatusNotFound)
+		return
+	} else if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// If the deposit was already accepted, we must subtract the amount from the user's balance
+	if currentStatus == "accepted" {
+		_, err = tx.Exec(r.Context(), `
+			UPDATE users SET balance = balance - $1 WHERE id = $2
+		`, amount, userID)
+		if err != nil {
+			http.Error(w, "Failed to update user balance", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Hard delete the deposit record completely
+	_, err = tx.Exec(r.Context(), `DELETE FROM deposits WHERE id = $1`, id)
+	if err != nil {
+		http.Error(w, "Failed to delete deposit", http.StatusInternalServerError)
+		return
+	}
+
+	if err := tx.Commit(r.Context()); err != nil {
+		http.Error(w, "Transaction commit failed", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"success": "true"})
+}

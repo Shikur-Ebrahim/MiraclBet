@@ -68,6 +68,7 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service) http.Handle
 
 			r.Get("/deposits", depositsHandler.ListAdmin)
 			r.Put("/deposits/{id}/status", depositsHandler.UpdateStatus)
+			r.Delete("/deposits/{id}", depositsHandler.Delete)
 		})
 	})
 
