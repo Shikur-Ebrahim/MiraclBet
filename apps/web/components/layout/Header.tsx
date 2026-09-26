@@ -209,19 +209,19 @@ export function Header() {
 
         {/* Deposit button */}
         <div style={{ margin: '0 16px 8px' }}>
-          <Link href="/deposit" onClick={() => setPanelOpen(false)} style={{
+          <a href="/deposit" onClick={() => setPanelOpen(false)} style={{
             display: 'block', textAlign: 'center', padding: '13px',
             background: '#F5A623', color: '#000', fontWeight: 800,
             fontSize: '15px', borderRadius: '10px', textDecoration: 'none',
           }}>
             Deposit
-          </Link>
+          </a>
         </div>
 
         {/* Menu items */}
         <div style={{ marginTop: '8px', flex: 1 }}>
           {menuItems.map((item) => (
-            <Link
+            <a
               key={item.href}
               href={item.href}
               onClick={() => setPanelOpen(false)}
@@ -232,7 +232,7 @@ export function Header() {
               }}
             >
               {item.label}
-            </Link>
+            </a>
           ))}
         </div>
 

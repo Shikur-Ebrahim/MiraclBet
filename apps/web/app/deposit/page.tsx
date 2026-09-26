@@ -26,26 +26,33 @@ export default function DepositPage() {
   const [error, setError] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    // Check auth
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return; // Wait until client hydrated
+
+    // Check auth — only on client
     const userStr = localStorage.getItem('miraclbet_user');
     if (!userStr) {
       router.push('/login');
       return;
     }
 
-    // Fetch methods
+    // Fetch active payment methods
     fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/payment-methods`)
       .then(res => res.json())
       .then(data => {
-        const active = (data || []).filter((m: PaymentMethod) => m.is_active);
+        const active = (Array.isArray(data) ? data : []).filter((m: PaymentMethod) => m.is_active);
         setMethods(active);
         if (active.length > 0) setSelectedMethodId(active[0].id);
       })
       .catch(err => console.error(err))
       .finally(() => setLoading(false));
-  }, [router]);
+  }, [mounted, router]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -89,7 +96,7 @@ export default function DepositPage() {
     }
   };
 
-  if (loading) {
+  if (!mounted || loading) {
     return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF' }}>Loading...</div>;
   }
 
