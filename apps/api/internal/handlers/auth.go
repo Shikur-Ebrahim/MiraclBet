@@ -43,13 +43,21 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	var user User
 	var hash string
+	var isActive bool
 
-	// Look up user by phone number
-	err := h.db.Pool.QueryRow(r.Context(), "SELECT id, phone, role, COALESCE(balance, 0), password_hash FROM users WHERE phone = $1", req.Phone).
-		Scan(&user.ID, &user.Phone, &user.Role, &user.Balance, &hash)
+	// Look up user by phone number and check is_active
+	err := h.db.Pool.QueryRow(r.Context(),
+		"SELECT id, phone, role, COALESCE(balance, 0), password_hash, COALESCE(is_active, true) FROM users WHERE phone = $1",
+		req.Phone).Scan(&user.ID, &user.Phone, &user.Role, &user.Balance, &hash, &isActive)
 
 	if err != nil {
 		h.respondError(w, http.StatusUnauthorized, "Invalid phone number or password")
+		return
+	}
+
+	// Check if account is deactivated
+	if !isActive {
+		h.respondError(w, http.StatusForbidden, "Your account has been deactivated. Please contact support.")
 		return
 	}
 

@@ -344,54 +344,67 @@ export default function AdminUsersPage() {
                   </div>
                 )}
 
-                {/* ── BALANCE CARD ── */}
-                <div style={{ background: 'linear-gradient(135deg, #111827, #1E293B)', borderRadius: '16px', padding: '20px', marginBottom: '16px', position: 'relative', overflow: 'hidden' }}>
+                {/* ── BALANCE DISPLAY CARD ── */}
+                <div style={{ background: 'linear-gradient(135deg, #111827, #1E293B)', borderRadius: '16px', padding: '20px', marginBottom: '12px', position: 'relative', overflow: 'hidden' }}>
                   <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '100px', height: '100px', borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
-                  <div style={{ position: 'absolute', bottom: '-30px', left: '-10px', width: '120px', height: '120px', borderRadius: '50%', background: 'rgba(255,255,255,0.03)' }} />
                   <div style={{ fontSize: '12px', color: '#6B7280', fontWeight: 700, letterSpacing: '0.05em', marginBottom: '6px' }}>CURRENT BALANCE</div>
-                  <div style={{ fontSize: '32px', fontWeight: 900, color: '#FFF', marginBottom: '16px' }}>
+                  <div style={{ fontSize: '36px', fontWeight: 900, color: '#FFF' }}>
                     {selectedUser.balance.toFixed(2)} <span style={{ fontSize: '18px', color: '#F5A623' }}>Br</span>
                   </div>
+                </div>
 
-                  {!editingBalance ? (
-                    <button onClick={() => setEditingBalance(true)} style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', color: '#FFF', borderRadius: '9px', padding: '9px 18px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
-                      ✏️ Edit Balance
+                {/* ── BALANCE EDIT PANEL (white, always visible) ── */}
+                <div style={{ background: '#FFF', border: '1.5px solid #E5E7EB', borderRadius: '16px', padding: '16px', marginBottom: '16px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 800, color: '#111827', marginBottom: '12px' }}>✏️ Edit Balance</div>
+
+                  {/* Mode selector */}
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                    {(['adjust', 'set'] as const).map(m => (
+                      <button key={m} onClick={() => setBalanceMode(m)} style={{
+                        flex: 1, padding: '9px', borderRadius: '8px', fontSize: '13px', fontWeight: 700,
+                        background: balanceMode === m ? '#111827' : '#F1F5F9',
+                        color: balanceMode === m ? '#FFF' : '#6B7280',
+                        border: 'none', cursor: 'pointer'
+                      }}>
+                        {m === 'adjust' ? '+ / − Adjust' : '= Set Exact'}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div style={{ fontSize: '12px', color: '#9CA3AF', marginBottom: '10px' }}>
+                    {balanceMode === 'adjust'
+                      ? 'Enter positive to add (e.g. 500) or negative to subtract (e.g. -200)'
+                      : 'Type the exact balance to set for this user'}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input
+                      type="number"
+                      value={balanceInput}
+                      onChange={e => { setBalanceInput(e.target.value); setBalanceError(''); }}
+                      placeholder={balanceMode === 'adjust' ? 'e.g. 500 or -200' : 'e.g. 10000.00'}
+                      style={{
+                        flex: 1, padding: '12px 14px', borderRadius: '10px',
+                        border: `1.5px solid ${balanceError ? '#FECACA' : '#D1D5DB'}`,
+                        fontSize: '16px', fontWeight: 700, color: '#111827',
+                        background: '#FFF', outline: 'none', boxSizing: 'border-box' as const
+                      }}
+                    />
+                    <button
+                      disabled={actionLoading || !balanceInput}
+                      onClick={handleAdjustBalance}
+                      style={{
+                        padding: '12px 20px', borderRadius: '10px', fontSize: '14px', fontWeight: 800,
+                        background: actionLoading || !balanceInput ? '#E5E7EB' : '#111827',
+                        color: actionLoading || !balanceInput ? '#9CA3AF' : '#FFF',
+                        border: 'none', cursor: actionLoading || !balanceInput ? 'not-allowed' : 'pointer',
+                        whiteSpace: 'nowrap' as const
+                      }}>
+                      {actionLoading ? '...' : 'Apply'}
                     </button>
-                  ) : (
-                    <div>
-                      {/* Mode selector */}
-                      <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
-                        {(['adjust', 'set'] as const).map(m => (
-                          <button key={m} onClick={() => setBalanceMode(m)} style={{
-                            flex: 1, padding: '7px', borderRadius: '7px', fontSize: '12px', fontWeight: 700,
-                            background: balanceMode === m ? '#F5A623' : 'rgba(255,255,255,0.08)',
-                            color: balanceMode === m ? '#000' : '#9CA3AF',
-                            border: 'none', cursor: 'pointer'
-                          }}>
-                            {m === 'adjust' ? '+ / − Adjust' : '= Set Exact'}
-                          </button>
-                        ))}
-                      </div>
-                      <div style={{ fontSize: '11px', color: '#6B7280', marginBottom: '8px' }}>
-                        {balanceMode === 'adjust' ? 'Positive adds, negative subtracts (e.g. -500)' : 'Sets exact balance value'}
-                      </div>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <input type="number" value={balanceInput} onChange={e => setBalanceInput(e.target.value)}
-                          placeholder={balanceMode === 'adjust' ? '+500 or -100' : '10000.00'}
-                          style={{ flex: 1, padding: '10px 14px', borderRadius: '9px', border: `1px solid ${balanceError ? '#F87171' : 'rgba(255,255,255,0.15)'}`, fontSize: '15px', fontWeight: 700, color: '#FFF', background: 'rgba(255,255,255,0.08)', outline: 'none' }} />
-                        <button disabled={actionLoading || !balanceInput} onClick={handleAdjustBalance} style={{
-                          padding: '10px 16px', borderRadius: '9px', fontSize: '13px', fontWeight: 800,
-                          background: '#F5A623', color: '#000', border: 'none',
-                          cursor: actionLoading || !balanceInput ? 'not-allowed' : 'pointer',
-                          opacity: actionLoading || !balanceInput ? 0.5 : 1
-                        }}>Apply</button>
-                        <button onClick={() => { setEditingBalance(false); setBalanceInput(''); setBalanceError(''); }} style={{
-                          padding: '10px 14px', borderRadius: '9px', fontSize: '13px', fontWeight: 700,
-                          background: 'rgba(255,255,255,0.08)', color: '#9CA3AF', border: 'none', cursor: 'pointer'
-                        }}>✕</button>
-                      </div>
-                      {balanceError && <div style={{ fontSize: '12px', color: '#F87171', marginTop: '6px' }}>{balanceError}</div>}
-                    </div>
+                  </div>
+                  {balanceError && (
+                    <div style={{ fontSize: '12px', color: '#DC2626', marginTop: '8px', fontWeight: 600 }}>{balanceError}</div>
                   )}
                 </div>
 
