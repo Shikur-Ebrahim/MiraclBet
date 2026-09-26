@@ -36,32 +36,35 @@ type BookBetRequest struct {
 func generateBetCode() string {
 	src := rand.NewSource(time.Now().UnixNano())
 	rng := rand.New(src)
-
 	digits := "0123456789"
 	letters := "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
 	n1 := string(digits[rng.Intn(10)]) + string(digits[rng.Intn(10)])
 	l1 := string(letters[rng.Intn(26)]) + string(letters[rng.Intn(26)])
 	n2 := string(digits[rng.Intn(10)]) + string(digits[rng.Intn(10)])
-
 	return "M" + n1 + l1 + n2
 }
 
 func (h *BetSlipsHandler) BookBet(w http.ResponseWriter, r *http.Request) {
 	var req BookBetRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid request payload"})
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request payload"})
 		return
 	}
 
 	if len(req.Selections) == 0 {
-		respondJSON(w, http.StatusBadRequest, map[string]string{"error": "No selections provided"})
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "No selections provided"})
 		return
 	}
 
 	selectionsJSON, err := json.Marshal(req.Selections)
 	if err != nil {
-		respondJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to process selections"})
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to process selections"})
 		return
 	}
 
@@ -77,17 +80,22 @@ func (h *BetSlipsHandler) BookBet(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if err != nil {
-		respondJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to save bet booking"})
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to save bet booking"})
 		return
 	}
 
-	respondJSON(w, http.StatusOK, map[string]string{"code": code})
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"code": code})
 }
 
 func (h *BetSlipsHandler) GetBooking(w http.ResponseWriter, r *http.Request) {
 	code := chi.URLParam(r, "code")
 	if code == "" {
-		respondJSON(w, http.StatusBadRequest, map[string]string{"error": "Booking code is required"})
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Booking code is required"})
 		return
 	}
 
@@ -99,18 +107,22 @@ func (h *BetSlipsHandler) GetBooking(w http.ResponseWriter, r *http.Request) {
 	).Scan(&selectionsJSON, &totalOdds)
 
 	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
 		if err == pgx.ErrNoRows {
-			respondJSON(w, http.StatusNotFound, map[string]string{"error": "Bet code not found"})
-			return
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Bet code not found"})
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Database error"})
 		}
-		respondJSON(w, http.StatusInternalServerError, map[string]string{"error": "Database error"})
 		return
 	}
 
 	var selections []BetSelection
 	_ = json.Unmarshal([]byte(selectionsJSON), &selections)
 
-	respondJSON(w, http.StatusOK, map[string]interface{}{
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
 		"code":       code,
 		"selections": selections,
 		"total_odds": totalOdds,
