@@ -194,7 +194,18 @@ function AnimatedOddButton({
 
 // ─── Match Row ────────────────────────────────────────────────────────────────
 function MatchRow({ fix }: { fix: Fixture }) {
-  const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
+  const [slipSelections, setSlipSelections] = useState<{fixtureId: string; selectionId: string}[]>([]);
+
+  // Sync with localStorage betslip
+  useEffect(() => {
+    const load = () => {
+      const stored = localStorage.getItem('miraclbet_betslip');
+      try { setSlipSelections(stored ? JSON.parse(stored) : []); } catch {}
+    };
+    load();
+    window.addEventListener('miraclbet_betslip_change', load);
+    return () => window.removeEventListener('miraclbet_betslip_change', load);
+  }, []);
 
   const kickoff = new Date(fix.kickoff_at);
   const dateStr = `${String(kickoff.getDate()).padStart(2, '0')}/${String(kickoff.getMonth() + 1).padStart(2, '0')}`;
@@ -210,13 +221,38 @@ function MatchRow({ fix }: { fix: Fixture }) {
   const isClosed    = isActuallyLive && marketStatus === 'CLOSED';
 
   const oddCells = [
-    { label: '1',  val: home },
-    { label: 'X',  val: draw },
-    { label: '2',  val: away },
-    { label: '1X', val: hd },
-    { label: 'X2', val: da },
-    { label: '12', val: ha },
+    { label: '1',  val: home, selId: `${fix.id}-1`,  name: fix.home_team },
+    { label: 'X',  val: draw, selId: `${fix.id}-X`,  name: 'Draw' },
+    { label: '2',  val: away, selId: `${fix.id}-2`,  name: fix.away_team },
+    { label: '1X', val: hd,   selId: `${fix.id}-1X`, name: `${fix.home_team} or Draw` },
+    { label: 'X2', val: da,   selId: `${fix.id}-X2`, name: `Draw or ${fix.away_team}` },
+    { label: '12', val: ha,   selId: `${fix.id}-12`, name: `${fix.home_team} or ${fix.away_team}` },
   ];
+
+  const toggleBet = (selId: string, label: string, val: string | null, selectionName: string) => {
+    if (!val || val === '-') return;
+    const stored = localStorage.getItem('miraclbet_betslip');
+    const current: Array<{fixtureId: string; matchName: string; marketName: string; selectionId: string; selectionName: string; odds: number}> = stored ? JSON.parse(stored) : [];
+    const idx = current.findIndex(s => s.fixtureId === fix.id && s.selectionId === selId);
+    if (idx >= 0) {
+      current.splice(idx, 1);
+    } else {
+      // Remove other selections for this fixture
+      const filtered = current.filter(s => s.fixtureId !== fix.id);
+      filtered.push({
+        fixtureId: fix.id,
+        matchName: `${fix.home_team} vs ${fix.away_team}`,
+        marketName: 'Match Winner',
+        selectionId: selId,
+        selectionName,
+        odds: parseFloat(val),
+      });
+      current.splice(0, current.length, ...filtered);
+    }
+    localStorage.setItem('miraclbet_betslip', JSON.stringify(current));
+    setSlipSelections(current.map(s => ({ fixtureId: s.fixtureId, selectionId: s.selectionId })));
+    window.dispatchEvent(new Event('miraclbet_betslip_change'));
+  };
 
   const cacheAndNav = () => {
     try {
@@ -288,15 +324,15 @@ function MatchRow({ fix }: { fix: Fixture }) {
 
       {/* ── Odds row ── */}
       <div className="grid grid-cols-6 gap-1 px-3 pb-2.5 ml-[44px]">
-        {oddCells.map(({ label, val }) => (
+        {oddCells.map(({ label, val, selId, name }) => (
           <AnimatedOddButton
             key={label}
             label={label}
             val={val}
-            selected={selectedLabel === label}
+            selected={slipSelections.some(s => s.fixtureId === fix.id && s.selectionId === selId)}
             suspended={isSuspended}
             closed={isClosed}
-            onSelect={() => setSelectedLabel(selectedLabel === label ? null : label)}
+            onSelect={() => toggleBet(selId, label, val, name)}
           />
         ))}
       </div>

@@ -47,6 +47,10 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service) http.Handle
 		betsHandler := handlers.NewBetsHandler(db)
 		r.Post("/bets", betsHandler.PlaceBet)
 
+		betslipsHandler := handlers.NewBetSlipsHandler(db)
+		r.Post("/betslips", betslipsHandler.BookBet)
+		r.Get("/betslips/{code}", betslipsHandler.GetBooking)
+
 		// Debug endpoints — shows raw API response to diagnose odds issues
 		debugHandler := handlers.NewDebugHandler(cfg)
 		r.Get("/debug/odds", debugHandler.TestOdds)
