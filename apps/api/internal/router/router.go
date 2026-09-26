@@ -62,6 +62,10 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service) http.Handle
 		r.Post("/deposits", depositsHandler.Create)          // User creates deposit
 		r.Get("/deposits/pending", depositsHandler.CheckPending) // Check if user has pending
 
+		withdrawalsHandler := handlers.NewWithdrawalsHandler(db)
+		r.Post("/withdrawals", withdrawalsHandler.Create)          // User creates withdrawal
+		r.Get("/withdrawals/pending", withdrawalsHandler.CheckPending) // Check if user has pending
+
 		// Admin Routes
 		r.Route("/admin", func(r chi.Router) {
 			r.Get("/payment-methods", paymentMethodsHandler.List)
@@ -77,6 +81,9 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service) http.Handle
 			r.Get("/deposits", depositsHandler.ListAdmin)
 			r.Put("/deposits/{id}/status", depositsHandler.UpdateStatus)
 			r.Delete("/deposits/{id}", depositsHandler.Delete)
+
+			r.Get("/withdrawals", withdrawalsHandler.ListAdmin)
+			r.Put("/withdrawals/{id}/status", withdrawalsHandler.UpdateStatus)
 		})
 	})
 
