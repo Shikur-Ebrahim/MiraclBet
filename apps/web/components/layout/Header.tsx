@@ -70,8 +70,8 @@ export function Header() {
 
   const handleLogout = () => {
     localStorage.removeItem('miraclbet_user');
-    loadUser();
     setPanelOpen(false);
+    window.location.href = '/login';
   };
 
   const shortId = user?.id ? user.id.slice(-6).toUpperCase() : user?.phone?.slice(-6) ?? '------';

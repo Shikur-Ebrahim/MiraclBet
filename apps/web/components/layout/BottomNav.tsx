@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { usePathname } from 'next/navigation';
-import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
 
 // Lazy import Sidebar only when needed
 import dynamic from 'next/dynamic';
@@ -10,6 +9,7 @@ const Sidebar = dynamic(() => import('./Sidebar').then(m => ({ default: m.Sideba
 
 export function BottomNav() {
   const pathname = usePathname();
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarMounted, setSidebarMounted] = useState(false);
 
@@ -37,8 +37,8 @@ export function BottomNav() {
         <div className="grid grid-cols-5 h-[58px]">
 
           {/* Sport */}
-          <Link
-            href="/"
+          <button
+            onClick={() => router.push('/')}
             className={`flex flex-col items-center justify-center gap-[3px] transition-colors ${
               isActive('/') ? 'text-[#19E66B]' : 'text-gray-400 hover:text-white'
             }`}
@@ -49,11 +49,11 @@ export function BottomNav() {
               <path d="M2 12h20"/>
             </svg>
             <span className="text-[9px] font-semibold leading-none">Sport</span>
-          </Link>
+          </button>
 
           {/* Deposit */}
-          <Link
-            href="/deposit"
+          <button
+            onClick={() => router.push('/deposit')}
             className={`flex flex-col items-center justify-center gap-[3px] transition-colors ${
               isActive('/deposit') ? 'text-[#19E66B]' : 'text-gray-400 hover:text-white'
             }`}
@@ -64,11 +64,11 @@ export function BottomNav() {
               <circle cx="12" cy="15" r="1.5" fill="currentColor"/>
             </svg>
             <span className="text-[9px] font-semibold leading-none">Deposit</span>
-          </Link>
+          </button>
 
           {/* Check (My Bets) */}
-          <Link
-            href="/bets"
+          <button
+            onClick={() => router.push('/bets')}
             className={`flex flex-col items-center justify-center gap-[3px] transition-colors ${
               isActive('/bets') ? 'text-[#19E66B]' : 'text-gray-400 hover:text-white'
             }`}
@@ -78,11 +78,11 @@ export function BottomNav() {
               <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
             </svg>
             <span className="text-[9px] font-semibold leading-none">Check</span>
-          </Link>
+          </button>
 
           {/* Bet Slip */}
-          <Link
-            href="/betslip"
+          <button
+            onClick={() => router.push('/betslip')}
             className={`flex flex-col items-center justify-center gap-[3px] transition-colors ${
               isActive('/betslip') ? 'text-[#19E66B]' : 'text-gray-400 hover:text-white'
             }`}
@@ -94,7 +94,7 @@ export function BottomNav() {
               <line x1="9" y1="17" x2="12" y2="17"/>
             </svg>
             <span className="text-[9px] font-semibold leading-none">Betslip</span>
-          </Link>
+          </button>
 
           {/* Menu */}
           <button
