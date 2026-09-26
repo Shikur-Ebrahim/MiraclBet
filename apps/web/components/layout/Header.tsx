@@ -29,6 +29,32 @@ export function Header() {
     };
   }, []);
 
+  // Poll /me every 8 seconds to get live balance updates (e.g. after admin approves deposit)
+  useEffect(() => {
+    const refreshBalance = async () => {
+      const savedUser = localStorage.getItem('miraclbet_user');
+      if (!savedUser) return;
+      try {
+        const u = JSON.parse(savedUser);
+        if (!u?.id) return;
+        const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+        const res = await fetch(`${API}/api/v1/auth/me?user_id=${u.id}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data?.user?.balance !== undefined) {
+          const updated = { ...u, balance: data.user.balance };
+          localStorage.setItem('miraclbet_user', JSON.stringify(updated));
+          setUser(updated);
+        }
+      } catch { /* silent */ }
+    };
+
+    // Run once immediately, then every 8 seconds
+    refreshBalance();
+    const interval = setInterval(refreshBalance, 8000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Close panel on ESC
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPanelOpen(false); };

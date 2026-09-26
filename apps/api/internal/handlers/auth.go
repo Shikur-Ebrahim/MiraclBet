@@ -126,3 +126,29 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Me — returns the latest balance and profile for a logged-in user.
+// Called by the frontend periodically to refresh balance without full re-login.
+func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
+	userID := r.URL.Query().Get("user_id")
+	if userID == "" {
+		h.respondError(w, http.StatusBadRequest, "user_id is required")
+		return
+	}
+
+	var user User
+	err := h.db.Pool.QueryRow(r.Context(),
+		"SELECT id, phone, role, COALESCE(balance, 0) FROM users WHERE id = $1", userID,
+	).Scan(&user.ID, &user.Phone, &user.Role, &user.Balance)
+
+	if err != nil {
+		h.respondError(w, http.StatusNotFound, "User not found")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(LoginResponse{
+		Success: true,
+		Message: "ok",
+		User:    &user,
+	})
+}
