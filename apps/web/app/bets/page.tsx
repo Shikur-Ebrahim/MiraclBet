@@ -141,7 +141,7 @@ function BetTicket({ slip, defaultOpen }: { slip: BetSlip; defaultOpen?: boolean
                 </span>
               )}
               <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <span style={{ color: st.color || '#19E66B', fontWeight: 900, fontSize: 18 }}>
+                <span style={{ color: st.text || '#19E66B', fontWeight: 900, fontSize: 18 }}>
                   {slip.legs[0].odds.toFixed(2)}
                 </span>
               </div>
