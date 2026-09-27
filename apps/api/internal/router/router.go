@@ -46,6 +46,8 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service) http.Handle
 
 		betsHandler := handlers.NewBetsHandler(db)
 		r.Post("/bets", betsHandler.PlaceBet)
+		r.Get("/bets", betsHandler.ListMyBets)
+		r.Get("/bets/{id}", betsHandler.GetBet)
 
 		betslipsHandler := handlers.NewBetSlipsHandler(db)
 		r.Post("/betslips", betslipsHandler.BookBet)

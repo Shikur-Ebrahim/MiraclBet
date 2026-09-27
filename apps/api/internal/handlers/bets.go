@@ -3,8 +3,8 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/miraclbet/api/internal/database"
 )
 
@@ -16,34 +16,56 @@ func NewBetsHandler(db *database.DB) *BetsHandler {
 	return &BetsHandler{db: db}
 }
 
-type PlaceBetRequest struct {
-	FixtureExternalID string  `json:"fixture_id"`
-	MarketID          int     `json:"market_id"`
-	Selection         string  `json:"selection"`
-	Odds              float64 `json:"odds"`
-	OddsVersion       int     `json:"odds_version"`
+type PlaceBetSlipRequest struct {
+	UserID     string         `json:"user_id"`
+	Stake      float64        `json:"stake"`
+	TotalOdds  float64        `json:"total_odds"`
+	Selections []BetSelection `json:"selections"`
 }
 
-type PlaceBetResponse struct {
+type PlaceBetSlipResponse struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`
-	BetID   string `json:"bet_id,omitempty"`
+	SlipID  string `json:"slip_id,omitempty"`
 }
 
-// Minimal struct to extract just what we need from JSON for validation
-type JSONOdds struct {
-	Markets []struct {
-		ID           int    `json:"id"`
-		Status       string `json:"status"`
-		OddsVersion  int    `json:"odds_version"`
-		LastUpdateAt string `json:"last_update_at"`
-	} `json:"markets"`
+type BetLegResult struct {
+	ID            string  `json:"id"`
+	FixtureID     string  `json:"fixture_id"`
+	MatchName     string  `json:"match_name"`
+	MarketName    string  `json:"market_name"`
+	SelectionName string  `json:"selection_name"`
+	Odds          float64 `json:"odds"`
+	Status        string  `json:"status"`
+}
+
+type BetSlipResult struct {
+	ID              string         `json:"id"`
+	Stake           float64        `json:"stake"`
+	TotalOdds       float64        `json:"total_odds"`
+	PotentialPayout float64        `json:"potential_payout"`
+	Status          string         `json:"status"`
+	CreatedAt       string         `json:"created_at"`
+	Legs            []BetLegResult `json:"legs"`
 }
 
 func (h *BetsHandler) PlaceBet(w http.ResponseWriter, r *http.Request) {
-	var req PlaceBetRequest
+	var req PlaceBetSlipRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+
+	if req.UserID == "" {
+		h.respondError(w, http.StatusUnauthorized, "You must be logged in to place bets")
+		return
+	}
+	if req.Stake <= 0 {
+		h.respondError(w, http.StatusBadRequest, "Stake must be greater than 0")
+		return
+	}
+	if len(req.Selections) == 0 {
+		h.respondError(w, http.StatusBadRequest, "No selections provided")
 		return
 	}
 
@@ -55,82 +77,55 @@ func (h *BetsHandler) PlaceBet(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback(ctx)
 
-	// 1. Validate Match is LIVE and fetch JSON atomically
-	var isLive bool
-	var statusShort string
-	var oddsJSON []byte
-	err = tx.QueryRow(ctx, "SELECT is_live, status_short, advanced_odds FROM fixtures WHERE external_id = $1 FOR UPDATE", req.FixtureExternalID).Scan(&isLive, &statusShort, &oddsJSON)
+	// 1. Check user balance with a row-level lock
+	var currentBalance float64
+	err = tx.QueryRow(ctx,
+		"SELECT COALESCE(balance, 0) FROM users WHERE id = $1 FOR UPDATE",
+		req.UserID,
+	).Scan(&currentBalance)
 	if err != nil {
-		h.respondError(w, http.StatusNotFound, "Match not found")
+		h.respondError(w, http.StatusNotFound, "User not found")
 		return
 	}
 
-	if !isLive || statusShort == "FT" || statusShort == "AET" || statusShort == "PEN" {
-		h.respondError(w, http.StatusBadRequest, "Match is finished or no longer live")
+	if currentBalance < req.Stake {
+		h.respondError(w, http.StatusBadRequest, "Insufficient balance")
 		return
 	}
 
-	// 2. Parse JSON to find the market
-	var ao JSONOdds
-	if err := json.Unmarshal(oddsJSON, &ao); err != nil {
-		h.respondError(w, http.StatusInternalServerError, "Internal parsing error")
+	// 2. Deduct balance
+	_, err = tx.Exec(ctx,
+		"UPDATE users SET balance = balance - $1 WHERE id = $2",
+		req.Stake, req.UserID,
+	)
+	if err != nil {
+		h.respondError(w, http.StatusInternalServerError, "Failed to update balance")
 		return
 	}
 
-	marketFound := false
-	var mktStatus string
-	var mktVersion int
-	var lastUpdateAtStr string
-
-	for _, m := range ao.Markets {
-		if m.ID == req.MarketID {
-			marketFound = true
-			mktStatus = m.Status
-			mktVersion = m.OddsVersion
-			lastUpdateAtStr = m.LastUpdateAt
-			break
-		}
-	}
-
-	if !marketFound {
-		h.respondError(w, http.StatusNotFound, "Market not found")
-		return
-	}
-
-	// Double-check staleness inline (in case monitor hasn't run yet)
-	if mktStatus == "OPEN" && lastUpdateAtStr != "" {
-		t, err := time.Parse(time.RFC3339, lastUpdateAtStr)
-		if err == nil && time.Since(t) > 2*time.Minute {
-			mktStatus = "SUSPENDED"
-		}
-	}
-
-	if mktStatus == "SUSPENDED" {
-		h.respondError(w, http.StatusBadRequest, "Market suspended")
-		return
-	}
-	if mktStatus == "CLOSED" {
-		h.respondError(w, http.StatusBadRequest, "Market closed")
-		return
-	}
-
-	// 3. Validate Odds Version
-	if mktVersion != req.OddsVersion {
-		h.respondError(w, http.StatusConflict, "Odds changed")
-		return
-	}
-
-	// 4. Place Bet
-	var betID string
-	insertQuery := `
-		INSERT INTO bets (fixture_external_id, market_id, selection, odds, odds_version, status)
-		VALUES ($1, $2, $3, $4, $5, 'ACCEPTED')
+	// 3. Create Bet Slip
+	var slipID string
+	potentialPayout := req.Stake * req.TotalOdds
+	err = tx.QueryRow(ctx, `
+		INSERT INTO bet_slips (user_id, stake, total_odds, potential_payout, status)
+		VALUES ($1, $2, $3, $4, 'PENDING')
 		RETURNING id
-	`
-	err = tx.QueryRow(ctx, insertQuery, req.FixtureExternalID, req.MarketID, req.Selection, req.Odds, req.OddsVersion).Scan(&betID)
+	`, req.UserID, req.Stake, req.TotalOdds, potentialPayout).Scan(&slipID)
 	if err != nil {
-		h.respondError(w, http.StatusInternalServerError, "Failed to place bet")
+		h.respondError(w, http.StatusInternalServerError, "Failed to create bet slip")
 		return
+	}
+
+	// 4. Create Bet Legs
+	for _, sel := range req.Selections {
+		_, err = tx.Exec(ctx, `
+			INSERT INTO bet_legs (bet_slip_id, fixture_id, match_name, market_name, selection_id, selection_name, odds, status)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, 'PENDING')
+		`, slipID, sel.FixtureID, sel.MatchName, sel.MarketName, sel.SelectionID, sel.SelectionName, sel.Odds)
+		if err != nil {
+			h.respondError(w, http.StatusInternalServerError, "Failed to save selections")
+			return
+		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -139,17 +134,119 @@ func (h *BetsHandler) PlaceBet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(PlaceBetResponse{
+	json.NewEncoder(w).Encode(PlaceBetSlipResponse{
 		Success: true,
-		Message: "Bet placed successfully",
-		BetID:   betID,
+		Message: "Bet placed successfully!",
+		SlipID:  slipID,
 	})
+}
+
+func (h *BetsHandler) ListMyBets(w http.ResponseWriter, r *http.Request) {
+	userID := r.URL.Query().Get("user_id")
+	if userID == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "user_id required"})
+		return
+	}
+
+	ctx := r.Context()
+	rows, err := h.db.Pool.Query(ctx, `
+		SELECT id, stake, total_odds, potential_payout, status, created_at
+		FROM bet_slips
+		WHERE user_id = $1
+		ORDER BY created_at DESC
+		LIMIT 50
+	`, userID)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to fetch bets"})
+		return
+	}
+	defer rows.Close()
+
+	var slips []BetSlipResult
+	for rows.Next() {
+		var s BetSlipResult
+		if err := rows.Scan(&s.ID, &s.Stake, &s.TotalOdds, &s.PotentialPayout, &s.Status, &s.CreatedAt); err != nil {
+			continue
+		}
+		slips = append(slips, s)
+	}
+	if slips == nil {
+		slips = []BetSlipResult{}
+	}
+
+	// Fetch legs for each slip
+	for i, slip := range slips {
+		legRows, err := h.db.Pool.Query(ctx, `
+			SELECT id, fixture_id, match_name, market_name, selection_name, odds, status
+			FROM bet_legs WHERE bet_slip_id = $1
+		`, slip.ID)
+		if err != nil {
+			continue
+		}
+		var legs []BetLegResult
+		for legRows.Next() {
+			var l BetLegResult
+			if err := legRows.Scan(&l.ID, &l.FixtureID, &l.MatchName, &l.MarketName, &l.SelectionName, &l.Odds, &l.Status); err != nil {
+				continue
+			}
+			legs = append(legs, l)
+		}
+		legRows.Close()
+		if legs == nil {
+			legs = []BetLegResult{}
+		}
+		slips[i].Legs = legs
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(slips)
+}
+
+func (h *BetsHandler) GetBet(w http.ResponseWriter, r *http.Request) {
+	slipID := chi.URLParam(r, "id")
+	userID := r.URL.Query().Get("user_id")
+
+	ctx := r.Context()
+	var s BetSlipResult
+	err := h.db.Pool.QueryRow(ctx, `
+		SELECT id, stake, total_odds, potential_payout, status, created_at
+		FROM bet_slips WHERE id = $1 AND user_id = $2
+	`, slipID, userID).Scan(&s.ID, &s.Stake, &s.TotalOdds, &s.PotentialPayout, &s.Status, &s.CreatedAt)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Bet not found"})
+		return
+	}
+
+	legRows, _ := h.db.Pool.Query(ctx, `
+		SELECT id, fixture_id, match_name, market_name, selection_name, odds, status
+		FROM bet_legs WHERE bet_slip_id = $1
+	`, s.ID)
+	defer legRows.Close()
+	var legs []BetLegResult
+	for legRows.Next() {
+		var l BetLegResult
+		legRows.Scan(&l.ID, &l.FixtureID, &l.MatchName, &l.MarketName, &l.SelectionName, &l.Odds, &l.Status)
+		legs = append(legs, l)
+	}
+	if legs == nil {
+		legs = []BetLegResult{}
+	}
+	s.Legs = legs
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(s)
 }
 
 func (h *BetsHandler) respondError(w http.ResponseWriter, code int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(PlaceBetResponse{
+	json.NewEncoder(w).Encode(PlaceBetSlipResponse{
 		Success: false,
 		Message: message,
 	})
