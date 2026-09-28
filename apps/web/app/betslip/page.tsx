@@ -74,6 +74,8 @@ export default function BetslipPage() {
   const [shareLoading, setShareLoading] = useState(false);
   const [generatedCode, setGeneratedCode] = useState('');
   const [copied, setCopied] = useState(false);
+  const [autoWin, setAutoWin] = useState(false);
+  const [loadedCode, setLoadedCode] = useState('');
 
   const totalOdds = selections.reduce((acc, s) => acc * s.odds, 1);
   const stakeNum = parseFloat(stake) || 0;
@@ -108,6 +110,8 @@ export default function BetslipPage() {
     setBetResult(null);
     setGeneratedCode('');
     setStake('');
+    setAutoWin(false);
+    setLoadedCode('');
     window.dispatchEvent(new Event('miraclbet_betslip_change'));
   };
 
@@ -136,6 +140,7 @@ export default function BetslipPage() {
           stake: stakeNum,
           total_odds: totalOdds,
           selections,
+          booking_code: loadedCode,
         }),
       });
       const data = await res.json();
@@ -191,6 +196,8 @@ export default function BetslipPage() {
       if (!res.ok) throw new Error(data.error || 'Bet code not found');
       localStorage.setItem('miraclbet_betslip', JSON.stringify(data.selections));
       setSelections(data.selections);
+      setAutoWin(data.auto_win === true);
+      setLoadedCode(code);
       window.dispatchEvent(new Event('miraclbet_betslip_change'));
       setLoadCode('');
       setBetResult(null);

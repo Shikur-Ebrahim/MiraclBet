@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"time"
 
@@ -247,4 +248,76 @@ func jsonError(w http.ResponseWriter, msg string, code int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	json.NewEncoder(w).Encode(map[string]string{"error": msg})
+}
+// CreateManualBooking creates an admin-controlled auto-win bet booking code.
+// POST /api/v1/admin/bets/manual
+func (h *SettlementHandler) CreateManualBooking(w http.ResponseWriter, r *http.Request) {
+    var req struct {
+        Selections []struct {
+            FixtureID     string  `json:"fixtureId"`
+            MatchName     string  `json:"matchName"`
+            MarketName    string  `json:"marketName"`
+            SelectionID   string  `json:"selectionId"`
+            SelectionName string  `json:"selectionName"`
+            Odds          float64 `json:"odds"`
+            HomeLogo      string  `json:"homeLogo"`
+            AwayLogo      string  `json:"awayLogo"`
+            KickoffAt     string  `json:"kickoffAt"`
+        } `json:"selections"`
+        TotalOdds float64 `json:"total_odds"`
+    }
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        w.Header().Set("Content-Type", "application/json")
+        w.WriteHeader(http.StatusBadRequest)
+        json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request"})
+        return
+    }
+    if len(req.Selections) == 0 {
+        w.Header().Set("Content-Type", "application/json")
+        w.WriteHeader(http.StatusBadRequest)
+        json.NewEncoder(w).Encode(map[string]string{"error": "No selections provided"})
+        return
+    }
+
+    selectionsJSON, err := json.Marshal(req.Selections)
+    if err != nil {
+        w.Header().Set("Content-Type", "application/json")
+        w.WriteHeader(http.StatusInternalServerError)
+        json.NewEncoder(w).Encode(map[string]string{"error": "Failed to encode selections"})
+        return
+    }
+
+    // Generate unique code
+    src := rand.NewSource(time.Now().UnixNano())
+    rng := rand.New(src)
+    digits := "0123456789"
+    letters := "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    genCode := func() string {
+        n1 := string(digits[rng.Intn(10)]) + string(digits[rng.Intn(10)])
+        l1 := string(letters[rng.Intn(26)]) + string(letters[rng.Intn(26)])
+        n2 := string(digits[rng.Intn(10)]) + string(digits[rng.Intn(10)])
+        return "A" + n1 + l1 + n2 // 'A' prefix = Admin code
+    }
+
+    var code string
+    var insertErr error
+    for i := 0; i < 10; i++ {
+        code = genCode()
+        _, insertErr = h.db.Pool.Exec(r.Context(),
+            `INSERT INTO bet_bookings (code, selections, total_odds, auto_win) VALUES ($1, $2, $3, true)`,
+            code, string(selectionsJSON), req.TotalOdds,
+        )
+        if insertErr == nil {
+            break
+        }
+    }
+    if insertErr != nil {
+        w.Header().Set("Content-Type", "application/json")
+        w.WriteHeader(http.StatusInternalServerError)
+        json.NewEncoder(w).Encode(map[string]string{"error": "Failed to save booking"})
+        return
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(map[string]interface{}{"code": code, "auto_win": true})
 }

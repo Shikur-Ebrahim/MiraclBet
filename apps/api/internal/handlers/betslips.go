@@ -104,10 +104,11 @@ func (h *BetSlipsHandler) GetBooking(w http.ResponseWriter, r *http.Request) {
 
 	var selectionsJSON string
 	var totalOdds float64
+	var autoWin bool
 
 	err := h.db.Pool.QueryRow(r.Context(),
-		"SELECT selections, total_odds FROM bet_bookings WHERE code = $1", code,
-	).Scan(&selectionsJSON, &totalOdds)
+		"SELECT selections, total_odds, COALESCE(auto_win, false) FROM bet_bookings WHERE code = $1", code,
+	).Scan(&selectionsJSON, &totalOdds, &autoWin)
 
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
@@ -129,5 +130,6 @@ func (h *BetSlipsHandler) GetBooking(w http.ResponseWriter, r *http.Request) {
 		"code":       code,
 		"selections": selections,
 		"total_odds": totalOdds,
+		"auto_win":   autoWin,
 	})
 }

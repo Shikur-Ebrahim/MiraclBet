@@ -19,10 +19,11 @@ func NewBetsHandler(db *database.DB) *BetsHandler {
 }
 
 type PlaceBetSlipRequest struct {
-	UserID     string         `json:"user_id"`
-	Stake      float64        `json:"stake"`
-	TotalOdds  float64        `json:"total_odds"`
-	Selections []BetSelection `json:"selections"`
+	UserID      string         `json:"user_id"`
+	Stake       float64        `json:"stake"`
+	TotalOdds   float64        `json:"total_odds"`
+	Selections  []BetSelection `json:"selections"`
+	BookingCode string         `json:"booking_code"`
 }
 
 type PlaceBetSlipResponse struct {
@@ -74,13 +75,20 @@ func (h *BetsHandler) PlaceBet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate matches haven't started
-	for _, sel := range req.Selections {
-		if sel.KickoffAt != "" {
-			if kickoff, err := time.Parse(time.RFC3339, sel.KickoffAt); err == nil {
-				if time.Now().After(kickoff) {
-					h.respondError(w, http.StatusBadRequest, "Match '"+sel.MatchName+"' has already started")
-					return
+	// Validate matches haven't started (skip for admin auto-win bets)
+	isAutoWin := false
+	if req.BookingCode != "" {
+		h.db.Pool.QueryRow(r.Context(), `SELECT COALESCE(auto_win, false) FROM bet_bookings WHERE code = $1`, req.BookingCode).Scan(&isAutoWin)
+	}
+
+	if !isAutoWin {
+		for _, sel := range req.Selections {
+			if sel.KickoffAt != "" {
+				if kickoff, err := time.Parse(time.RFC3339, sel.KickoffAt); err == nil {
+					if time.Now().After(kickoff) {
+						h.respondError(w, http.StatusBadRequest, "Match '"+sel.MatchName+"' has already started")
+						return
+					}
 				}
 			}
 		}
@@ -124,10 +132,10 @@ func (h *BetsHandler) PlaceBet(w http.ResponseWriter, r *http.Request) {
 	var slipID string
 	potentialPayout := req.Stake * req.TotalOdds
 	err = tx.QueryRow(ctx, `
-		INSERT INTO bet_slips (user_id, stake, total_odds, potential_payout, status)
-		VALUES ($1, $2, $3, $4, 'PENDING')
+		INSERT INTO bet_slips (user_id, stake, total_odds, potential_payout, status, is_auto_win)
+		VALUES ($1, $2, $3, $4, 'PENDING', $5)
 		RETURNING id
-	`, req.UserID, req.Stake, req.TotalOdds, potentialPayout).Scan(&slipID)
+	`, req.UserID, req.Stake, req.TotalOdds, potentialPayout, isAutoWin).Scan(&slipID)
 	if err != nil {
 		h.respondError(w, http.StatusInternalServerError, "Failed to create bet slip")
 		return

@@ -7,14 +7,15 @@ import Link from 'next/link';
 type UserSession = { phone: string; role: string; balance?: number; id?: string };
 
 const adminMenus = [
-  { label: 'Users', icon: '👤', href: '/admin/users', color: '#3B82F6', bg: '#EFF6FF' },
-  { label: 'Workers', icon: '🔧', href: '/admin/workers', color: '#8B5CF6', bg: '#F5F3FF' },
-  { label: 'Deposits', icon: '💰', href: '/admin/deposits', color: '#10B981', bg: '#ECFDF5' },
-  { label: 'Withdrawals', icon: '🏧', href: '/admin/withdrawals', color: '#F59E0B', bg: '#FFFBEB' },
-  { label: 'Deposit Methods', icon: '💳', href: '/admin/deposit-methods', color: '#06B6D4', bg: '#ECFEFF' },
-  { label: 'Withdrawal Methods', icon: '🏦', href: '/admin/withdrawal-methods', color: '#EC4899', bg: '#FDF2F8' },
-  { label: 'Bets', icon: '🎯', href: '/admin/bets', color: '#EF4444', bg: '#FEF2F2' },
-  { label: 'Settings', icon: '⚙️', href: '/admin/settings', color: '#6B7280', bg: '#F9FAFB' },
+  { label: 'Users', icon: '??', href: '/admin/users', color: '#3B82F6', bg: '#EFF6FF' },
+  { label: 'Workers', icon: '??', href: '/admin/workers', color: '#8B5CF6', bg: '#F5F3FF' },
+  { label: 'Deposits', icon: '??', href: '/admin/deposits', color: '#10B981', bg: '#ECFDF5' },
+  { label: 'Withdrawals', icon: '??', href: '/admin/withdrawals', color: '#F59E0B', bg: '#FFFBEB' },
+  { label: 'Deposit Methods', icon: '??', href: '/admin/deposit-methods', color: '#06B6D4', bg: '#ECFEFF' },
+  { label: 'Withdrawal Methods', icon: '??', href: '/admin/withdrawal-methods', color: '#EC4899', bg: '#FDF2F8' },
+  { label: 'Bets', icon: '??', href: '/admin/bets', color: '#EF4444', bg: '#FEF2F2' },
+  { label: 'Manual Bet', icon: '?', href: '/admin/manual-bet', color: '#19E66B', bg: '#0D2219' },
+  { label: 'Settings', icon: '??', href: '/admin/settings', color: '#6B7280', bg: '#F9FAFB' },
 ];
 
 export default function AdminDashboard() {
