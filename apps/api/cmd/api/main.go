@@ -34,6 +34,14 @@ func main() {
 		} else {
 			defer db.Close()
 			log.Printf("[api] database connected")
+			// Auto-migrate bet tables so they always exist
+			autoMigrateCtx, autoMigrateCancel := context.WithTimeout(context.Background(), 15*time.Second)
+			if migrateErr := autoMigrate(autoMigrateCtx, db); migrateErr != nil {
+				log.Printf("[api] WARNING: auto-migrate failed: %v", migrateErr)
+			} else {
+				log.Printf("[api] auto-migrate complete")
+			}
+			autoMigrateCancel()
 		}
 	}
 
@@ -73,4 +81,35 @@ func main() {
 		log.Fatalf("[api] forced shutdown: %v", err)
 	}
 	log.Println("[api] stopped")
+}
+
+func autoMigrate(ctx context.Context, db *database.DB) error {
+	_, err := db.Pool.Exec(ctx, `
+		CREATE TABLE IF NOT EXISTS bet_slips (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			stake NUMERIC(15, 2) NOT NULL CHECK (stake > 0),
+			total_odds NUMERIC(10, 2) NOT NULL,
+			potential_payout NUMERIC(15, 2) NOT NULL,
+			status TEXT NOT NULL DEFAULT 'PENDING',
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		);
+
+		CREATE INDEX IF NOT EXISTS idx_bet_slips_user_id ON bet_slips(user_id);
+
+		CREATE TABLE IF NOT EXISTS bet_legs (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			bet_slip_id UUID NOT NULL REFERENCES bet_slips(id) ON DELETE CASCADE,
+			fixture_id TEXT NOT NULL,
+			match_name TEXT NOT NULL,
+			market_name TEXT NOT NULL,
+			selection_id TEXT NOT NULL,
+			selection_name TEXT NOT NULL,
+			odds NUMERIC(10, 2) NOT NULL,
+			status TEXT NOT NULL DEFAULT 'PENDING'
+		);
+
+		CREATE INDEX IF NOT EXISTS idx_bet_legs_slip_id ON bet_legs(bet_slip_id);
+	`)
+	return err
 }
