@@ -45,7 +45,7 @@ function TeamAvatar({ name, logoUrl, size = 30 }: { name: string; logoUrl?: stri
       <div style={{
         width: size, height: size, borderRadius: '50%',
         background: '#fff', padding: 2,
-        border: '2px solid #1E293B',
+        border: '2px solid #e5e7eb',
         display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
         boxShadow: '0 2px 5px rgba(0,0,0,0.3)', overflow: 'hidden'
       }}>
@@ -64,7 +64,7 @@ function TeamAvatar({ name, logoUrl, size = 30 }: { name: string; logoUrl?: stri
     <div style={{
       width: size, height: size, borderRadius: '50%',
       background: `linear-gradient(135deg, ${colors[idx]}, #111827)`,
-      border: '2px solid #1E293B',
+      border: '2px solid #e5e7eb',
       display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
       boxShadow: '0 2px 5px rgba(0,0,0,0.3)'
     }}>
@@ -90,9 +90,9 @@ function BetTicket({ slip }: { slip: BetSlip }) {
   return (
     <div style={{
       marginBottom: 20,
-      background: '#111827',
+      background: '#ffffff',
       borderRadius: 12,
-      border: '1px solid #1E293B',
+      border: '1px solid #e5e7eb',
       boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
       overflow: 'hidden'
     }}>
@@ -100,8 +100,8 @@ function BetTicket({ slip }: { slip: BetSlip }) {
       <div 
         onClick={() => setOpen(!open)}
         style={{ 
-          background: '#1A2235', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', 
-          alignItems: 'center', cursor: 'pointer', borderBottom: open ? '1px dashed #374151' : 'none'
+          background: '#f9fafb', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', 
+          alignItems: 'center', cursor: 'pointer', borderBottom: open ? '1px dashed #e5e7eb' : 'none'
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -109,16 +109,16 @@ function BetTicket({ slip }: { slip: BetSlip }) {
             {st.label}
           </div>
           <div>
-            <div style={{ color: '#fff', fontWeight: 800, fontSize: 14 }}>
+            <div style={{ color: '#111827', fontWeight: 800, fontSize: 14 }}>
               {isAccumulator ? `${slip.legs.length}-Fold Accumulator` : 'Single Bet'}
             </div>
-            <div style={{ color: '#9CA3AF', fontSize: 11 }}>{formatDate(slip.created_at)}</div>
+            <div style={{ color: '#4B5563', fontSize: 11 }}>{formatDate(slip.created_at)}</div>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ color: '#9CA3AF', fontSize: 10, textTransform: 'uppercase' }}>Payout</div>
-            <div style={{ color: slip.status === 'WON' ? '#19E66B' : '#F5A623', fontWeight: 900, fontSize: 14 }}>
+            <div style={{ color: '#4B5563', fontSize: 10, textTransform: 'uppercase' }}>Payout</div>
+            <div style={{ color: slip.status === 'WON' ? '#059669' : '#d97706', fontWeight: 900, fontSize: 14 }}>
               {slip.potential_payout.toFixed(2)}
             </div>
           </div>
@@ -130,7 +130,7 @@ function BetTicket({ slip }: { slip: BetSlip }) {
 
       {/* ── EXPANDED TICKET BODY (Receipt Style) ── */}
       {open && (
-        <div style={{ background: '#0F1723' }}>
+        <div style={{ background: '#ffffff' }}>
           
           {/* List of Legs */}
           {slip.legs.map((leg, i) => {
@@ -143,14 +143,14 @@ function BetTicket({ slip }: { slip: BetSlip }) {
                 {/* Receipt Cutout Effect (Side notches) */}
                 {i > 0 && (
                   <div style={{ position: 'absolute', top: -8, left: 0, right: 0, display: 'flex', justifyContent: 'space-between', zIndex: 2 }}>
-                    <div style={{ width: 16, height: 16, borderRadius: '50%', background: '#0A0E1A', marginLeft: -8, borderRight: '1px solid #1E293B' }} />
-                    <div style={{ width: 16, height: 16, borderRadius: '50%', background: '#0A0E1A', marginRight: -8, borderLeft: '1px solid #1E293B' }} />
+                    <div style={{ width: 16, height: 16, borderRadius: '50%', background: '#0A0E1A', marginLeft: -8, borderRight: '1px solid #e5e7eb' }} />
+                    <div style={{ width: 16, height: 16, borderRadius: '50%', background: '#0A0E1A', marginRight: -8, borderLeft: '1px solid #e5e7eb' }} />
                   </div>
                 )}
                 
                 <div style={{ 
                   padding: '16px 20px', 
-                  borderBottom: i < slip.legs.length - 1 ? '1px dashed #374151' : 'none',
+                  borderBottom: i < slip.legs.length - 1 ? '1px dashed #e5e7eb' : 'none',
                 }}>
                   {/* Top: Sport / League */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -158,7 +158,7 @@ function BetTicket({ slip }: { slip: BetSlip }) {
                       <svg viewBox="0 0 24 24" style={{ width: 14, height: 14, color: '#9CA3AF' }} fill="currentColor">
                         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6z"/>
                       </svg>
-                      <span style={{ color: '#9CA3AF', fontSize: 12 }}>Football Match</span>
+                      <span style={{ color: '#4B5563', fontSize: 12 }}>Football Match</span>
                     </div>
                     {leg.kickoffAt && (
                       <span style={{ color: '#F5A623', fontSize: 11, fontWeight: 700 }}>
@@ -169,29 +169,29 @@ function BetTicket({ slip }: { slip: BetSlip }) {
 
                   {/* Middle: Match Matchup */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                    <div style={{ flex: 1, textAlign: 'right', color: '#fff', fontSize: 13, fontWeight: 700 }}>{home}</div>
+                    <div style={{ flex: 1, textAlign: 'right', color: '#111827', fontSize: 13, fontWeight: 700 }}>{home}</div>
                     <div style={{ margin: '0 16px', display: 'flex', gap: 8, alignItems: 'center' }}>
                       <TeamAvatar name={home} logoUrl={leg.homeLogo} />
-                      <span style={{ color: '#9CA3AF', fontSize: 11, fontWeight: 800 }}>VS</span>
+                      <span style={{ color: '#6B7280', fontSize: 11, fontWeight: 800 }}>VS</span>
                       <TeamAvatar name={away} logoUrl={leg.awayLogo} />
                     </div>
-                    <div style={{ flex: 1, textAlign: 'left', color: '#fff', fontSize: 13, fontWeight: 700 }}>{away}</div>
+                    <div style={{ flex: 1, textAlign: 'left', color: '#111827', fontSize: 13, fontWeight: 700 }}>{away}</div>
                   </div>
 
                   {/* Bottom: Market, Odds, Status */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                     <div>
-                      <div style={{ color: '#fff', fontWeight: 800, fontSize: 14, marginBottom: 4 }}>
+                      <div style={{ color: '#111827', fontWeight: 800, fontSize: 14, marginBottom: 4 }}>
                         {leg.market_name}. {leg.selection_name}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <span style={{ color: '#9CA3AF', fontSize: 12 }}>Status:</span>
+                        <span style={{ color: '#4B5563', fontSize: 12 }}>Status:</span>
                         {legWon && <span style={{ color: '#19E66B', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}><svg viewBox="0 0 24 24" style={{ width: 14, height: 14 }} fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg> Win</span>}
                         {legLost && <span style={{ color: '#EF4444', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}><svg viewBox="0 0 24 24" style={{ width: 14, height: 14 }} fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z"/></svg> Loss</span>}
                         {!legWon && !legLost && <span style={{ color: '#F5A623', fontSize: 12, fontWeight: 700 }}>⏳ Pending</span>}
                       </div>
                     </div>
-                    <div style={{ color: '#fff', fontWeight: 900, fontSize: 18 }}>
+                    <div style={{ color: '#111827', fontWeight: 900, fontSize: 18 }}>
                       {leg.odds.toFixed(2)}
                     </div>
                   </div>
@@ -201,25 +201,25 @@ function BetTicket({ slip }: { slip: BetSlip }) {
           })}
 
           {/* Ticket Footer (Barcode/Calculation) */}
-          <div style={{ background: '#111827', padding: '16px 20px', borderTop: '1px dashed #374151' }}>
+          <div style={{ background: '#ffffff', padding: '16px 20px', borderTop: '1px dashed #374151' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-              <span style={{ color: '#9CA3AF', fontSize: 12 }}>Total Odds</span>
-              <span style={{ color: '#fff', fontSize: 14, fontWeight: 800 }}>{slip.total_odds.toFixed(2)}</span>
+              <span style={{ color: '#4B5563', fontSize: 12 }}>Total Odds</span>
+              <span style={{ color: '#111827', fontSize: 14, fontWeight: 800 }}>{slip.total_odds.toFixed(2)}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-              <span style={{ color: '#9CA3AF', fontSize: 12 }}>Stake</span>
-              <span style={{ color: '#fff', fontSize: 14, fontWeight: 800 }}>{slip.stake.toFixed(2)} Br</span>
+              <span style={{ color: '#4B5563', fontSize: 12 }}>Stake</span>
+              <span style={{ color: '#111827', fontSize: 14, fontWeight: 800 }}>{slip.stake.toFixed(2)} Br</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 12, borderTop: '1px solid #1E293B' }}>
-              <span style={{ color: '#fff', fontSize: 13, fontWeight: 800 }}>Potential Payout</span>
-              <span style={{ color: '#F5A623', fontSize: 16, fontWeight: 900 }}>{slip.potential_payout.toFixed(2)} Br</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 12, borderTop: '1px solid #e5e7eb' }}>
+              <span style={{ color: '#111827', fontSize: 13, fontWeight: 800 }}>Potential Payout</span>
+              <span style={{ color: '#d97706', fontSize: 16, fontWeight: 900 }}>{slip.potential_payout.toFixed(2)} Br</span>
             </div>
             
             {/* Fake Barcode for visual flair */}
             <div style={{ marginTop: 20, textAlign: 'center' }}>
               <div style={{ display: 'inline-flex', height: 40, opacity: 0.5 }}>
                 {[...Array(30)].map((_, i) => (
-                  <div key={i} style={{ width: Math.random() > 0.5 ? 3 : 1.5, background: '#9CA3AF', marginRight: 2 }} />
+                  <div key={i} style={{ width: Math.random() > 0.5 ? 3 : 1.5, background: '#374151', marginRight: 2 }} />
                 ))}
               </div>
               <div style={{ color: '#6B7280', fontSize: 10, letterSpacing: 2, marginTop: 4, fontFamily: 'monospace' }}>
@@ -275,13 +275,13 @@ export default function MyBetsPage() {
   return (
     <div style={{ background: '#0A0E1A', minHeight: '100vh', paddingBottom: 90 }}>
       {/* Header */}
-      <div style={{ background: '#111827', padding: '16px 16px 0', borderBottom: '1px solid #1E293B', position: 'sticky', top: 0, zIndex: 20 }}>
+      <div style={{ background: '#ffffff', padding: '16px 16px 0', borderBottom: '1px solid #1E293B', position: 'sticky', top: 0, zIndex: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <button onClick={() => window.history.back()} style={{ background: 'none', border: 'none', color: '#9CA3AF', cursor: 'pointer', padding: 0 }}>
               <svg viewBox="0 0 24 24" style={{ width: 24, height: 24 }} fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5M12 5l-7 7 7-7" /></svg>
             </button>
-            <h1 style={{ color: '#fff', fontWeight: 800, fontSize: 18, margin: 0 }}>Bet History</h1>
+            <h1 style={{ color: '#111827', fontWeight: 800, fontSize: 18, margin: 0 }}>Bet History</h1>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 16 }}>
@@ -306,18 +306,18 @@ export default function MyBetsPage() {
       <div style={{ padding: '16px', maxWidth: 480, margin: '0 auto' }}>
         {!user ? (
           <div style={{ textAlign: 'center', padding: '60px 24px' }}>
-            <h2 style={{ color: '#fff', fontWeight: 800, fontSize: 20, marginBottom: 10 }}>Login Required</h2>
-            <button onClick={() => window.location.href = '/login?redirect=/bets'} style={{ padding: '13px 28px', background: '#19E66B', color: '#000', border: 'none', borderRadius: 8, fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>
+            <h2 style={{ color: '#111827', fontWeight: 800, fontSize: 20, marginBottom: 10 }}>Login Required</h2>
+            <button onClick={() => window.location.href = '/login?redirect=/bets'} style={{ padding: '13px 28px', background: '#10B981', color: '#ffffff', border: 'none', borderRadius: 8, fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>
               Log In
             </button>
           </div>
         ) : loading ? (
           <div style={{ textAlign: 'center', padding: 40, color: '#9CA3AF' }}>Loading tickets...</div>
         ) : bets.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '60px 24px', background: '#111827', borderRadius: 16, border: '1px solid #1E293B' }}>
-            <h2 style={{ color: '#fff', fontWeight: 800, fontSize: 20, marginBottom: 10 }}>No Bets Found</h2>
-            <p style={{ color: '#9CA3AF', fontSize: 14, marginBottom: 24 }}>You haven't placed any bets yet.</p>
-            <button onClick={() => window.location.href = '/'} style={{ padding: '13px 28px', background: '#19E66B', color: '#000', border: 'none', borderRadius: 8, fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>
+          <div style={{ textAlign: 'center', padding: '60px 24px', background: '#ffffff', borderRadius: 16, border: '1px solid #e5e7eb' }}>
+            <h2 style={{ color: '#111827', fontWeight: 800, fontSize: 20, marginBottom: 10 }}>No Bets Found</h2>
+            <p style={{ color: '#6B7280', fontSize: 14, marginBottom: 24 }}>You haven't placed any bets yet.</p>
+            <button onClick={() => window.location.href = '/'} style={{ padding: '13px 28px', background: '#10B981', color: '#ffffff', border: 'none', borderRadius: 8, fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>
               Browse Sports
             </button>
           </div>
