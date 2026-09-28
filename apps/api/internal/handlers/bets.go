@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/miraclbet/api/internal/database"
@@ -46,7 +47,7 @@ type BetSlipResult struct {
 	TotalOdds       float64        `json:"total_odds"`
 	PotentialPayout float64        `json:"potential_payout"`
 	Status          string         `json:"status"`
-	CreatedAt       string         `json:"created_at"`
+	CreatedAt       time.Time      `json:"created_at"`
 	Legs            []BetLegResult `json:"legs"`
 }
 
@@ -171,6 +172,7 @@ func (h *BetsHandler) ListMyBets(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var s BetSlipResult
 		if err := rows.Scan(&s.ID, &s.Stake, &s.TotalOdds, &s.PotentialPayout, &s.Status, &s.CreatedAt); err != nil {
+			log.Printf("[bets] error scanning slip row: %v", err)
 			continue
 		}
 		slips = append(slips, s)
