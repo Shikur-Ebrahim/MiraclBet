@@ -105,6 +105,10 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service) http.Handle
 
 			usersAdminHandler := handlers.NewUsersAdminHandler(db)
 			r.Get("/users", usersAdminHandler.List)
+			savedTeamsHandler := handlers.NewSavedTeamsHandler(db, cfg)
+			r.Get("/teams/api-search", savedTeamsHandler.SearchAPI)
+			r.Post("/teams", savedTeamsHandler.SaveTeam)
+			r.Get("/teams", savedTeamsHandler.ListTeams)
 			r.Get("/users/{id}", usersAdminHandler.Get)
 			r.Put("/users/{id}/status", usersAdminHandler.ToggleStatus)
 			r.Put("/users/{id}/role", usersAdminHandler.UpdateRole)

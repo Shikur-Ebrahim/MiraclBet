@@ -198,6 +198,16 @@ func autoMigrate(ctx context.Context, db *database.DB) error {
 
 		ALTER TABLE bet_bookings ADD COLUMN IF NOT EXISTS auto_win BOOLEAN DEFAULT false;
 		ALTER TABLE bet_slips ADD COLUMN IF NOT EXISTS is_auto_win BOOLEAN DEFAULT false;
+
+		CREATE TABLE IF NOT EXISTS saved_teams (
+			id SERIAL PRIMARY KEY,
+			api_id INT UNIQUE,
+			name TEXT NOT NULL,
+			logo TEXT,
+			country TEXT,
+			country_flag TEXT,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		);
 	`)
 	return err
 }
