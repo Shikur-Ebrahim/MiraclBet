@@ -187,7 +187,7 @@ func (h *BetsHandler) ListMyBets(w http.ResponseWriter, r *http.Request) {
 	// Fetch legs for each slip
 	for i, slip := range slips {
 		legRows, err := h.db.Pool.Query(ctx, `
-			SELECT id, fixture_id, match_name, market_name, selection_name, odds, status, COALESCE(home_logo, ''), COALESCE(away_logo, '')
+			SELECT id, fixture_id, match_name, market_name, selection_name, odds, status, COALESCE(home_logo, ''), COALESCE(away_logo, ''), COALESCE(kickoff_at, '')
 			FROM bet_legs WHERE bet_slip_id = $1
 		`, slip.ID)
 		if err != nil {
@@ -230,7 +230,7 @@ func (h *BetsHandler) GetBet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	legRows, _ := h.db.Pool.Query(ctx, `
-		SELECT id, fixture_id, match_name, market_name, selection_name, odds, status, COALESCE(home_logo, ''), COALESCE(away_logo, '')
+		SELECT id, fixture_id, match_name, market_name, selection_name, odds, status, COALESCE(home_logo, ''), COALESCE(away_logo, ''), COALESCE(kickoff_at, '')
 		FROM bet_legs WHERE bet_slip_id = $1
 	`, s.ID)
 	defer legRows.Close()
