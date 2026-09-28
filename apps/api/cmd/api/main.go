@@ -42,6 +42,9 @@ func main() {
 				log.Printf("[api] auto-migrate complete")
 			}
 			autoMigrateCancel()
+
+			// Auto-seed international teams if not present
+			database.SeedTeams(db)
 		}
 	}
 
