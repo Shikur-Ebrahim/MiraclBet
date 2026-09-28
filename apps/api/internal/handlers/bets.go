@@ -74,6 +74,18 @@ func (h *BetsHandler) PlaceBet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate matches haven't started
+	for _, sel := range req.Selections {
+		if sel.KickoffAt != "" {
+			if kickoff, err := time.Parse(time.RFC3339, sel.KickoffAt); err == nil {
+				if time.Now().After(kickoff) {
+					h.respondError(w, http.StatusBadRequest, "Match '"+sel.MatchName+"' has already started")
+					return
+				}
+			}
+		}
+	}
+
 	ctx := r.Context()
 	tx, err := h.db.Pool.Begin(ctx)
 	if err != nil {

@@ -111,6 +111,13 @@ func autoMigrate(ctx context.Context, db *database.DB) error {
 
 		CREATE INDEX IF NOT EXISTS idx_bet_legs_slip_id ON bet_legs(bet_slip_id);
 
+		CREATE TABLE IF NOT EXISTS bet_bookings (
+			code TEXT PRIMARY KEY,
+			selections JSONB NOT NULL,
+			total_odds NUMERIC(10, 2) NOT NULL,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		);
+
 		ALTER TABLE bet_legs ADD COLUMN IF NOT EXISTS home_logo TEXT;
 		ALTER TABLE bet_legs ADD COLUMN IF NOT EXISTS away_logo TEXT;
 		ALTER TABLE bet_legs ADD COLUMN IF NOT EXISTS kickoff_at TEXT;
