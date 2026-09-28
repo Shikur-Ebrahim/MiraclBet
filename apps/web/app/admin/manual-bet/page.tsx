@@ -121,30 +121,30 @@ export default function AdminManualBetPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0A0E1A', padding: '20px 16px' }}>
+    <div style={{ minHeight: '100vh', background: '#F9FAFB', padding: '20px 16px' }}>
       <div style={{ maxWidth: 540, margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-          <button onClick={() => router.push('/admin')} style={{ background: 'none', border: 'none', color: '#9CA3AF', cursor: 'pointer', padding: 0 }}>
+          <button onClick={() => router.push('/admin')} style={{ background: 'none', border: 'none', color: '#4B5563', cursor: 'pointer', padding: 0 }}>
             <ArrowLeft size={22} />
           </button>
           <div>
-            <h1 style={{ color: '#fff', fontWeight: 900, fontSize: 20, margin: 0 }}>Create Admin Ticket</h1>
-            <p style={{ color: '#9CA3AF', fontSize: 12, margin: 0 }}>All bets on this code win automatically when matches finish</p>
+            <h1 style={{ color: '#111827', fontWeight: 900, fontSize: 20, margin: 0 }}>Create Admin Ticket</h1>
+            <p style={{ color: '#6B7280', fontSize: 12, margin: 0 }}>All bets on this code win automatically when matches finish</p>
           </div>
         </div>
 
         <div style={{ background: 'rgba(25,230,107,0.08)', border: '1px solid rgba(25,230,107,0.3)', borderRadius: 10, padding: '10px 14px', marginBottom: 20, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
           <Zap size={16} style={{ color: '#19E66B', flexShrink: 0, marginTop: 2 }} />
-          <div style={{ fontSize: 12, color: '#9CA3AF' }}>
+          <div style={{ fontSize: 12, color: '#4B5563' }}>
             <span style={{ color: '#19E66B', fontWeight: 700 }}>Auto-Win Ticket: </span>
-            When a user places a bet using this code, the system automatically marks it as <strong style={{ color: '#fff' }}>WON</strong> 105 minutes after the last kickoff time and credits their balance.
+            When a user places a bet using this code, the system automatically marks it as <strong style={{ color: '#111827' }}>WON</strong> 105 minutes after the last kickoff time and credits their balance.
           </div>
         </div>
 
         {legs.map((leg, i) => (
-          <div key={i} style={{ background: '#111827', borderRadius: 14, border: '1px solid #1E293B', padding: 16, marginBottom: 14 }}>
+          <div key={i} style={{ background: '#ffffff', borderRadius: 14, border: '1px solid #E5E7EB', padding: 16, marginBottom: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <span style={{ color: '#19E66B', fontWeight: 800, fontSize: 13 }}>MATCH {i + 1}</span>
+              <span style={{ color: '#059669', fontWeight: 800, fontSize: 13 }}>MATCH {i + 1}</span>
               {legs.length > 1 && (
                 <button onClick={() => removeLeg(i)} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444', cursor: 'pointer', padding: '4px 8px', borderRadius: 6, fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}>
                   <Trash2 size={12} /> Remove
@@ -155,7 +155,7 @@ export default function AdminManualBetPage() {
             {/* Home and Away Selection */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
               <div>
-                <label style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 700, display: 'block', marginBottom: 4 }}>HOME TEAM</label>
+                <label style={{ fontSize: 11, color: '#4B5563', fontWeight: 700, display: 'block', marginBottom: 4 }}>HOME TEAM</label>
                 <select
                   value={leg.homeLogo}
                   onChange={e => {
@@ -166,7 +166,7 @@ export default function AdminManualBetPage() {
                       updateLeg(i, 'homeLogo', t.logo);
                     }
                   }}
-                  style={{ width: '100%', background: '#0A0E1A', border: '1px solid #1E293B', borderRadius: 8, padding: '9px 12px', color: '#fff', fontSize: 13, outline: 'none' }}
+                  style={{ width: '100%', background: '#ffffff', border: '1px solid #D1D5DB', borderRadius: 8, padding: '9px 12px', color: '#111827', fontSize: 13, outline: 'none' }}
                 >
                   <option value="">Select Home Team...</option>
                   {savedTeams.map(t => <option key={`h-${t.api_id}`} value={t.logo}>{t.name} ({t.country})</option>)}
@@ -174,7 +174,7 @@ export default function AdminManualBetPage() {
               </div>
               
               <div>
-                <label style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 700, display: 'block', marginBottom: 4 }}>AWAY TEAM</label>
+                <label style={{ fontSize: 11, color: '#4B5563', fontWeight: 700, display: 'block', marginBottom: 4 }}>AWAY TEAM</label>
                 <select
                   value={leg.awayLogo}
                   onChange={e => {
@@ -185,27 +185,27 @@ export default function AdminManualBetPage() {
                       updateLeg(i, 'awayLogo', t.logo);
                     }
                   }}
-                  style={{ width: '100%', background: '#0A0E1A', border: '1px solid #1E293B', borderRadius: 8, padding: '9px 12px', color: '#fff', fontSize: 13, outline: 'none' }}
+                  style={{ width: '100%', background: '#ffffff', border: '1px solid #D1D5DB', borderRadius: 8, padding: '9px 12px', color: '#111827', fontSize: 13, outline: 'none' }}
                 >
                   <option value="">Select Away Team...</option>
                   {savedTeams.map(t => <option key={`a-${t.api_id}`} value={t.logo}>{t.name} ({t.country})</option>)}
                 </select>
               </div>
               
-              <div style={{ background: '#0A0E1A', padding: '10px 14px', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, border: '1px solid #1E293B' }}>
-                {leg.homeLogo ? <img src={leg.homeLogo} width={24} height={24} alt='' /> : <div style={{width: 24, height: 24, borderRadius: '50%', background: '#1E293B'}}/>}
-                <div style={{ color: '#fff', fontWeight: 800, fontSize: 13 }}>{leg.matchName || 'vs'}</div>
-                {leg.awayLogo ? <img src={leg.awayLogo} width={24} height={24} alt='' /> : <div style={{width: 24, height: 24, borderRadius: '50%', background: '#1E293B'}}/>}
+              <div style={{ background: '#F3F4F6', padding: '10px 14px', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, border: '1px solid #E5E7EB' }}>
+                {leg.homeLogo ? <img src={leg.homeLogo} width={24} height={24} alt='' /> : <div style={{width: 24, height: 24, borderRadius: '50%', background: '#D1D5DB'}}/>}
+                <div style={{ color: '#111827', fontWeight: 800, fontSize: 13 }}>{leg.matchName || 'vs'}</div>
+                {leg.awayLogo ? <img src={leg.awayLogo} width={24} height={24} alt='' /> : <div style={{width: 24, height: 24, borderRadius: '50%', background: '#D1D5DB'}}/>}
               </div>
             </div>
 
             <div style={{ marginBottom: 10 }}>
-              <label style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 700, display: 'block', marginBottom: 4 }}>KICKOFF DATE & TIME</label>
+              <label style={{ fontSize: 11, color: '#4B5563', fontWeight: 700, display: 'block', marginBottom: 4 }}>KICKOFF DATE & TIME</label>
               <input
                 type="datetime-local"
                 value={leg.kickoffAt}
                 onChange={e => updateLeg(i, 'kickoffAt', e.target.value)}
-                style={{ width: '100%', background: '#0A0E1A', border: '1px solid #1E293B', borderRadius: 8, padding: '9px 12px', color: '#fff', fontSize: 13, outline: 'none', boxSizing: 'border-box', colorScheme: 'dark' }}
+                style={{ width: '100%', background: '#ffffff', border: '1px solid #D1D5DB', borderRadius: 8, padding: '9px 12px', color: '#111827', fontSize: 13, outline: 'none', boxSizing: 'border-box', colorScheme: 'light' }}
               />
               {leg.kickoffAt && (
                 <p style={{ fontSize: 11, color: '#F5A623', marginTop: 4, margin: '4px 0 0' }}>
@@ -216,21 +216,21 @@ export default function AdminManualBetPage() {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
               <div>
-                <label style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 700, display: 'block', marginBottom: 4 }}>MARKET</label>
+                <label style={{ fontSize: 11, color: '#4B5563', fontWeight: 700, display: 'block', marginBottom: 4 }}>MARKET</label>
                 <select
                   value={leg.marketName}
                   onChange={e => { updateLeg(i, 'marketName', e.target.value); updateLeg(i, 'selectionName', (SELECTIONS[e.target.value] || [''])[0]); }}
-                  style={{ width: '100%', background: '#0A0E1A', border: '1px solid #1E293B', borderRadius: 8, padding: '9px 12px', color: '#fff', fontSize: 12, outline: 'none', boxSizing: 'border-box' }}
+                  style={{ width: '100%', background: '#ffffff', border: '1px solid #D1D5DB', borderRadius: 8, padding: '9px 12px', color: '#111827', fontSize: 12, outline: 'none', boxSizing: 'border-box' }}
                 >
                   {MARKETS.map(m => <option key={m} value={m}>{m}</option>)}
                 </select>
               </div>
               <div>
-                <label style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 700, display: 'block', marginBottom: 4 }}>SELECTION (WINNER)</label>
+                <label style={{ fontSize: 11, color: '#4B5563', fontWeight: 700, display: 'block', marginBottom: 4 }}>SELECTION (WINNER)</label>
                 <select
                   value={leg.selectionName}
                   onChange={e => updateLeg(i, 'selectionName', e.target.value)}
-                  style={{ width: '100%', background: '#0A0E1A', border: '1px solid #1E293B', borderRadius: 8, padding: '9px 12px', color: '#fff', fontSize: 12, outline: 'none', boxSizing: 'border-box' }}
+                  style={{ width: '100%', background: '#ffffff', border: '1px solid #D1D5DB', borderRadius: 8, padding: '9px 12px', color: '#111827', fontSize: 12, outline: 'none', boxSizing: 'border-box' }}
                 >
                   {(SELECTIONS[leg.marketName] || [leg.selectionName]).map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
@@ -238,13 +238,13 @@ export default function AdminManualBetPage() {
             </div>
 
             <div>
-              <label style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 700, display: 'block', marginBottom: 4 }}>ODDS</label>
+              <label style={{ fontSize: 11, color: '#4B5563', fontWeight: 700, display: 'block', marginBottom: 4 }}>ODDS</label>
               <input
                 type="number"
                 value={leg.odds}
                 onChange={e => updateLeg(i, 'odds', e.target.value)}
                 min="1.01" step="0.01"
-                style={{ width: '100%', background: '#0A0E1A', border: '1px solid #1E293B', borderRadius: 8, padding: '9px 12px', color: '#19E66B', fontSize: 16, fontWeight: 800, outline: 'none', boxSizing: 'border-box' }}
+                style={{ width: '100%', background: '#0A0E1A', border: '1px solid #1E293B', borderRadius: 8, padding: '9px 12px', color: '#059669', fontSize: 16, fontWeight: 800, outline: 'none', boxSizing: 'border-box' }}
               />
             </div>
           </div>
@@ -253,15 +253,15 @@ export default function AdminManualBetPage() {
         {legs.length < 3 && (
           <button
             onClick={addLeg}
-            style={{ width: '100%', padding: '11px', background: 'transparent', border: '1px dashed #374151', borderRadius: 10, color: '#6B7280', fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 16 }}
+            style={{ width: '100%', padding: '11px', background: 'transparent', border: '1px dashed #D1D5DB', borderRadius: 10, color: '#4B5563', fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 16 }}
           >
             <Plus size={15} /> Add Another Match ({legs.length}/3)
           </button>
         )}
 
-        <div style={{ background: '#111827', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #1E293B' }}>
-          <span style={{ color: '#9CA3AF', fontSize: 13, fontWeight: 600 }}>Total Odds</span>
-          <span style={{ color: '#19E66B', fontSize: 20, fontWeight: 900 }}>{totalOdds.toFixed(2)}</span>
+        <div style={{ background: '#ffffff', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #E5E7EB', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+          <span style={{ color: '#4B5563', fontSize: 13, fontWeight: 600 }}>Total Odds</span>
+          <span style={{ color: '#059669', fontSize: 20, fontWeight: 900 }}>{totalOdds.toFixed(2)}</span>
         </div>
 
         {error && (
@@ -269,15 +269,15 @@ export default function AdminManualBetPage() {
         )}
 
         {generatedCode ? (
-          <div style={{ background: 'linear-gradient(135deg, #0D2219, #092016)', borderRadius: 14, border: '1px solid #19E66B55', padding: 20, textAlign: 'center', marginBottom: 12 }}>
-            <p style={{ color: '#9CA3AF', fontSize: 11, fontWeight: 700, letterSpacing: 2, marginBottom: 8 }}>✅ ADMIN TICKET CODE</p>
-            <div style={{ color: '#19E66B', fontSize: 32, fontWeight: 900, letterSpacing: 8, fontFamily: 'monospace', marginBottom: 12 }}>{generatedCode}</div>
+          <div style={{ background: '#F0FDF4', borderRadius: 14, border: '1px solid #86EFAC', padding: 20, textAlign: 'center', marginBottom: 12 }}>
+            <p style={{ color: '#065F46', fontSize: 11, fontWeight: 700, letterSpacing: 2, marginBottom: 8 }}>✅ ADMIN TICKET CODE</p>
+            <div style={{ color: '#047857', fontSize: 32, fontWeight: 900, letterSpacing: 8, fontFamily: 'monospace', marginBottom: 12 }}>{generatedCode}</div>
             <p style={{ color: '#6B7280', fontSize: 11, marginBottom: 16 }}>Share this code with users. When they place a bet using it, they will automatically WIN after the match ends.</p>
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={copyCode} style={{ flex: 1, padding: '11px', background: copied ? '#19E66B' : 'rgba(25,230,107,0.15)', border: '1px solid rgba(25,230,107,0.4)', borderRadius: 8, color: copied ? '#000' : '#19E66B', fontWeight: 800, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                 {copied ? <><Check size={14} /> Copied!</> : <><Copy size={14} /> Copy Code</>}
               </button>
-              <button onClick={reset} style={{ flex: 1, padding: '11px', background: '#1E293B', border: '1px solid #374151', borderRadius: 8, color: '#fff', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>
+              <button onClick={reset} style={{ flex: 1, padding: '11px', background: '#D1D5DB', border: '1px solid #374151', borderRadius: 8, color: '#fff', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>
                 New Ticket
               </button>
             </div>
