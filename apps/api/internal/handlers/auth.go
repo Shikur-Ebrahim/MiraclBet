@@ -160,3 +160,53 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		User:    &user,
 	})
 }
+type ChangePasswordRequest struct {
+	UserID      string `json:"user_id"`
+	OldPassword string `json:"old_password"`
+	NewPassword string `json:"new_password"`
+}
+
+func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	var req ChangePasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "Invalid request")
+		return
+	}
+
+	if req.UserID == "" || req.OldPassword == "" || req.NewPassword == "" {
+		h.respondError(w, http.StatusBadRequest, "All fields are required")
+		return
+	}
+	if len(req.NewPassword) < 6 {
+		h.respondError(w, http.StatusBadRequest, "New password must be at least 6 characters")
+		return
+	}
+
+	// Verify old password
+	var hash string
+	err := h.db.Pool.QueryRow(r.Context(), "SELECT password_hash FROM users WHERE id = $1", req.UserID).Scan(&hash)
+	if err != nil {
+		h.respondError(w, http.StatusUnauthorized, "Invalid user")
+		return
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(req.OldPassword)); err != nil {
+		h.respondError(w, http.StatusUnauthorized, "Incorrect current password")
+		return
+	}
+
+	// Update password
+	newHash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		h.respondError(w, http.StatusInternalServerError, "Error hashing password")
+		return
+	}
+
+	_, err = h.db.Pool.Exec(r.Context(), "UPDATE users SET password_hash = $1 WHERE id = $2", string(newHash), req.UserID)
+	if err != nil {
+		h.respondError(w, http.StatusInternalServerError, "Failed to update password")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "message": "Password changed successfully"})
+}

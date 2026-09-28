@@ -83,6 +83,7 @@ export function Header() {
     { label: 'Transaction History', href: '/transactions', icon: '📋' },
     { label: 'Bet History',         href: '/bets',         icon: '🎫' },
     { label: 'Betslip',             href: '/betslip',      icon: '🎯' },
+    { label: 'Account Settings',    href: '/account',      icon: '👤' },
     ...(user?.role === 'ADMIN' ? [{ label: 'Admin Dashboard', href: '/admin', icon: '⚙️' }] : []),
   ];
 

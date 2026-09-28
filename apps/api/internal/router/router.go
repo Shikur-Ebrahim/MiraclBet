@@ -43,6 +43,7 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service) http.Handle
 		r.Post("/auth/login", authHandler.Login)
 		r.Post("/auth/register", authHandler.Register)
 		r.Get("/auth/me", authHandler.Me) // Live balance fetch
+		r.Put("/auth/password", authHandler.ChangePassword)
 
 		betsHandler := handlers.NewBetsHandler(db)
 		r.Post("/bets", betsHandler.PlaceBet)
