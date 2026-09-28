@@ -270,23 +270,61 @@ export default function BetslipPage() {
           </div>
         ) : selections.length > 0 ? (
           <>
-            {/* Selection cards */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-              {selections.map(sel => (
-                <div key={sel.selectionId} style={{ background: '#111827', borderRadius: 12, padding: 14, border: '1px solid #1E293B' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div style={{ flex: 1, paddingRight: 8 }}>
-                      <p style={{ color: '#9CA3AF', fontSize: 11, fontWeight: 600, margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: 0.5 }}>{sel.marketName}</p>
-                      <p style={{ color: '#fff', fontWeight: 700, fontSize: 14, margin: '0 0 4px', lineHeight: 1.3 }}>{sel.selectionName}</p>
-                      <p style={{ color: '#9CA3AF', fontSize: 12, margin: 0 }}>{sel.matchName}</p>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-                      <button onClick={() => removeSelection(sel.selectionId)} style={{ background: 'rgba(239,68,68,0.1)', border: 'none', borderRadius: 6, color: '#EF4444', cursor: 'pointer', padding: '3px 8px', fontSize: 13, fontWeight: 700 }}>✕</button>
-                      <span style={{ background: '#19E66B', color: '#072414', fontWeight: 900, fontSize: 16, borderRadius: 8, padding: '4px 10px' }}>{sel.odds.toFixed(2)}</span>
+            {/* Receipt Style Selection Cards */}
+            <div style={{ 
+              background: '#0F1723', borderRadius: 12, border: '1px solid #1E293B', 
+              boxShadow: '0 4px 6px rgba(0,0,0,0.1)', overflow: 'hidden', marginBottom: 16 
+            }}>
+              {selections.map((sel, i) => {
+                const parts = sel.matchName.split(' vs ');
+                const home = parts[0]?.trim() || sel.matchName;
+                const away = parts[1]?.trim() || '';
+
+                return (
+                  <div key={sel.selectionId} style={{ position: 'relative' }}>
+                    {/* Cutout notches */}
+                    {i > 0 && (
+                      <div style={{ position: 'absolute', top: -8, left: 0, right: 0, display: 'flex', justifyContent: 'space-between', zIndex: 2 }}>
+                        <div style={{ width: 16, height: 16, borderRadius: '50%', background: '#0A0E1A', marginLeft: -8, borderRight: '1px solid #1E293B' }} />
+                        <div style={{ width: 16, height: 16, borderRadius: '50%', background: '#0A0E1A', marginRight: -8, borderLeft: '1px solid #1E293B' }} />
+                      </div>
+                    )}
+                    
+                    <div style={{ padding: '16px 20px', borderBottom: i < selections.length - 1 ? '1px dashed #374151' : 'none' }}>
+                      
+                      {/* Top: Sport & Delete */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <svg viewBox="0 0 24 24" style={{ width: 14, height: 14, color: '#9CA3AF' }} fill="currentColor">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6z"/>
+                          </svg>
+                          <span style={{ color: '#9CA3AF', fontSize: 11, fontWeight: 600 }}>Football Match</span>
+                        </div>
+                        <button onClick={() => removeSelection(sel.selectionId)} style={{ background: 'rgba(239,68,68,0.1)', border: 'none', borderRadius: 6, color: '#EF4444', cursor: 'pointer', padding: '4px 10px', fontSize: 11, fontWeight: 800 }}>✕ Remove</button>
+                      </div>
+
+                      {/* Middle: Teams */}
+                      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: 12, gap: 12 }}>
+                        <div style={{ flex: 1, textAlign: 'right', color: '#fff', fontSize: 13, fontWeight: 700 }}>{home}</div>
+                        <span style={{ color: '#F5A623', fontSize: 11, fontWeight: 900 }}>VS</span>
+                        <div style={{ flex: 1, textAlign: 'left', color: '#fff', fontSize: 13, fontWeight: 700 }}>{away}</div>
+                      </div>
+
+                      {/* Bottom: Selection & Odds */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                        <div>
+                          <div style={{ color: '#9CA3AF', fontSize: 11, fontWeight: 600, marginBottom: 2 }}>{sel.marketName}</div>
+                          <div style={{ color: '#fff', fontWeight: 800, fontSize: 14 }}>{sel.selectionName}</div>
+                        </div>
+                        <div style={{ color: '#19E66B', fontWeight: 900, fontSize: 18 }}>
+                          {sel.odds.toFixed(2)}
+                        </div>
+                      </div>
+
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Totals */}
