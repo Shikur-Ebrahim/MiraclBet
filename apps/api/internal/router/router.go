@@ -53,13 +53,8 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service) http.Handle
 		r.Post("/betslips", betslipsHandler.BookBet)
 		r.Get("/betslips/{code}", betslipsHandler.GetBooking)
 
-		// Settlement (admin)
+		// Settlement handler created here, routes added in the unified /admin block below
 		settlementHandler := handlers.NewSettlementHandler(db)
-		r.Route("/admin", func(r chi.Router) {
-			r.Get("/bets", settlementHandler.GetAllBets)
-			r.Post("/bets/slips/{slip_id}/settle", settlementHandler.SettleSlipManual)
-			r.Post("/bets/legs/{leg_id}/settle", settlementHandler.SettleLeg)
-		})
 
 		// Debug endpoints — shows raw API response to diagnose odds issues
 		debugHandler := handlers.NewDebugHandler(cfg)
@@ -85,6 +80,10 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service) http.Handle
 
 		// Admin Routes
 		r.Route("/admin", func(r chi.Router) {
+			r.Get("/bets", settlementHandler.GetAllBets)
+			r.Post("/bets/slips/{slip_id}/settle", settlementHandler.SettleSlipManual)
+			r.Post("/bets/legs/{leg_id}/settle", settlementHandler.SettleLeg)
+
 			r.Get("/payment-methods", paymentMethodsHandler.List)
 			r.Post("/payment-methods", paymentMethodsHandler.Create)
 			r.Delete("/payment-methods/{id}", paymentMethodsHandler.Delete)
