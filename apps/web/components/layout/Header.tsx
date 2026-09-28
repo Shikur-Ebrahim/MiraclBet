@@ -78,13 +78,14 @@ export function Header() {
   const balance = user?.balance ?? 0;
 
   const menuItems = [
-    { label: 'Deposit',             href: '/deposit',      icon: '💰' },
-    { label: 'Withdrawal',          href: '/withdraw',     icon: '💸' },
-    { label: 'Transaction History', href: '/transactions', icon: '📋' },
-    { label: 'Bet History',         href: '/bets',         icon: '🎫' },
-    { label: 'Betslip',             href: '/betslip',      icon: '🎯' },
-    { label: 'Account Settings',    href: '/account',      icon: '👤' },
-    ...(user?.role === 'ADMIN' ? [{ label: 'Admin Dashboard', href: '/admin', icon: '⚙️' }] : []),
+    { label: 'Deposit',             href: '/deposit',      icon: '💰',  logout: false },
+    { label: 'Withdrawal',          href: '/withdraw',     icon: '💸',  logout: false },
+    { label: 'Transaction History', href: '/transactions', icon: '📋',  logout: false },
+    { label: 'Bet History',         href: '/bets',         icon: '🎫',  logout: false },
+    { label: 'Betslip',             href: '/betslip',      icon: '🎯',  logout: false },
+    { label: 'Account Settings',    href: '/account',      icon: '👤',  logout: false },
+    ...(user?.role === 'ADMIN' ? [{ label: 'Admin Dashboard', href: '/admin', icon: '⚙️', logout: false }] : []),
+    { label: 'Log Out',             href: '#logout',       icon: '🚪',  logout: true  },
   ];
 
   return (
@@ -234,39 +235,44 @@ export function Header() {
 
         {/* Menu items */}
         <div style={{ flex: 1, overflowY: 'auto' }}>
-          {menuItems.map((item) => (
-            <a
-              key={item.href}
-              href={item.href}
-              onClick={() => setPanelOpen(false)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px',
-                fontSize: '13px', color: item.href === '/bets' ? '#19E66B' : '#FFFFFF',
-                textDecoration: 'none',
-                borderBottom: '1px solid rgba(255,255,255,0.05)',
-                background: item.href === '/bets' ? 'rgba(25,230,107,0.05)' : 'transparent',
-                fontWeight: item.href === '/bets' ? 700 : 400,
-              }}
-            >
-              <span style={{ fontSize: 15, width: 20, textAlign: 'center' }}>{item.icon}</span>
-              {item.label}
-              {item.href === '/bets' && (
-                <span style={{ marginLeft: 'auto', background: '#19E66B', color: '#072414', fontSize: 8, fontWeight: 800, padding: '2px 5px', borderRadius: 99 }}>HISTORY</span>
-              )}
-            </a>
-          ))}
-        </div>
-
-        {/* Log out */}
-        <div style={{ padding: '8px 14px 24px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <button onClick={handleLogout} style={{
-            width: '100%', padding: '10px', fontSize: '13px', fontWeight: 700,
-            color: '#ef4444', background: 'rgba(239,68,68,0.08)',
-            border: '1px solid rgba(239,68,68,0.2)', borderRadius: '8px',
-            cursor: 'pointer', textAlign: 'center',
-          }}>
-            Log out
-          </button>
+          {menuItems.map((item) =>
+            item.logout ? (
+              <button
+                key="logout"
+                onClick={handleLogout}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px',
+                  fontSize: '13px', color: '#ef4444', textDecoration: 'none',
+                  borderBottom: '1px solid rgba(255,255,255,0.05)',
+                  background: 'transparent', fontWeight: 600,
+                  width: '100%', border: 'none', cursor: 'pointer', textAlign: 'left',
+                }}
+              >
+                <span style={{ fontSize: 15, width: 20, textAlign: 'center' }}>{item.icon}</span>
+                {item.label}
+              </button>
+            ) : (
+              <a
+                key={item.href}
+                href={item.href}
+                onClick={() => setPanelOpen(false)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px',
+                  fontSize: '13px', color: item.href === '/bets' ? '#19E66B' : '#FFFFFF',
+                  textDecoration: 'none',
+                  borderBottom: '1px solid rgba(255,255,255,0.05)',
+                  background: item.href === '/bets' ? 'rgba(25,230,107,0.05)' : 'transparent',
+                  fontWeight: item.href === '/bets' ? 700 : 400,
+                }}
+              >
+                <span style={{ fontSize: 15, width: 20, textAlign: 'center' }}>{item.icon}</span>
+                {item.label}
+                {item.href === '/bets' && (
+                  <span style={{ marginLeft: 'auto', background: '#19E66B', color: '#072414', fontSize: 8, fontWeight: 800, padding: '2px 5px', borderRadius: 99 }}>HISTORY</span>
+                )}
+              </a>
+            )
+          )}
         </div>
       </div>
     </>
