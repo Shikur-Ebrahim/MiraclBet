@@ -181,9 +181,9 @@ export function Header() {
         />
       )}
 
-      {/* Drawer — slides in from right */}
+      {/* Drawer — slides in from right, starts BELOW the 56px sticky header */}
       <div style={{
-        position: 'fixed', top: 0, right: 0, bottom: 0, zIndex: 10001,
+        position: 'fixed', top: 56, right: 0, bottom: 0, zIndex: 10001,
         width: '280px', maxWidth: '85vw',
         background: '#0F1723',
         transform: panelOpen ? 'translateX(0)' : 'translateX(100%)',
