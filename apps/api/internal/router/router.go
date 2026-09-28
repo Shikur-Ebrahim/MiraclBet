@@ -85,6 +85,7 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service) http.Handle
 			r.Post("/bets/slips/{slip_id}/settle", settlementHandler.SettleSlipManual)
 			r.Post("/bets/legs/{leg_id}/settle", settlementHandler.SettleLeg)
 		r.Post("/bets/manual", settlementHandler.CreateManualBooking)
+			r.Get("/bets/manual/list", settlementHandler.ListManualBookings)
 
 			r.Get("/payment-methods", paymentMethodsHandler.List)
 			r.Post("/payment-methods", paymentMethodsHandler.Create)

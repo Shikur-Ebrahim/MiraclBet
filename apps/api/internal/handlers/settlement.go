@@ -1,4 +1,4 @@
-package handlers
+﻿package handlers
 
 import (
 	"context"
@@ -26,7 +26,7 @@ type SettleLegRequest struct {
 	Status string `json:"status"` // WON or LOST or VOID
 }
 
-// SettleLeg — ADMIN endpoint: POST /api/v1/admin/bets/legs/{leg_id}/settle
+// SettleLeg â€” ADMIN endpoint: POST /api/v1/admin/bets/legs/{leg_id}/settle
 func (h *SettlementHandler) SettleLeg(w http.ResponseWriter, r *http.Request) {
 	legID := chi.URLParam(r, "leg_id")
 	var req SettleLegRequest
@@ -56,7 +56,7 @@ func (h *SettlementHandler) SettleLeg(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"success": "true", "slip_id": slipID})
 }
 
-// SettleSlipManual — ADMIN: POST /api/v1/admin/bets/slips/{slip_id}/settle
+// SettleSlipManual â€” ADMIN: POST /api/v1/admin/bets/slips/{slip_id}/settle
 type SettleSlipRequest struct {
 	Status string `json:"status"` // WON or LOST
 }
@@ -174,7 +174,7 @@ func (h *SettlementHandler) trySettleSlip(ctx context.Context, slipID string) er
 	return tx.Commit(ctx)
 }
 
-// GetAllBets — ADMIN: GET /api/v1/admin/bets
+// GetAllBets â€” ADMIN: GET /api/v1/admin/bets
 func (h *SettlementHandler) GetAllBets(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	statusFilter := r.URL.Query().Get("status")
@@ -296,7 +296,7 @@ func (h *SettlementHandler) CreateManualBooking(w http.ResponseWriter, r *http.R
         n1 := string(digits[rng.Intn(10)]) + string(digits[rng.Intn(10)])
         l1 := string(letters[rng.Intn(26)]) + string(letters[rng.Intn(26)])
         n2 := string(digits[rng.Intn(10)]) + string(digits[rng.Intn(10)])
-        return "A" + n1 + l1 + n2 // 'A' prefix = Admin code
+        return "M" + n1 + l1 + n2 // 'M' prefix = Manual/Admin code
     }
 
     var code string
@@ -321,3 +321,45 @@ func (h *SettlementHandler) CreateManualBooking(w http.ResponseWriter, r *http.R
     w.Header().Set("Content-Type", "application/json")
     json.NewEncoder(w).Encode(map[string]interface{}{"code": code, "auto_win": true})
 }
+
+// ListManualBookings - ADMIN: GET /api/v1/admin/bets/manual/list
+func (h *SettlementHandler) ListManualBookings(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.db.Pool.Query(r.Context(),
+		`SELECT code, selections, total_odds, created_at FROM bet_bookings WHERE auto_win = true ORDER BY created_at DESC LIMIT 100`,
+	)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "DB error"})
+		return
+	}
+	defer rows.Close()
+
+	type BookingRow struct {
+		Code       string      `json:"code"`
+		Selections interface{} `json:"selections"`
+		TotalOdds  float64     `json:"total_odds"`
+		CreatedAt  time.Time   `json:"created_at"`
+	}
+
+	var result []BookingRow
+	for rows.Next() {
+		var b BookingRow
+		var selJSON string
+		if err := rows.Scan(&b.Code, &selJSON, &b.TotalOdds, &b.CreatedAt); err != nil {
+			continue
+		}
+		var sel interface{}
+		_ = json.Unmarshal([]byte(selJSON), &sel)
+		b.Selections = sel
+		result = append(result, b)
+	}
+
+	if result == nil {
+		result = []BookingRow{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
