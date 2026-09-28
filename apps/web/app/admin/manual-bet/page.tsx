@@ -120,6 +120,41 @@ function TeamPicker({ label, value, teams, onChange }: {
   );
 }
 
+/* ─── Select Picker (Mobile First Dropdown) ─────────────── */
+function SelectPicker({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const fn = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', fn);
+    return () => document.removeEventListener('mousedown', fn);
+  }, []);
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <label style={{ fontSize: 11, color: '#4B5563', fontWeight: 700, display: 'block', marginBottom: 6, letterSpacing: 0.5 }}>{label}</label>
+      <button type="button" onClick={() => setOpen(o => !o)}
+        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff', border: `1.5px solid ${open ? '#059669' : '#D1D5DB'}`, borderRadius: 10, padding: '10px 12px', cursor: 'pointer', boxShadow: open ? '0 0 0 3px rgba(5,150,105,0.1)' : 'none', transition: 'all 0.15s' }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{value || 'Select...'}</span>
+        <ChevronDown size={16} style={{ color: '#6B7280', transform: open ? 'rotate(180deg)' : 'none', transition: '0.2s', flexShrink: 0 }} />
+      </button>
+
+      {open && (
+        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 999, background: '#fff', border: '1.5px solid #E5E7EB', borderRadius: 12, boxShadow: '0 12px 40px rgba(0,0,0,0.14)', maxHeight: 250, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+          {options.map(opt => (
+            <button key={opt} type="button" onClick={() => { onChange(opt); setOpen(false); }}
+              style={{ width: '100%', padding: '12px 14px', border: 'none', borderBottom: '1px solid #F3F4F6', background: value === opt ? '#F0FDF4' : 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: 13, fontWeight: value === opt ? 700 : 500, color: value === opt ? '#065F46' : '#374151', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              {opt}
+              {value === opt && <Check size={14} style={{ color: '#059669' }} />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── Ticket Card ───────────────────────────────────────── */
 function TicketCard({ ticket }: { ticket: ManualTicket }) {
   const [copied, setCopied] = useState(false);
@@ -195,7 +230,7 @@ function TicketCard({ ticket }: { ticket: ManualTicket }) {
 export default function AdminManualBetPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
-  const [view, setView] = useState<'create' | 'list'>('list');
+  const [view, setView] = useState<'create' | 'list'>('create');
   // always exactly 3 legs
   const [legs, setLegs] = useState<Leg[]>([EMPTY_LEG(), EMPTY_LEG(), EMPTY_LEG()]);
   const [loading, setLoading] = useState(false);
@@ -230,12 +265,30 @@ export default function AdminManualBetPage() {
   const updateLeg = (i: number, field: keyof Leg, value: string) =>
     setLegs(prev => prev.map((l, idx) => idx === i ? { ...l, [field]: value } : l));
 
+  const formatOdds = (i: number) => {
+    const val = parseFloat(legs[i].odds);
+    if (!isNaN(val)) {
+      updateLeg(i, 'odds', val.toFixed(2));
+    }
+  };
+
   const pickHome = (i: number, t: Team) => {
+    setError('');
+    if (t.logo === legs[i].awayLogo) {
+      setError(`Match ${i+1}: Home team cannot be the same as Away team.`);
+      return;
+    }
     const awayName = legs[i].matchName.split(' vs ')[1] || '?';
     updateLeg(i, 'matchName', `${t.name} vs ${awayName}`);
     updateLeg(i, 'homeLogo', t.logo);
   };
+  
   const pickAway = (i: number, t: Team) => {
+    setError('');
+    if (t.logo === legs[i].homeLogo) {
+      setError(`Match ${i+1}: Away team cannot be the same as Home team.`);
+      return;
+    }
     const homeName = legs[i].matchName.split(' vs ')[0] || '?';
     updateLeg(i, 'matchName', `${homeName} vs ${t.name}`);
     updateLeg(i, 'awayLogo', t.logo);
@@ -245,13 +298,26 @@ export default function AdminManualBetPage() {
 
   const generate = async () => {
     setError('');
+
+    const matchPairs = new Set<string>();
+
     for (let i = 0; i < 3; i++) {
       const l = legs[i];
       if (!l.homeLogo || !l.awayLogo) { setError(`Match ${i + 1}: Select both Home and Away teams`); return; }
+      if (l.homeLogo === l.awayLogo) { setError(`Match ${i + 1}: Home and away teams cannot be the same.`); return; }
       if (!parseFloat(l.odds) || parseFloat(l.odds) <= 1) { setError(`Match ${i + 1}: Odds must be greater than 1.00`); return; }
       if (!l.kickoffAt) { setError(`Match ${i + 1}: Set kickoff date & time`); return; }
       if (!l.selectionName) { setError(`Match ${i + 1}: Choose an outcome`); return; }
+
+      // Check for duplicate matches
+      const pairId = [l.homeLogo, l.awayLogo].sort().join('-');
+      if (matchPairs.has(pairId)) {
+        setError(`You cannot have the exact same match multiple times in one ticket.`);
+        return;
+      }
+      matchPairs.add(pairId);
     }
+
     setLoading(true);
     try {
       const selections = legs.map((l, i) => ({
@@ -260,7 +326,7 @@ export default function AdminManualBetPage() {
         marketName: l.marketName || 'Match Winner',
         selectionId: `manual-sel-${i}`,
         selectionName: l.selectionName,
-        odds: parseFloat(l.odds),
+        odds: parseFloat(parseFloat(l.odds).toFixed(2)),
         homeLogo: l.homeLogo,
         awayLogo: l.awayLogo,
         kickoffAt: new Date(l.kickoffAt).toISOString(),
@@ -289,8 +355,6 @@ export default function AdminManualBetPage() {
     setLegs([EMPTY_LEG(), EMPTY_LEG(), EMPTY_LEG()]);
     setGeneratedCode('');
     setError('');
-    setView('list');
-    fetchTickets();
   };
 
   /* ── CREATE VIEW ── */
@@ -337,27 +401,24 @@ export default function AdminManualBetPage() {
             )}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
-            <div>
-              <label style={{ fontSize: 11, color: '#4B5563', fontWeight: 700, display: 'block', marginBottom: 6, letterSpacing: 0.5 }}>MARKET</label>
-              <select value={leg.marketName}
-                onChange={e => { updateLeg(i, 'marketName', e.target.value); updateLeg(i, 'selectionName', (SELECTIONS[e.target.value] || [''])[0]); }}
-                style={{ width: '100%', background: '#fff', border: '1.5px solid #D1D5DB', borderRadius: 10, padding: '10px 10px', color: '#111827', fontSize: 12, outline: 'none', boxSizing: 'border-box', fontWeight: 600 }}>
-                {MARKETS.map(m => <option key={m} value={m}>{m}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={{ fontSize: 11, color: '#4B5563', fontWeight: 700, display: 'block', marginBottom: 6, letterSpacing: 0.5 }}>OUTCOME</label>
-              <select value={leg.selectionName} onChange={e => updateLeg(i, 'selectionName', e.target.value)}
-                style={{ width: '100%', background: '#fff', border: '1.5px solid #D1D5DB', borderRadius: 10, padding: '10px 10px', color: '#111827', fontSize: 12, outline: 'none', boxSizing: 'border-box', fontWeight: 600 }}>
-                {(SELECTIONS[leg.marketName] || [leg.selectionName]).map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
+            <SelectPicker 
+              label="MARKET" 
+              value={leg.marketName} 
+              options={MARKETS} 
+              onChange={v => { updateLeg(i, 'marketName', v); updateLeg(i, 'selectionName', SELECTIONS[v][0]); }} 
+            />
+            <SelectPicker 
+              label="OUTCOME" 
+              value={leg.selectionName} 
+              options={SELECTIONS[leg.marketName] || []} 
+              onChange={v => updateLeg(i, 'selectionName', v)} 
+            />
           </div>
 
           <div>
             <label style={{ fontSize: 11, color: '#4B5563', fontWeight: 700, display: 'block', marginBottom: 6, letterSpacing: 0.5 }}>ODDS</label>
-            <input type="number" value={leg.odds} onChange={e => updateLeg(i, 'odds', e.target.value)} min="1.01" step="0.01"
+            <input type="number" value={leg.odds} onChange={e => updateLeg(i, 'odds', e.target.value)} onBlur={() => formatOdds(i)} min="1.01" step="0.01"
               style={{ width: '100%', background: '#F0FDF4', border: `1.5px solid ${parseFloat(leg.odds) > 1 ? '#A7F3D0' : '#D1D5DB'}`, borderRadius: 10, padding: '12px 14px', color: '#047857', fontSize: 22, fontWeight: 900, outline: 'none', boxSizing: 'border-box', textAlign: 'center' }} />
           </div>
         </div>
@@ -463,10 +524,10 @@ export default function AdminManualBetPage() {
 
         {/* Tab indicator */}
         <div style={{ display: 'flex', background: '#fff', borderRadius: 10, padding: 4, marginBottom: 18, border: '1px solid #E5E7EB' }}>
-          {(['list', 'create'] as const).map(v => (
+          {(['create', 'list'] as const).map(v => (
             <button key={v} onClick={() => setView(v)}
               style={{ flex: 1, padding: '8px', border: 'none', borderRadius: 8, background: view === v ? '#059669' : 'transparent', color: view === v ? '#fff' : '#6B7280', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-              {v === 'list' ? <><ListFilter size={14} /> View Tickets</> : <><Plus size={14} /> Create Ticket</>}
+              {v === 'create' ? <><Plus size={14} /> Create Ticket</> : <><ListFilter size={14} /> View Tickets</>}
             </button>
           ))}
         </div>
