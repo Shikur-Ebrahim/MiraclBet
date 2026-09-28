@@ -382,7 +382,7 @@ export default function MatchPage() {
 
     const selId = `${match.id}-${marketId}-${idx}`;
     const stored = localStorage.getItem('miraclbet_betslip');
-    const current: Array<{fixtureId: string; matchName: string; marketName: string; selectionId: string; selectionName: string; odds: number}> = stored ? JSON.parse(stored) : [];
+    const current: Array<{fixtureId: string; matchName: string; marketName: string; selectionId: string; selectionName: string; odds: number; homeLogo?: string; awayLogo?: string}> = stored ? JSON.parse(stored) : [];
 
     const existing = current.findIndex(s => s.fixtureId === match.id && s.selectionId === selId);
     if (existing >= 0) {
@@ -398,6 +398,8 @@ export default function MatchPage() {
         selectionId: selId,
         selectionName: selection.value,
         odds: parseFloat(selection.odd),
+          homeLogo: match.home_team_logo || '',
+          awayLogo: match.away_team_logo || '',
       });
       current.splice(0, current.length, ...filtered);
     }

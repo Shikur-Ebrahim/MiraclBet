@@ -9,6 +9,8 @@ interface BetSelection {
   selectionId: string;
   selectionName: string;
   odds: number;
+  homeLogo?: string;
+  awayLogo?: string;
 }
 
 interface StoredUser {
@@ -20,6 +22,42 @@ interface StoredUser {
 }
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
+
+function TeamAvatar({ name, logoUrl, size = 30 }: { name: string; logoUrl?: string; size?: number }) {
+  if (logoUrl) {
+    return (
+      <div style={{
+        width: size, height: size, borderRadius: '50%',
+        background: '#fff', padding: 2,
+        border: '2px solid #1E293B',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        boxShadow: '0 2px 5px rgba(0,0,0,0.3)', overflow: 'hidden'
+      }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={logoUrl} alt={name} style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '50%' }} />
+      </div>
+    );
+  }
+
+  const words = name.trim().split(/\s+/);
+  const initials = words.length >= 2 ? words[0][0] + words[words.length - 1][0] : name.slice(0, 2);
+  const colors = ['#EF4444', '#3B82F6', '#F5A623', '#10B981', '#8B5CF6', '#EC4899', '#06B6D4'];
+  const idx = (name.charCodeAt(0) + (name.charCodeAt(1) || 0)) % colors.length;
+  
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: '50%',
+      background: `linear-gradient(135deg, ${colors[idx]}, #111827)`,
+      border: '2px solid #1E293B',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+      boxShadow: '0 2px 5px rgba(0,0,0,0.3)'
+    }}>
+      <span style={{ color: '#fff', fontWeight: 900, fontSize: size * 0.35, textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
+        {initials.toUpperCase()}
+      </span>
+    </div>
+  );
+}
 
 export default function BetslipPage() {
   const [mounted, setMounted] = useState(false);
@@ -306,7 +344,11 @@ export default function BetslipPage() {
                       {/* Middle: Teams */}
                       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: 12, gap: 12 }}>
                         <div style={{ flex: 1, textAlign: 'right', color: '#fff', fontSize: 13, fontWeight: 700 }}>{home}</div>
-                        <span style={{ color: '#F5A623', fontSize: 11, fontWeight: 900 }}>VS</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <TeamAvatar name={home} logoUrl={sel.homeLogo} />
+                          <span style={{ color: '#F5A623', fontSize: 11, fontWeight: 900 }}>VS</span>
+                          <TeamAvatar name={away} logoUrl={sel.awayLogo} />
+                        </div>
                         <div style={{ flex: 1, textAlign: 'left', color: '#fff', fontSize: 13, fontWeight: 700 }}>{away}</div>
                       </div>
 

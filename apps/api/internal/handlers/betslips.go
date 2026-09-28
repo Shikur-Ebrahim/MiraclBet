@@ -26,6 +26,8 @@ type BetSelection struct {
 	SelectionID   string  `json:"selectionId"`
 	SelectionName string  `json:"selectionName"`
 	Odds          float64 `json:"odds"`
+	HomeLogo      string  `json:"homeLogo"`
+	AwayLogo      string  `json:"awayLogo"`
 }
 
 type BookBetRequest struct {

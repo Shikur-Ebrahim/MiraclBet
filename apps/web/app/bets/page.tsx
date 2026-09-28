@@ -10,6 +10,8 @@ interface BetLeg {
   selection_name: string;
   odds: number;
   status: string;
+  homeLogo?: string;
+  awayLogo?: string;
 }
 
 interface BetSlip {
@@ -36,7 +38,22 @@ function parseMatch(matchName: string) {
   return { home: parts[0]?.trim() || matchName, away: parts[1]?.trim() || '' };
 }
 
-function TeamAvatar({ name, size = 30 }: { name: string; size?: number }) {
+function TeamAvatar({ name, logoUrl, size = 30 }: { name: string; logoUrl?: string; size?: number }) {
+  if (logoUrl) {
+    return (
+      <div style={{
+        width: size, height: size, borderRadius: '50%',
+        background: '#fff', padding: 2,
+        border: '2px solid #1E293B',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        boxShadow: '0 2px 5px rgba(0,0,0,0.3)', overflow: 'hidden'
+      }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={logoUrl} alt={name} style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '50%' }} />
+      </div>
+    );
+  }
+
   const words = name.trim().split(/\s+/);
   const initials = words.length >= 2 ? words[0][0] + words[words.length - 1][0] : name.slice(0, 2);
   const colors = ['#EF4444', '#3B82F6', '#F5A623', '#10B981', '#8B5CF6', '#EC4899', '#06B6D4'];
@@ -146,9 +163,9 @@ function BetTicket({ slip }: { slip: BetSlip }) {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                     <div style={{ flex: 1, textAlign: 'right', color: '#fff', fontSize: 13, fontWeight: 700 }}>{home}</div>
                     <div style={{ margin: '0 16px', display: 'flex', gap: 8, alignItems: 'center' }}>
-                      <TeamAvatar name={home} />
+                      <TeamAvatar name={home} logoUrl={leg.homeLogo} />
                       <span style={{ color: '#9CA3AF', fontSize: 11, fontWeight: 800 }}>VS</span>
-                      <TeamAvatar name={away} />
+                      <TeamAvatar name={away} logoUrl={leg.awayLogo} />
                     </div>
                     <div style={{ flex: 1, textAlign: 'left', color: '#fff', fontSize: 13, fontWeight: 700 }}>{away}</div>
                   </div>

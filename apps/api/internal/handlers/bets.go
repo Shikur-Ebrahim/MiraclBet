@@ -39,6 +39,8 @@ type BetLegResult struct {
 	SelectionName string  `json:"selection_name"`
 	Odds          float64 `json:"odds"`
 	Status        string  `json:"status"`
+	HomeLogo      string  `json:"homeLogo"`
+	AwayLogo      string  `json:"awayLogo"`
 }
 
 type BetSlipResult struct {
@@ -121,9 +123,9 @@ func (h *BetsHandler) PlaceBet(w http.ResponseWriter, r *http.Request) {
 	// 4. Create Bet Legs
 	for _, sel := range req.Selections {
 		_, err = tx.Exec(ctx, `
-			INSERT INTO bet_legs (bet_slip_id, fixture_id, match_name, market_name, selection_id, selection_name, odds, status)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, 'PENDING')
-		`, slipID, sel.FixtureID, sel.MatchName, sel.MarketName, sel.SelectionID, sel.SelectionName, sel.Odds)
+			INSERT INTO bet_legs (bet_slip_id, fixture_id, match_name, market_name, selection_id, selection_name, odds, home_logo, away_logo, status)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'PENDING')
+		`, slipID, sel.FixtureID, sel.MatchName, sel.MarketName, sel.SelectionID, sel.SelectionName, sel.Odds, sel.HomeLogo, sel.AwayLogo)
 		if err != nil {
 			h.respondError(w, http.StatusInternalServerError, "Failed to save selections")
 			return
@@ -184,7 +186,7 @@ func (h *BetsHandler) ListMyBets(w http.ResponseWriter, r *http.Request) {
 	// Fetch legs for each slip
 	for i, slip := range slips {
 		legRows, err := h.db.Pool.Query(ctx, `
-			SELECT id, fixture_id, match_name, market_name, selection_name, odds, status
+			SELECT id, fixture_id, match_name, market_name, selection_name, odds, status, COALESCE(home_logo, ''), COALESCE(away_logo, '')
 			FROM bet_legs WHERE bet_slip_id = $1
 		`, slip.ID)
 		if err != nil {
@@ -193,7 +195,7 @@ func (h *BetsHandler) ListMyBets(w http.ResponseWriter, r *http.Request) {
 		var legs []BetLegResult
 		for legRows.Next() {
 			var l BetLegResult
-			if err := legRows.Scan(&l.ID, &l.FixtureID, &l.MatchName, &l.MarketName, &l.SelectionName, &l.Odds, &l.Status); err != nil {
+			if err := legRows.Scan(&l.ID, &l.FixtureID, &l.MatchName, &l.MarketName, &l.SelectionName, &l.Odds, &l.Status, &l.HomeLogo, &l.AwayLogo); err != nil {
 				continue
 			}
 			legs = append(legs, l)
@@ -227,14 +229,14 @@ func (h *BetsHandler) GetBet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	legRows, _ := h.db.Pool.Query(ctx, `
-		SELECT id, fixture_id, match_name, market_name, selection_name, odds, status
+		SELECT id, fixture_id, match_name, market_name, selection_name, odds, status, COALESCE(home_logo, ''), COALESCE(away_logo, '')
 		FROM bet_legs WHERE bet_slip_id = $1
 	`, s.ID)
 	defer legRows.Close()
 	var legs []BetLegResult
 	for legRows.Next() {
 		var l BetLegResult
-		legRows.Scan(&l.ID, &l.FixtureID, &l.MatchName, &l.MarketName, &l.SelectionName, &l.Odds, &l.Status)
+		legRows.Scan(&l.ID, &l.FixtureID, &l.MatchName, &l.MarketName, &l.SelectionName, &l.Odds, &l.Status, &l.HomeLogo, &l.AwayLogo)
 		legs = append(legs, l)
 	}
 	if legs == nil {
