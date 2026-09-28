@@ -193,87 +193,74 @@ export function Header() {
       }}>
 
         {/* Drawer header with close */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid #1E293B' }}>
-          <span style={{ fontWeight: 700, fontSize: '15px', color: '#fff' }}>My Account</span>
+        {/* Drawer header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid #1E293B' }}>
+          <span style={{ fontWeight: 700, fontSize: '13px', color: '#fff' }}>My Account</span>
           <button onClick={() => setPanelOpen(false)} style={{
             background: 'rgba(255,255,255,0.08)', border: 'none', cursor: 'pointer',
-            width: '30px', height: '30px', borderRadius: '50%',
+            width: '26px', height: '26px', borderRadius: '50%',
             display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff',
           }}>
-            <svg viewBox="0 0 24 24" style={{ width: '16px', height: '16px' }} fill="none" stroke="currentColor" strokeWidth="2.5">
+            <svg viewBox="0 0 24 24" style={{ width: '14px', height: '14px' }} fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M18 6L6 18M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        {/* Profile circle + ID */}
-        <div style={{ textAlign: 'center', padding: '24px 16px 16px' }}>
+        {/* Profile row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderBottom: '1px solid #1E293B' }}>
           <div style={{
-            width: '70px', height: '70px', borderRadius: '50%', background: '#F5A623',
+            width: '40px', height: '40px', borderRadius: '50%', background: '#F5A623',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontWeight: 900, fontSize: '22px', color: '#000', margin: '0 auto 12px',
-            boxShadow: '0 0 0 4px rgba(245,166,35,0.2)',
+            fontWeight: 900, fontSize: '14px', color: '#000', flexShrink: 0,
           }}>
             {shortId.slice(-2)}
           </div>
-          <div style={{
-            background: '#1A2235', borderRadius: '8px', padding: '6px 14px',
-            fontSize: '13px', color: '#9CA3AF', display: 'inline-block'
-          }}>
-            Your ID — {shortId}
+          <div>
+            <div style={{ fontSize: '12px', color: '#9CA3AF' }}>ID: {shortId}</div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+              <span style={{ fontSize: '18px', fontWeight: 900, color: '#fff' }}>{balance.toFixed(2)}</span>
+              <span style={{ fontSize: '12px', fontWeight: 800, color: '#F5A623' }}>Br</span>
+            </div>
           </div>
-        </div>
-
-        {/* Balance box */}
-        <div style={{ margin: '0 16px 16px', background: '#1A2235', borderRadius: '10px', padding: '14px 16px' }}>
-          <div style={{ fontSize: '11px', color: '#9CA3AF', marginBottom: '6px' }}>Balance</div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-            <span style={{ fontSize: '26px', fontWeight: 900, color: '#fff' }}>
-              {balance.toFixed(2)}
-            </span>
-            <span style={{ fontSize: '18px', fontWeight: 800, color: '#F5A623' }}>Br</span>
-          </div>
-        </div>
-
-        {/* Deposit button */}
-        <div style={{ margin: '0 16px 8px' }}>
           <a href="/deposit" onClick={() => setPanelOpen(false)} style={{
-            display: 'block', textAlign: 'center', padding: '13px',
+            marginLeft: 'auto', padding: '7px 14px',
             background: '#F5A623', color: '#000', fontWeight: 800,
-            fontSize: '15px', borderRadius: '10px', textDecoration: 'none',
+            fontSize: '12px', borderRadius: '8px', textDecoration: 'none', whiteSpace: 'nowrap',
           }}>
             Deposit
           </a>
         </div>
 
-        <div style={{ marginTop: '8px', flex: 1 }}>
+        {/* Menu items */}
+        <div style={{ flex: 1, overflowY: 'auto' }}>
           {menuItems.map((item) => (
             <a
               key={item.href}
               href={item.href}
               onClick={() => setPanelOpen(false)}
               style={{
-                display: 'flex', alignItems: 'center', gap: 12, padding: '14px 20px',
-                fontSize: '15px', color: item.href === '/bets' ? '#19E66B' : '#FFFFFF',
+                display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px',
+                fontSize: '13px', color: item.href === '/bets' ? '#19E66B' : '#FFFFFF',
                 textDecoration: 'none',
-                borderBottom: '1px solid rgba(255,255,255,0.06)',
+                borderBottom: '1px solid rgba(255,255,255,0.05)',
                 background: item.href === '/bets' ? 'rgba(25,230,107,0.05)' : 'transparent',
                 fontWeight: item.href === '/bets' ? 700 : 400,
               }}
             >
-              <span style={{ fontSize: 18, width: 24, textAlign: 'center' }}>{item.icon}</span>
+              <span style={{ fontSize: 15, width: 20, textAlign: 'center' }}>{item.icon}</span>
               {item.label}
               {item.href === '/bets' && (
-                <span style={{ marginLeft: 'auto', background: '#19E66B', color: '#072414', fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 99 }}>HISTORY</span>
+                <span style={{ marginLeft: 'auto', background: '#19E66B', color: '#072414', fontSize: 8, fontWeight: 800, padding: '2px 5px', borderRadius: 99 }}>HISTORY</span>
               )}
             </a>
           ))}
         </div>
 
         {/* Log out */}
-        <div style={{ padding: '8px 20px 32px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ padding: '8px 14px 24px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
           <button onClick={handleLogout} style={{
-            width: '100%', padding: '14px', fontSize: '15px', fontWeight: 700,
+            width: '100%', padding: '10px', fontSize: '13px', fontWeight: 700,
             color: '#ef4444', background: 'rgba(239,68,68,0.08)',
             border: '1px solid rgba(239,68,68,0.2)', borderRadius: '8px',
             cursor: 'pointer', textAlign: 'center',
