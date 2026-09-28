@@ -53,6 +53,14 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service) http.Handle
 		r.Post("/betslips", betslipsHandler.BookBet)
 		r.Get("/betslips/{code}", betslipsHandler.GetBooking)
 
+		// Settlement (admin)
+		settlementHandler := handlers.NewSettlementHandler(db)
+		r.Route("/admin", func(r chi.Router) {
+			r.Get("/bets", settlementHandler.GetAllBets)
+			r.Post("/bets/slips/{slip_id}/settle", settlementHandler.SettleSlipManual)
+			r.Post("/bets/legs/{leg_id}/settle", settlementHandler.SettleLeg)
+		})
+
 		// Debug endpoints — shows raw API response to diagnose odds issues
 		debugHandler := handlers.NewDebugHandler(cfg)
 		r.Get("/debug/odds", debugHandler.TestOdds)

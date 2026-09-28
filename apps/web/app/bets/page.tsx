@@ -12,6 +12,7 @@ interface BetLeg {
   status: string;
   homeLogo?: string;
   awayLogo?: string;
+  kickoffAt?: string;
 }
 
 interface BetSlip {
@@ -152,11 +153,18 @@ function BetTicket({ slip }: { slip: BetSlip }) {
                   borderBottom: i < slip.legs.length - 1 ? '1px dashed #374151' : 'none',
                 }}>
                   {/* Top: Sport / League */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16 }}>
-                    <svg viewBox="0 0 24 24" style={{ width: 14, height: 14, color: '#9CA3AF' }} fill="currentColor">
-                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6z"/>
-                    </svg>
-                    <span style={{ color: '#9CA3AF', fontSize: 12 }}>Football Match</span>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <svg viewBox="0 0 24 24" style={{ width: 14, height: 14, color: '#9CA3AF' }} fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6z"/>
+                      </svg>
+                      <span style={{ color: '#9CA3AF', fontSize: 12 }}>Football Match</span>
+                    </div>
+                    {leg.kickoffAt && (
+                      <span style={{ color: '#F5A623', fontSize: 11, fontWeight: 700 }}>
+                        {(() => { try { const d=new Date(leg.kickoffAt); return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')} ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`; } catch { return ''; } })()}
+                      </span>
+                    )}
                   </div>
 
                   {/* Middle: Match Matchup */}

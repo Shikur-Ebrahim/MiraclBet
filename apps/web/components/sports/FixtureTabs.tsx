@@ -240,7 +240,7 @@ function MatchRow({ fix }: { fix: Fixture }) {
   const toggleBet = (selId: string, label: string, val: string | null, selectionName: string) => {
     if (!val || val === '-') return;
     const stored = localStorage.getItem('miraclbet_betslip');
-    const current: Array<{fixtureId: string; matchName: string; marketName: string; selectionId: string; selectionName: string; odds: number; homeLogo?: string; awayLogo?: string}> = stored ? JSON.parse(stored) : [];
+    const current: Array<{fixtureId: string; matchName: string; marketName: string; selectionId: string; selectionName: string; odds: number; homeLogo?: string; awayLogo?: string; kickoffAt?: string}> = stored ? JSON.parse(stored) : [];
     const idx = current.findIndex(s => s.fixtureId === fix.id && s.selectionId === selId);
     if (idx >= 0) {
       current.splice(idx, 1);
@@ -256,6 +256,7 @@ function MatchRow({ fix }: { fix: Fixture }) {
         odds: parseFloat(val),
         homeLogo: fix.home_team_logo || '',
         awayLogo: fix.away_team_logo || '',
+        kickoffAt: fix.kickoff_at || '',
       });
       current.splice(0, current.length, ...filtered);
     }

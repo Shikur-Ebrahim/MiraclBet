@@ -41,6 +41,7 @@ type BetLegResult struct {
 	Status        string  `json:"status"`
 	HomeLogo      string  `json:"homeLogo"`
 	AwayLogo      string  `json:"awayLogo"`
+	KickoffAt     string  `json:"kickoffAt"`
 }
 
 type BetSlipResult struct {
@@ -123,9 +124,9 @@ func (h *BetsHandler) PlaceBet(w http.ResponseWriter, r *http.Request) {
 	// 4. Create Bet Legs
 	for _, sel := range req.Selections {
 		_, err = tx.Exec(ctx, `
-			INSERT INTO bet_legs (bet_slip_id, fixture_id, match_name, market_name, selection_id, selection_name, odds, home_logo, away_logo, status)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'PENDING')
-		`, slipID, sel.FixtureID, sel.MatchName, sel.MarketName, sel.SelectionID, sel.SelectionName, sel.Odds, sel.HomeLogo, sel.AwayLogo)
+			INSERT INTO bet_legs (bet_slip_id, fixture_id, match_name, market_name, selection_id, selection_name, odds, home_logo, away_logo, kickoff_at, status)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'PENDING')
+		`, slipID, sel.FixtureID, sel.MatchName, sel.MarketName, sel.SelectionID, sel.SelectionName, sel.Odds, sel.HomeLogo, sel.AwayLogo, sel.KickoffAt)
 		if err != nil {
 			h.respondError(w, http.StatusInternalServerError, "Failed to save selections")
 			return
@@ -195,7 +196,7 @@ func (h *BetsHandler) ListMyBets(w http.ResponseWriter, r *http.Request) {
 		var legs []BetLegResult
 		for legRows.Next() {
 			var l BetLegResult
-			if err := legRows.Scan(&l.ID, &l.FixtureID, &l.MatchName, &l.MarketName, &l.SelectionName, &l.Odds, &l.Status, &l.HomeLogo, &l.AwayLogo); err != nil {
+			if err := legRows.Scan(&l.ID, &l.FixtureID, &l.MatchName, &l.MarketName, &l.SelectionName, &l.Odds, &l.Status, &l.HomeLogo, &l.AwayLogo, &l.KickoffAt); err != nil {
 				continue
 			}
 			legs = append(legs, l)
@@ -236,7 +237,7 @@ func (h *BetsHandler) GetBet(w http.ResponseWriter, r *http.Request) {
 	var legs []BetLegResult
 	for legRows.Next() {
 		var l BetLegResult
-		legRows.Scan(&l.ID, &l.FixtureID, &l.MatchName, &l.MarketName, &l.SelectionName, &l.Odds, &l.Status, &l.HomeLogo, &l.AwayLogo)
+		legRows.Scan(&l.ID, &l.FixtureID, &l.MatchName, &l.MarketName, &l.SelectionName, &l.Odds, &l.Status, &l.HomeLogo, &l.AwayLogo, &l.KickoffAt)
 		legs = append(legs, l)
 	}
 	if legs == nil {

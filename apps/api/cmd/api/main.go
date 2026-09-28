@@ -113,6 +113,7 @@ func autoMigrate(ctx context.Context, db *database.DB) error {
 
 		ALTER TABLE bet_legs ADD COLUMN IF NOT EXISTS home_logo TEXT;
 		ALTER TABLE bet_legs ADD COLUMN IF NOT EXISTS away_logo TEXT;
+		ALTER TABLE bet_legs ADD COLUMN IF NOT EXISTS kickoff_at TEXT;
 	`)
 	return err
 }
