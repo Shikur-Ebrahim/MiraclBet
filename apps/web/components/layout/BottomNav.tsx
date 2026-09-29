@@ -92,7 +92,7 @@ export function BottomNav() {
           <button
             onClick={() => window.location.href = '/check'}
             className={`flex flex-col items-center justify-center gap-[3px] transition-colors ${
-              isActive('/bets') ? 'text-[#19E66B]' : 'text-gray-400 hover:text-white'
+              isActive('/check') ? 'text-[#19E66B]' : 'text-gray-400 hover:text-white'
             }`}
           >
             <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -150,5 +150,6 @@ export function BottomNav() {
     </>
   );
 }
+
 
 
