@@ -76,7 +76,6 @@ function TicketDisplay({ slip }: { slip: BetSlip }) {
   const legs = slip.legs ?? [];
   const isBooking = slip.is_booking;
 
-  // parse raw admin booking selections if is_booking
   let bookingLegs: Array<{ matchName: string; homeLogo: string; awayLogo: string; marketName: string; selectionName: string; odds: number; kickoffAt: string }> = [];
   if (isBooking && slip.selections_raw) {
     try { bookingLegs = JSON.parse(slip.selections_raw); } catch { /* ignore */ }
@@ -129,7 +128,6 @@ function TicketDisplay({ slip }: { slip: BetSlip }) {
 
           return (
             <div key={i} style={{ position: 'relative' }}>
-              {/* Receipt notches between legs */}
               {i > 0 && (
                 <div style={{ position: 'absolute', top: -8, left: 0, right: 0, display: 'flex', justifyContent: 'space-between', zIndex: 2 }}>
                   <div style={{ width: 16, height: 16, borderRadius: '50%', background: '#F3F4F6', marginLeft: -8, border: '1px solid #E5E7EB' }} />
@@ -213,15 +211,6 @@ function TicketDisplay({ slip }: { slip: BetSlip }) {
             </p>
           </div>
         )}
-
-        {/* Barcode decoration */}
-        <div style={{ marginTop: 16, textAlign: 'center', opacity: 0.25 }}>
-          <div style={{ display: 'inline-flex', height: 32, gap: 2 }}>
-            {[...Array(28)].map((_, i) => (
-              <div key={i} style={{ width: [2,1,3,1,2,1,2,3,1,2,1,3,1,2,2,1,3,1,2,1,2,3,1,2,1,2,3,1][i] || 1, background: '#374151', borderRadius: 1 }} />
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   );
@@ -233,7 +222,9 @@ export default function CheckBetPage() {
   const [slip, setSlip] = useState<BetSlip | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isQRMode, setIsQRMode] = useState(false); // true when opened from QR scan
   const inputRef = useRef<HTMLInputElement>(null);
+  const resultRef = useRef<HTMLDivElement>(null);
 
   const performCheck = async (codeStr: string) => {
     const trimmed = codeStr.trim().toUpperCase();
@@ -249,6 +240,10 @@ export default function CheckBetPage() {
         return;
       }
       setSlip(data);
+      // Scroll to top so result is immediately visible
+      setTimeout(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 50);
     } catch {
       setError('Network error. Please try again.');
     } finally {
@@ -266,16 +261,19 @@ export default function CheckBetPage() {
       const params = new URLSearchParams(window.location.search);
       const urlCode = params.get('code');
       if (urlCode) {
+        setIsQRMode(true); // hide form, show result directly
         setCode(urlCode.toUpperCase());
         performCheck(urlCode);
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleClear = () => {
     setCode('');
     setSlip(null);
     setError('');
+    setIsQRMode(false);
     inputRef.current?.focus();
   };
 
@@ -289,122 +287,162 @@ export default function CheckBetPage() {
             <polyline points="15 18 9 12 15 6" />
           </svg>
         </Link>
-        <div>
+        <div style={{ flex: 1 }}>
           <h1 style={{ fontSize: 17, fontWeight: 900, color: '#111827', margin: 0 }}>Check Ticket</h1>
           <p style={{ fontSize: 11, color: '#9CA3AF', margin: 0 }}>Enter any MiraclBet ticket code</p>
         </div>
+        {/* If in QR mode with result, show "Search Again" */}
+        {isQRMode && (
+          <button onClick={handleClear} style={{ background: '#F3F4F6', border: '1px solid #E5E7EB', padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, color: '#374151', cursor: 'pointer' }}>
+            Search Again
+          </button>
+        )}
       </div>
 
-      <div style={{ maxWidth: 520, margin: '0 auto', padding: '24px 16px' }}>
-
-        {/* Hero Icon */}
-        <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'linear-gradient(135deg, #059669, #047857)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px', boxShadow: '0 8px 24px rgba(5,150,105,0.3)' }}>
-            <svg viewBox="0 0 24 24" style={{ width: 32, height: 32, color: '#fff' }} fill="currentColor">
-              <path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
+      {/* Loading state (QR scan, waiting for result) */}
+      {loading && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 24px', gap: 20 }}>
+          <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'linear-gradient(135deg, #059669, #047857)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(5,150,105,0.3)' }}>
+            <svg style={{ width: 28, height: 28, animation: 'spin 1s linear infinite', color: '#fff' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
             </svg>
           </div>
-          <h2 style={{ fontSize: 20, fontWeight: 900, color: '#111827', margin: '0 0 4px' }}>Bet Ticket Checker</h2>
-          <p style={{ fontSize: 13, color: '#6B7280', margin: 0 }}>Check the status of any bet ticket instantly — no login needed</p>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: '#111827', marginBottom: 4 }}>Loading Ticket...</div>
+            <div style={{ fontSize: 13, color: '#6B7280' }}>Fetching your bet details</div>
+          </div>
         </div>
+      )}
 
-        {/* Input Card */}
-        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #E5E7EB', padding: '20px 16px', marginBottom: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-          <form onSubmit={handleCheck}>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#4B5563', marginBottom: 8, letterSpacing: 0.5 }}>
-              TICKET CODE
-            </label>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <input
-                ref={inputRef}
-                type="text"
-                value={code}
-                onChange={e => { setCode(e.target.value.toUpperCase()); setError(''); setSlip(null); }}
-                placeholder="e.g. TICKET-70D8B690C-0F5"
-                autoComplete="off"
-                spellCheck={false}
-                style={{
-                  flex: 1, padding: '13px 14px',
-                  background: '#F9FAFB', border: `2px solid ${error ? '#FECACA' : code ? '#A7F3D0' : '#E5E7EB'}`,
-                  borderRadius: 10, fontSize: 14, fontWeight: 800, color: '#059669',
-                  fontFamily: 'monospace', letterSpacing: 1, outline: 'none',
-                  textTransform: 'uppercase', transition: 'border-color 0.15s'
-                }}
-              />
-              {code && (
-                <button type="button" onClick={handleClear}
-                  style={{ padding: '13px 14px', background: '#F3F4F6', border: '2px solid #E5E7EB', borderRadius: 10, cursor: 'pointer', fontSize: 14, color: '#6B7280', fontWeight: 700 }}>
-                  ✕
-                </button>
-              )}
-            </div>
+      {/* QR Mode: show result directly, no form */}
+      {isQRMode && !loading && slip && (
+        <div ref={resultRef} style={{ maxWidth: 520, margin: '0 auto', padding: '16px 16px 32px' }}>
+          <TicketDisplay slip={slip} />
+        </div>
+      )}
 
-            {error && (
-              <div style={{ marginTop: 10, padding: '10px 12px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, color: '#DC2626', fontSize: 13, fontWeight: 600 }}>
-                ⚠ {error}
-              </div>
-            )}
-
-            <button type="submit" disabled={loading || !code.trim()}
-              style={{
-                width: '100%', marginTop: 14, padding: '14px',
-                background: loading || !code.trim() ? '#E5E7EB' : 'linear-gradient(135deg, #059669, #047857)',
-                border: 'none', borderRadius: 12, color: loading || !code.trim() ? '#9CA3AF' : '#fff',
-                fontSize: 15, fontWeight: 900, cursor: loading || !code.trim() ? 'not-allowed' : 'pointer',
-                boxShadow: loading || !code.trim() ? 'none' : '0 6px 20px rgba(5,150,105,0.3)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'all 0.2s'
-              }}>
-              {loading ? (
-                <>
-                  <svg style={{ width: 18, height: 18, animation: 'spin 1s linear infinite' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-                  </svg>
-                  Checking...
-                </>
-              ) : (
-                <>
-                  <svg viewBox="0 0 24 24" style={{ width: 18, height: 18 }} fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-                  </svg>
-                  Check Ticket
-                </>
-              )}
+      {/* QR Mode: error */}
+      {isQRMode && !loading && !slip && error && (
+        <div style={{ maxWidth: 520, margin: '32px auto', padding: '0 16px' }}>
+          <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 12, padding: '20px', textAlign: 'center' }}>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>❌</div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: '#DC2626', marginBottom: 6 }}>Ticket Not Found</div>
+            <div style={{ fontSize: 13, color: '#6B7280', marginBottom: 16 }}>{error}</div>
+            <button onClick={handleClear} style={{ background: '#DC2626', color: '#fff', border: 'none', padding: '10px 24px', borderRadius: 8, fontWeight: 700, cursor: 'pointer', fontSize: 14 }}>
+              Try Another Code
             </button>
-          </form>
+          </div>
         </div>
+      )}
 
-        {/* Result */}
-        {slip && (
-          <div style={{ animation: 'fadeIn 0.3s ease' }}>
-            <div style={{ textAlign: 'center', marginBottom: 14 }}>
-              <span style={{ fontSize: 13, color: '#6B7280', fontWeight: 600 }}>
-                ✅ Ticket found for code <strong style={{ color: '#059669', fontFamily: 'monospace', letterSpacing: 2 }}>{code}</strong>
-              </span>
+      {/* Manual mode: full form + results */}
+      {!isQRMode && (
+        <div style={{ maxWidth: 520, margin: '0 auto', padding: '24px 16px' }}>
+
+          {/* Hero Icon */}
+          <div style={{ textAlign: 'center', marginBottom: 24 }}>
+            <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'linear-gradient(135deg, #059669, #047857)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px', boxShadow: '0 8px 24px rgba(5,150,105,0.3)' }}>
+              <svg viewBox="0 0 24 24" style={{ width: 32, height: 32, color: '#fff' }} fill="currentColor">
+                <path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
+              </svg>
             </div>
-            <TicketDisplay slip={slip} />
+            <h2 style={{ fontSize: 20, fontWeight: 900, color: '#111827', margin: '0 0 4px' }}>Bet Ticket Checker</h2>
+            <p style={{ fontSize: 13, color: '#6B7280', margin: 0 }}>Check the status of any bet ticket instantly — no login needed</p>
           </div>
-        )}
 
-        {/* Tips */}
-        {!slip && !loading && (
-          <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #E5E7EB', padding: '16px', marginTop: 4 }}>
-            <p style={{ fontSize: 12, fontWeight: 700, color: '#4B5563', margin: '0 0 10px', letterSpacing: 0.5 }}>HOW TO USE</p>
-            {[
-              { icon: '🎟️', text: 'Find your ticket code at the bottom of any bet in "Bets" — it looks like TICKET-70D8B690C-0F5' },
-              { icon: '📋', text: 'Copy the full code including "TICKET-" or just the part after it' },
-              { icon: '🔍', text: 'Tap "Check Ticket" to see full bet details, match results, and payout' },
-              { icon: '🚫', text: 'No login required — anyone can check any ticket code' },
-            ].map((t, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
-                <span style={{ fontSize: 16, flexShrink: 0 }}>{t.icon}</span>
-                <span style={{ fontSize: 13, color: '#6B7280' }}>{t.text}</span>
+          {/* Input Card */}
+          <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #E5E7EB', padding: '20px 16px', marginBottom: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+            <form onSubmit={handleCheck}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#4B5563', marginBottom: 8, letterSpacing: 0.5 }}>
+                TICKET CODE
+              </label>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={code}
+                  onChange={e => { setCode(e.target.value.toUpperCase()); setError(''); setSlip(null); }}
+                  placeholder="e.g. TICKET-70D8B690C-0F5"
+                  autoComplete="off"
+                  spellCheck={false}
+                  style={{
+                    flex: 1, padding: '13px 14px',
+                    background: '#F9FAFB', border: `2px solid ${error ? '#FECACA' : code ? '#A7F3D0' : '#E5E7EB'}`,
+                    borderRadius: 10, fontSize: 14, fontWeight: 800, color: '#059669',
+                    fontFamily: 'monospace', letterSpacing: 1, outline: 'none',
+                    textTransform: 'uppercase', transition: 'border-color 0.15s'
+                  }}
+                />
+                {code && (
+                  <button type="button" onClick={handleClear}
+                    style={{ padding: '13px 14px', background: '#F3F4F6', border: '2px solid #E5E7EB', borderRadius: 10, cursor: 'pointer', fontSize: 14, color: '#6B7280', fontWeight: 700 }}>
+                    ✕
+                  </button>
+                )}
               </div>
-            ))}
-          </div>
-        )}
 
-        <div style={{ height: 32 }} />
-      </div>
+              {error && (
+                <div style={{ marginTop: 10, padding: '10px 12px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, color: '#DC2626', fontSize: 13, fontWeight: 600 }}>
+                  ⚠ {error}
+                </div>
+              )}
+
+              <button type="submit" disabled={loading || !code.trim()}
+                style={{
+                  width: '100%', marginTop: 14, padding: '14px',
+                  background: loading || !code.trim() ? '#E5E7EB' : 'linear-gradient(135deg, #059669, #047857)',
+                  border: 'none', borderRadius: 12, color: loading || !code.trim() ? '#9CA3AF' : '#fff',
+                  fontSize: 15, fontWeight: 900, cursor: loading || !code.trim() ? 'not-allowed' : 'pointer',
+                  boxShadow: loading || !code.trim() ? 'none' : '0 6px 20px rgba(5,150,105,0.3)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'all 0.2s'
+                }}>
+                {loading ? (
+                  <>
+                    <svg style={{ width: 18, height: 18, animation: 'spin 1s linear infinite' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                    </svg>
+                    Checking...
+                  </>
+                ) : (
+                  <>
+                    <svg viewBox="0 0 24 24" style={{ width: 18, height: 18 }} fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    Check Ticket
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+
+          {/* Result */}
+          {slip && (
+            <div style={{ animation: 'fadeIn 0.3s ease' }}>
+              <TicketDisplay slip={slip} />
+            </div>
+          )}
+
+          {/* Tips (only when no result) */}
+          {!slip && !loading && (
+            <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #E5E7EB', padding: '16px', marginTop: 4 }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: '#4B5563', margin: '0 0 10px', letterSpacing: 0.5 }}>HOW TO USE</p>
+              {[
+                { icon: '🎟️', text: 'Find your ticket code at the bottom of any bet in "Bets" — it looks like TICKET-70D8B690C-0F5' },
+                { icon: '📋', text: 'Copy the full code including "TICKET-" or just the part after it' },
+                { icon: '🔍', text: 'Tap "Check Ticket" to see full bet details, match results, and payout' },
+                { icon: '🚫', text: 'No login required — anyone can check any ticket code' },
+              ].map((t, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
+                  <span style={{ fontSize: 16, flexShrink: 0 }}>{t.icon}</span>
+                  <span style={{ fontSize: 13, color: '#6B7280' }}>{t.text}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div style={{ height: 32 }} />
+        </div>
+      )}
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
