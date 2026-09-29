@@ -108,6 +108,7 @@ export default function WorkersPage() {
   };
 
   return (
+    <>
     <div style={{ minHeight: '100vh', background: '#F8FAFC', paddingBottom: '32px' }}>
       {/* Sticky Header */}
       <div style={{
@@ -131,16 +132,30 @@ export default function WorkersPage() {
         {/* Add Worker Section */}
         <div style={{ background: '#FFF', padding: 16, borderRadius: 12, border: '1px solid #E5E7EB', marginBottom: 20 }}>
           <h3 style={{ fontSize: 14, fontWeight: 800, color: '#111827', margin: '0 0 12px' }}>Add New Worker</h3>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input 
-              value={addPhone} onChange={e => setAddPhone(e.target.value)} 
-              placeholder="User Phone Number" 
-              style={{ flex: 1, padding: '10px 12px', border: '1px solid #D1D5DB', borderRadius: 8, fontSize: 14, outline: 'none' }}
-            />
-            
-          </div>
-          {addError && <p style={{ color: '#EF4444', fontSize: 12, margin: '8px 0 0' }}>❌ {addError}</p>}
-          {addSuccess && <p style={{ color: '#059669', fontSize: 12, margin: '8px 0 0', fontWeight: 700 }}>✅ {addSuccess}</p>}
+          <input 
+            value={addPhone}
+            onChange={e => { setAddPhone(e.target.value); setAddError(''); setAddSuccess(''); }}
+            onKeyDown={e => e.key === 'Enter' && makeWorker()}
+            placeholder="User Phone Number (e.g. 912345678)"
+            inputMode="tel"
+            style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${addError ? '#FCA5A5' : '#D1D5DB'}`, borderRadius: 10, fontSize: 15, outline: 'none', marginBottom: 10, boxSizing: 'border-box' }}
+          />
+          <button
+            onClick={makeWorker}
+            disabled={adding || !addPhone.trim()}
+            style={{
+              width: '100%', padding: '13px', background: (adding || !addPhone.trim()) ? '#E5E7EB' : '#8B5CF6',
+              color: (adding || !addPhone.trim()) ? '#9CA3AF' : '#fff', border: 'none',
+              borderRadius: 10, fontWeight: 800, fontSize: 15, cursor: (adding || !addPhone.trim()) ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
+            }}
+          >
+            {adding ? (
+              <><span style={{ display: 'inline-block', width: 16, height: 16, border: '2px solid #9CA3AF', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} /> Assigning...</>
+            ) : '+ Assign as Worker'}
+          </button>
+          {addError && <p style={{ color: '#EF4444', fontSize: 13, margin: '8px 0 0', fontWeight: 600 }}>❌ {addError}</p>}
+          {addSuccess && <p style={{ color: '#059669', fontSize: 13, margin: '8px 0 0', fontWeight: 700 }}>✅ {addSuccess}</p>}
         </div>
 
         {/* Worker List */}
@@ -213,5 +228,8 @@ export default function WorkersPage() {
         </div>
       </div>
     </div>
+    <style dangerouslySetInnerHTML={{ __html: `@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }` }} />
+  </>
   );
 }
+

@@ -112,12 +112,12 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service) http.Handle
 			r.Get("/teams/api-search", savedTeamsHandler.SearchAPI)
 			r.Post("/teams", savedTeamsHandler.SaveTeam)
 			r.Get("/teams", savedTeamsHandler.ListTeams)
+			r.Post("/users/assign-role", usersAdminHandler.AssignRoleByPhone)
 			r.Get("/users/{id}", usersAdminHandler.Get)
 			r.Put("/users/{id}/status", usersAdminHandler.ToggleStatus)
 			r.Put("/users/{id}/role", usersAdminHandler.UpdateRole)
 			r.Put("/users/{id}/privileges", usersAdminHandler.UpdatePrivileges)
 			r.Put("/users/{id}/balance", usersAdminHandler.AdjustBalance)
-			r.Post("/users/assign-role", usersAdminHandler.AssignRoleByPhone)
 		})
 	})
 
