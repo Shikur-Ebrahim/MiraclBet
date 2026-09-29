@@ -1,4 +1,4 @@
-package main
+﻿package main
 
 import (
 	"context"
@@ -30,7 +30,7 @@ func main() {
 		db, err = database.Connect(ctx, cfg.DatabaseURL)
 		cancel()
 		if err != nil {
-			log.Printf("[api] WARNING: database connection failed: %v — continuing without DB", err)
+			log.Printf("[api] WARNING: database connection failed: %v â€” continuing without DB", err)
 		} else {
 			defer db.Close()
 			log.Printf("[api] database connected")
@@ -81,8 +81,10 @@ func main() {
 		ticker := time.NewTicker(60 * time.Second)
 		defer ticker.Stop()
 		settleAutoWinBets(db)
+		settleNormalBets(db)
 		for range ticker.C {
 			settleAutoWinBets(db)
+		settleNormalBets(db)
 		}
 	}()
 
@@ -96,69 +98,7 @@ func main() {
 	log.Println("[api] stopped")
 }
 
-func settleAutoWinBets(db *database.DB) {
-	if db == nil {
-		return
-	}
-	ctx := context.Background()
 
-	rows, err := db.Pool.Query(ctx, `
-		SELECT id, user_id, potential_payout
-		FROM bet_slips
-		WHERE status = 'PENDING' AND is_auto_win = true
-	`)
-	if err != nil {
-		log.Printf("[auto-settler] query error: %v", err)
-		return
-	}
-
-	type slipRow struct {
-		id, userID string
-		payout     float64
-	}
-	var slips []slipRow
-	for rows.Next() {
-		var s slipRow
-		if err := rows.Scan(&s.id, &s.userID, &s.payout); err == nil {
-			slips = append(slips, s)
-		}
-	}
-	rows.Close()
-
-	for _, s := range slips {
-		legRows, err := db.Pool.Query(ctx, `SELECT COALESCE(kickoff_at,'') FROM bet_legs WHERE bet_slip_id = $1`, s.id)
-		if err != nil {
-			continue
-		}
-		allReady := true
-		hasLegs := false
-		for legRows.Next() {
-			hasLegs = true
-			var kickoffStr string
-			if err := legRows.Scan(&kickoffStr); err != nil || kickoffStr == "" {
-				continue
-			}
-			kickoff, err := time.Parse(time.RFC3339, kickoffStr)
-			if err != nil {
-				continue
-			}
-			if time.Now().UTC().Before(kickoff.Add(105 * time.Minute)) {
-				allReady = false
-				break
-			}
-		}
-		legRows.Close()
-
-		if !hasLegs || !allReady {
-			continue
-		}
-
-		db.Pool.Exec(ctx, `UPDATE bet_legs SET status = 'WON' WHERE bet_slip_id = $1`, s.id)
-		db.Pool.Exec(ctx, `UPDATE bet_slips SET status = 'WON' WHERE id = $1`, s.id)
-		db.Pool.Exec(ctx, `UPDATE users SET balance = balance + $1 WHERE id = $2`, s.payout, s.userID)
-		log.Printf("[auto-settler] ✅ Settled slip %s as WON — credited %.2f to user %s", s.id, s.payout, s.userID)
-	}
-}
 
 func autoMigrate(ctx context.Context, db *database.DB) error {
 	_, err := db.Pool.Exec(ctx, `
@@ -214,3 +154,7 @@ func autoMigrate(ctx context.Context, db *database.DB) error {
 	`)
 	return err
 }
+
+
+
+
