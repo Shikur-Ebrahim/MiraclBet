@@ -171,6 +171,7 @@ export default function AdminUsersPage() {
 
   const activeCount = users.filter(u => u.is_active).length;
   const workerCount = users.filter(u => u.role === 'WORKER').length;
+  const agentCount = users.filter(u => u.role === 'AGENT').length;
   const totalBalance = users.reduce((s, u) => s + u.balance, 0);
 
   return (
@@ -202,6 +203,7 @@ export default function AdminUsersPage() {
             { label: 'Total', value: users.length, color: '#3B82F6', bg: '#EFF6FF' },
             { label: 'Active', value: activeCount, color: '#16A34A', bg: '#F0FDF4' },
             { label: 'Workers', value: workerCount, color: '#16A34A', bg: '#F0FDF4' },
+              { label: 'Agents', value: agentCount, color: '#9333EA', bg: '#F3E8FF' },
             { label: 'Balance', value: totalBalance.toFixed(0) + ' Br', color: '#D97706', bg: '#FFFBEB', small: true },
           ].map(s => (
             <div key={s.label} style={{ background: '#FFF', border: `1px solid ${s.bg}`, borderRadius: '12px', padding: '10px 8px', textAlign: 'center' }}>
