@@ -114,7 +114,7 @@ func (h *BetsHandler) PlaceBet(w http.ResponseWriter, r *http.Request) {
 		req.UserID,
 	).Scan(&currentBalance)
 	if err != nil {
-		h.respondError(w, http.StatusNotFound, "User not found")
+		log.Printf("ERROR: User not found in PlaceBet (balance query): %v", err); h.respondError(w, http.StatusNotFound, "User not found: " + err.Error())
 		return
 	}
 
@@ -129,7 +129,7 @@ func (h *BetsHandler) PlaceBet(w http.ResponseWriter, r *http.Request) {
 			"UPDATE users SET balance = balance - $1 WHERE id = $2",
 			req.Stake, req.UserID,
 		); execErr != nil {
-			h.respondError(w, http.StatusInternalServerError, "Failed to update balance")
+			log.Printf("ERROR: Failed to update balance: %v", execErr); h.respondError(w, http.StatusInternalServerError, "Failed to update balance")
 			return
 		}
 	}
@@ -143,7 +143,7 @@ func (h *BetsHandler) PlaceBet(w http.ResponseWriter, r *http.Request) {
 		RETURNING id
 	`, req.UserID, req.Stake, req.TotalOdds, potentialPayout, isAutoWin).Scan(&slipID)
 	if err != nil {
-		h.respondError(w, http.StatusInternalServerError, "Failed to create bet slip")
+		log.Printf("ERROR: Failed to create bet slip: %v", err); h.respondError(w, http.StatusInternalServerError, "Failed to create bet slip: " + err.Error())
 		return
 	}
 
@@ -154,7 +154,7 @@ func (h *BetsHandler) PlaceBet(w http.ResponseWriter, r *http.Request) {
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'PENDING')
 		`, slipID, sel.FixtureID, sel.MatchName, sel.MarketName, sel.SelectionID, sel.SelectionName, sel.Odds, sel.HomeLogo, sel.AwayLogo, sel.KickoffAt)
 		if err != nil {
-			h.respondError(w, http.StatusInternalServerError, "Failed to save selections")
+			log.Printf("ERROR: Failed to save selections: %v", err); h.respondError(w, http.StatusInternalServerError, "Failed to save selections: " + err.Error())
 			return
 		}
 	}

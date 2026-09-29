@@ -93,7 +93,7 @@ export default function AgentPage() {
     setPlacing(true);
     setError('');
     try {
-      const res = await fetch(`${API}/api/v1/bets/place`, {
+      const res = await fetch(`${API}/api/v1/bets`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -105,12 +105,17 @@ export default function AgentPage() {
         }),
       });
 
-      const data = await res.json();
       if (!res.ok) {
-        setError(data.message || data.error || 'Failed to place bet');
+        const txt = await res.text();
+        try {
+          const errData = JSON.parse(txt);
+          setError(errData.message || errData.error || 'Failed to place bet');
+        } catch {
+          setError(txt || 'Failed to place bet');
+        }
         return;
       }
-
+      const data = await res.json();
       setPlacedTicketId(data.id || data.slip_id || booking.code);
     } catch {
       setError('Network error placing bet. Check your connection.');
