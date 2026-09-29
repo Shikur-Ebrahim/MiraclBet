@@ -308,7 +308,7 @@ export default function AgentPage() {
             <div style={{ textAlign: 'center', marginTop: 24, paddingTop: 14, borderTop: '2px dashed #000', fontSize: 11 }}>
               {placedTicketId && (
                 <div style={{ display: 'flex', justifyContent: 'center', margin: '16px 0' }}>
-                  <QRCode value={`https://www.miraclbet.com/check?code=TICKET-${placedTicketId.substring(0, 8).toUpperCase()}`} size={120} level="M" />
+                  <QRCode value={`https://www.miraclbet.com/check?code=TICKET-${placedTicketId.toUpperCase()}`} size={130} level="H" style={{ display: "block" }} />
                 </div>
               )}
               <div>Scan to check status online</div>

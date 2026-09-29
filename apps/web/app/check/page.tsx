@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
@@ -235,9 +235,8 @@ export default function CheckBetPage() {
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleCheck = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = code.trim().toUpperCase();
+  const performCheck = async (codeStr: string) => {
+    const trimmed = codeStr.trim().toUpperCase();
     if (!trimmed) { setError('Please enter a ticket code'); return; }
     setError('');
     setSlip(null);
@@ -256,6 +255,22 @@ export default function CheckBetPage() {
       setLoading(false);
     }
   };
+
+  const handleCheck = async (e: React.FormEvent) => {
+    e.preventDefault();
+    performCheck(code);
+  };
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlCode = params.get('code');
+      if (urlCode) {
+        setCode(urlCode.toUpperCase());
+        performCheck(urlCode);
+      }
+    }
+  }, []);
 
   const handleClear = () => {
     setCode('');

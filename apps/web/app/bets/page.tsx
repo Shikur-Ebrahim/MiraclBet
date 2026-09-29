@@ -219,7 +219,7 @@ function BetTicket({ slip }: { slip: BetSlip }) {
                           {/* QR Code */}
               <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <div style={{ padding: 8, background: '#fff', borderRadius: 8 }}>
-                  <QRCode value={`https://www.miraclbet.com/check?code=TICKET-${slip.id.slice(0, 12).toUpperCase()}`} size={120} level="M" />
+                  <QRCode value={`https://www.miraclbet.com/check?code=TICKET-${slip.id.toUpperCase()}`} size={130} level="H" style={{ display: "block" }} />
                 </div>
                 <div style={{ color: '#6B7280', fontSize: 10, letterSpacing: 2, marginTop: 8, fontFamily: 'monospace' }}>
                   TICKET-{slip.id.slice(0, 12).toUpperCase()}
