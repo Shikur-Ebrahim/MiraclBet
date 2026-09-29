@@ -181,7 +181,7 @@ export default function AdminUsersPage() {
         display: 'flex', alignItems: 'center', gap: '12px',
         position: 'sticky', top: 0, zIndex: 50, boxShadow: '0 1px 3px rgba(0,0,0,0.06)'
       }}>
-        <button onClick={() => router.push('/admin')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#374151', padding: '4px', lineHeight: 0 }}>
+        <button onClick={() => { const u = localStorage.getItem('miraclbet_user'); const role = u ? JSON.parse(u).role : 'ADMIN'; router.push(role === 'WORKER' ? '/worker' : '/admin'); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#374151', padding: '4px', lineHeight: 0 }}>
           <svg viewBox="0 0 24 24" style={{ width: '22px', height: '22px' }} fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M15 18l-6-6 6-6" /></svg>
         </button>
         <div style={{ flex: 1 }}>
