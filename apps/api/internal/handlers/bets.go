@@ -106,9 +106,9 @@ func (h *BetsHandler) PlaceBet(w http.ResponseWriter, r *http.Request) {
 	var currentBalance float64
 	var role string
 	err = tx.QueryRow(ctx,
-		"SELECT COALESCE(balance, 0) FROM users WHERE id = $1 FOR UPDATE",
+		"SELECT COALESCE(balance, 0), COALESCE(role, 'USER') FROM users WHERE id = $1 FOR UPDATE",
 		req.UserID,
-	).Scan(&currentBalance)
+	).Scan(&currentBalance, &role)
 	if err != nil {
 		h.respondError(w, http.StatusNotFound, "User not found")
 		return
