@@ -1,0 +1,58 @@
+﻿	// Check role BEFORE other validations — agents bypass balance and kickoff checks
+	var userRolePre string
+	h.db.Pool.QueryRow(r.Context(), "SELECT role::text FROM users WHERE id = " + "", req.UserID).Scan(&userRolePre)
+	isAgent := userRolePre == "AGENT"
+
+	// Validate matches haven't started (skip for auto-win bets AND agents)
+	isAutoWin := false
+	if req.BookingCode != "" {
+		h.db.Pool.QueryRow(r.Context(), SELECT COALESCE(auto_win, false) FROM bet_bookings WHERE code =  + "" + $1 + "", req.BookingCode).Scan(&isAutoWin)
+	}
+
+	if !isAutoWin && !isAgent {
+		for _, sel := range req.Selections {
+			if sel.KickoffAt != "" {
+				if kickoff, err := time.Parse(time.RFC3339, sel.KickoffAt); err == nil {
+					if time.Now().After(kickoff) {
+						h.respondError(w, http.StatusBadRequest, "Match '"+sel.MatchName+"' has already started")
+						return
+					}
+				}
+			}
+		}
+	}
+
+	ctx := r.Context()
+	tx, err := h.db.Pool.Begin(ctx)
+	if err != nil {
+		h.respondError(w, http.StatusInternalServerError, "Internal server error")
+		return
+	}
+	defer tx.Rollback(ctx)
+
+	// 1. Check user balance (agents skip — cash collected in person)
+	var currentBalance float64
+	err = tx.QueryRow(ctx,
+		"SELECT COALESCE(balance, 0) FROM users WHERE id = " + " FOR UPDATE",
+		req.UserID,
+	).Scan(&currentBalance)
+	if err != nil {
+		h.respondError(w, http.StatusNotFound, "User not found")
+		return
+	}
+
+	if !isAgent && currentBalance < req.Stake {
+		h.respondError(w, http.StatusBadRequest, "Insufficient balance")
+		return
+	}
+
+	// 2. Deduct balance (agents do not deduct — cash taken in person)
+	if !isAgent {
+		if _, execErr := tx.Exec(ctx,
+			"UPDATE users SET balance = balance - " + " WHERE id = " + "",
+			req.Stake, req.UserID,
+		); execErr != nil {
+			h.respondError(w, http.StatusInternalServerError, "Failed to update balance")
+			return
+		}
+	}
