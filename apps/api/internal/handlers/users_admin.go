@@ -222,3 +222,47 @@ func (h *UsersAdminHandler) UpdatePrivileges(w http.ResponseWriter, r *http.Requ
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{"privileges": req.Privileges})
 }
+
+
+// AssignRoleByPhone - assigns a role using a phone number directly
+func (h *UsersAdminHandler) AssignRoleByPhone(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Phone string `json:"phone"`
+		Role  string `json:"role"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid body", http.StatusBadRequest)
+		return
+	}
+
+	if req.Role != "USER" && req.Role != "ADMIN" && req.Role != "WORKER" && req.Role != "AGENT" {
+		http.Error(w, "Role must be USER, WORKER, AGENT or ADMIN", http.StatusBadRequest)
+		return
+	}
+
+	// Normalize: strip leading 0 or country code for robust lookup
+	phone := req.Phone
+	if len(phone) > 9 && phone[0] == '0' {
+		phone = phone[1:]
+	} else if len(phone) > 12 && phone[:4] == "+251" {
+		phone = phone[4:]
+	} else if len(phone) > 11 && phone[:3] == "251" {
+		phone = phone[3:]
+	}
+
+	result, err := h.db.Pool.Exec(r.Context(),
+		"UPDATE users SET role = $1 WHERE phone = $2 OR phone = $3",
+		req.Role, phone, req.Phone,
+	)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if result.RowsAffected() == 0 {
+		http.Error(w, "User not found with this phone number", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "message": "Role assigned successfully"})
+}

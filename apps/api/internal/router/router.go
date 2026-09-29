@@ -117,6 +117,7 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service) http.Handle
 			r.Put("/users/{id}/role", usersAdminHandler.UpdateRole)
 			r.Put("/users/{id}/privileges", usersAdminHandler.UpdatePrivileges)
 			r.Put("/users/{id}/balance", usersAdminHandler.AdjustBalance)
+			r.Post("/users/assign-role", usersAdminHandler.AssignRoleByPhone)
 		})
 	})
 

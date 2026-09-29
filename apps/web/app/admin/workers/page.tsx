@@ -66,43 +66,42 @@ export default function WorkersPage() {
     setEditPrivs(prev => prev.includes(priv) ? prev.filter(p => p !== priv) : [...prev, priv]);
   };
 
+  const [adding, setAdding] = useState(false);
+  const [addSuccess, setAddSuccess] = useState('');
+
   const makeWorker = async () => {
     setAddError('');
-    if (!addPhone) return;
+    setAddSuccess('');
+    if (!addPhone.trim()) return;
+    setAdding(true);
     try {
-      // Find user by phone to get ID. We need all users first.
-      const res = await fetch(`${API}/api/v1/admin/users`);
-      if (!res.ok) return;
-      const allUsers = await res.json();
-      const targetUser = allUsers.find((u: any) => u.phone === addPhone);
-      
-      if (!targetUser) {
-        setAddError('User not found with this phone number.');
+      const res = await fetch(`${API}/api/v1/admin/users/assign-role`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: addPhone.trim(), role: 'WORKER' }),
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        setAddError(txt || 'User not found with this phone number.');
         return;
       }
-      
-      const roleRes = await fetch(`${API}/api/v1/admin/users/${targetUser.id}/role`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: 'WORKER' }),
-      });
-      
-      if (roleRes.ok) {
-        setAddPhone('');
-        fetchUsers();
-      }
-    } catch (e) {
-      setAddError('Failed to add worker');
+      setAddSuccess('Worker assigned successfully!');
+      setAddPhone('');
+      fetchUsers();
+    } catch {
+      setAddError('Network error. Please try again.');
+    } finally {
+      setAdding(false);
     }
   };
 
-  const removeWorker = async (id: string) => {
+  const removeWorker = async (id: string, phone: string) => {
     if (!confirm('Remove worker role? They will become a normal user.')) return;
     try {
-      const res = await fetch(`${API}/api/v1/admin/users/${id}/role`, {
-        method: 'PUT',
+      const res = await fetch(`${API}/api/v1/admin/users/assign-role`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: 'USER' }),
+        body: JSON.stringify({ phone, role: 'USER' }),
       });
       if (res.ok) fetchUsers();
     } catch (e) { console.error(e); }
@@ -138,11 +137,10 @@ export default function WorkersPage() {
               placeholder="User Phone Number" 
               style={{ flex: 1, padding: '10px 12px', border: '1px solid #D1D5DB', borderRadius: 8, fontSize: 14, outline: 'none' }}
             />
-            <button onClick={makeWorker} style={{ background: '#8B5CF6', color: '#fff', border: 'none', borderRadius: 8, padding: '0 16px', fontWeight: 700, cursor: 'pointer' }}>
-              Add
-            </button>
+            
           </div>
-          {addError && <p style={{ color: '#EF4444', fontSize: 12, margin: '8px 0 0' }}>{addError}</p>}
+          {addError && <p style={{ color: '#EF4444', fontSize: 12, margin: '8px 0 0' }}>❌ {addError}</p>}
+          {addSuccess && <p style={{ color: '#059669', fontSize: 12, margin: '8px 0 0', fontWeight: 700 }}>✅ {addSuccess}</p>}
         </div>
 
         {/* Worker List */}
@@ -175,7 +173,7 @@ export default function WorkersPage() {
                         <button onClick={() => { setEditingId(u.id); setEditPrivs(u.privileges || []); }} style={{ background: '#F3F4F6', color: '#374151', border: 'none', padding: '6px 12px', borderRadius: 6, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
                           Edit Privileges
                         </button>
-                        <button onClick={() => removeWorker(u.id)} style={{ background: '#FEF2F2', color: '#EF4444', border: 'none', padding: '6px 12px', borderRadius: 6, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+                        <button onClick={() => removeWorker(u.id, u.phone)} style={{ background: '#FEF2F2', color: '#EF4444', border: 'none', padding: '6px 12px', borderRadius: 6, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
                           Remove
                         </button>
                       </div>
