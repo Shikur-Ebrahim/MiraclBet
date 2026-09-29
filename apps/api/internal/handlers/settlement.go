@@ -1,4 +1,4 @@
-﻿package handlers
+package handlers
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 	"github.com/miraclbet/api/internal/database"
 )
 
@@ -203,14 +204,26 @@ func (h *SettlementHandler) GetAllBets(w http.ResponseWriter, r *http.Request) {
 		Legs            []LegAdmin `json:"legs"`
 	}
 
-	rows, err := h.db.Pool.Query(ctx, `
-		SELECT bs.id, bs.user_id, u.phone, bs.stake, bs.total_odds, bs.potential_payout, bs.status, bs.created_at
-		FROM bet_slips bs
-		JOIN users u ON u.id = bs.user_id
-		WHERE bs.status = $1
-		ORDER BY bs.created_at DESC
-		LIMIT 200
-	`, statusFilter)
+	var rows pgx.Rows
+	var err error
+	if statusFilter == "ALL" {
+		rows, err = h.db.Pool.Query(ctx, `
+			SELECT bs.id, bs.user_id, COALESCE(u.phone, ''), bs.stake, bs.total_odds, bs.potential_payout, bs.status, bs.created_at
+			FROM bet_slips bs
+			LEFT JOIN users u ON u.id = bs.user_id
+			ORDER BY bs.created_at DESC
+			LIMIT 500
+		`)
+	} else {
+		rows, err = h.db.Pool.Query(ctx, `
+			SELECT bs.id, bs.user_id, COALESCE(u.phone, ''), bs.stake, bs.total_odds, bs.potential_payout, bs.status, bs.created_at
+			FROM bet_slips bs
+			LEFT JOIN users u ON u.id = bs.user_id
+			WHERE bs.status = $1
+			ORDER BY bs.created_at DESC
+			LIMIT 500
+		`, statusFilter)
+	}
 	if err != nil {
 		jsonError(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -224,8 +237,45 @@ func (h *SettlementHandler) GetAllBets(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		legRows, _ := h.db.Pool.Query(ctx, `
-			SELECT id, match_name, market_name, selection_name, odds, status, COALESCE(kickoff_at, '')
-			FROM bet_legs WHERE bet_slip_id = $1
+			SELECT
+				bl.id, bl.match_name, bl.market_name, bl.selection_name, bl.odds,
+				CASE
+					WHEN bl.status IN ('WON','LOST','VOID') THEN bl.status
+					WHEN f.status_short IN ('FT','AET','PEN') THEN
+						CASE bl.market_name
+							WHEN 'Match Winner' THEN
+								CASE
+									WHEN bl.selection_name = 'Home Win' AND COALESCE(f.score_home,0) > COALESCE(f.score_away,0) THEN 'WON'
+									WHEN bl.selection_name = 'Away Win' AND COALESCE(f.score_away,0) > COALESCE(f.score_home,0) THEN 'WON'
+									WHEN bl.selection_name = 'Draw'     AND COALESCE(f.score_home,0) = COALESCE(f.score_away,0) THEN 'WON'
+									ELSE 'LOST'
+								END
+							WHEN 'Both Teams to Score' THEN
+								CASE
+									WHEN bl.selection_name = 'Yes' AND COALESCE(f.score_home,0) > 0 AND COALESCE(f.score_away,0) > 0 THEN 'WON'
+									WHEN bl.selection_name = 'No'  AND (COALESCE(f.score_home,0) = 0 OR COALESCE(f.score_away,0) = 0) THEN 'WON'
+									ELSE 'LOST'
+								END
+							WHEN 'Over 2.5 Goals' THEN
+								CASE WHEN COALESCE(f.score_home,0) + COALESCE(f.score_away,0) > 2 THEN 'WON' ELSE 'LOST' END
+							WHEN 'Under 2.5 Goals' THEN
+								CASE WHEN COALESCE(f.score_home,0) + COALESCE(f.score_away,0) <= 2 THEN 'WON' ELSE 'LOST' END
+							WHEN 'Draw No Bet' THEN
+								CASE
+									WHEN bl.selection_name = 'Home' AND COALESCE(f.score_home,0) > COALESCE(f.score_away,0) THEN 'WON'
+									WHEN bl.selection_name = 'Away' AND COALESCE(f.score_away,0) > COALESCE(f.score_home,0) THEN 'WON'
+									WHEN COALESCE(f.score_home,0) = COALESCE(f.score_away,0) THEN 'VOID'
+									ELSE 'LOST'
+								END
+							ELSE 'LOST'
+						END
+					WHEN f.status_short IN ('CANC','PSTP','ABD') THEN 'VOID'
+					ELSE bl.status
+				END as effective_status,
+				COALESCE(bl.kickoff_at, '')
+			FROM bet_legs bl
+			LEFT JOIN fixtures f ON f.external_id = bl.fixture_id
+			WHERE bl.bet_slip_id = $1
 		`, s.ID)
 		if legRows != nil {
 			for legRows.Next() {
@@ -362,4 +412,6 @@ func (h *SettlementHandler) ListManualBookings(w http.ResponseWriter, r *http.Re
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
 }
+
+
 
