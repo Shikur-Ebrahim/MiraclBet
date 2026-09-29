@@ -1,4 +1,4 @@
-﻿package main
+package main
 
 import (
 	"context"
@@ -142,6 +142,7 @@ func autoMigrate(ctx context.Context, db *database.DB) error {
 		ALTER TABLE bet_bookings ADD COLUMN IF NOT EXISTS auto_win BOOLEAN DEFAULT false;
 		ALTER TABLE bet_slips ADD COLUMN IF NOT EXISTS is_auto_win BOOLEAN DEFAULT false;
 		ALTER TABLE users ADD COLUMN IF NOT EXISTS privileges JSONB DEFAULT '[]'::jsonb;
+		ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'AGENT';
 
 		CREATE TABLE IF NOT EXISTS saved_teams (
 			id SERIAL PRIMARY KEY,
