@@ -21,6 +21,7 @@ const adminMenus = [
 export default function AdminDashboard() {
   const router = useRouter();
   const [user, setUser] = useState<UserSession | null>(null);
+  const [pendingStats, setPendingStats] = useState({ deposits: 0, withdrawals: 0 });
 
   useEffect(() => {
     const savedUser = localStorage.getItem('miraclbet_user');
@@ -28,6 +29,14 @@ export default function AdminDashboard() {
     const parsed = JSON.parse(savedUser);
     if (parsed.role !== 'ADMIN') { router.push('/'); return; }
     setUser(parsed);
+
+    // Fetch pending counts
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/stats/pending`)
+      .then(res => res.json())
+      .then(data => {
+        if (data) setPendingStats({ deposits: data.deposits || 0, withdrawals: data.withdrawals || 0 });
+      })
+      .catch(console.error);
   }, [router]);
 
   const handleLogout = () => {
@@ -86,47 +95,65 @@ export default function AdminDashboard() {
 
         {/* 2-column button grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-          {adminMenus.map((item) => (
-            <Link
-              key={item.label}
-              href={item.href}
-              style={{
-                background: '#FFFFFF',
-                border: `1.5px solid ${item.bg === '#F9FAFB' ? '#E5E7EB' : item.bg}`,
-                borderRadius: '16px',
-                padding: '20px 14px',
-                cursor: 'pointer',
-                textAlign: 'left',
-                boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-                transition: 'box-shadow 0.15s',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '10px',
-                textDecoration: 'none',
-              }}
-            >
-              {/* Icon circle */}
-              <div style={{
-                width: '46px', height: '46px', borderRadius: '14px',
-                background: item.bg,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '22px',
-              }}>
-                {item.icon}
-              </div>
-              {/* Label */}
-              <div>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827', lineHeight: 1.2 }}>
-                  {item.label}
+          {adminMenus.map((item) => {
+            let badgeCount = 0;
+            if (item.label === 'Deposits') badgeCount = pendingStats.deposits;
+            if (item.label === 'Withdrawals') badgeCount = pendingStats.withdrawals;
+
+            return (
+              <Link
+                key={item.label}
+                href={item.href}
+                style={{
+                  background: '#FFFFFF',
+                  border: `1.5px solid ${item.bg === '#F9FAFB' ? '#E5E7EB' : item.bg}`,
+                  borderRadius: '16px',
+                  padding: '20px 14px',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+                  transition: 'box-shadow 0.15s',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px',
+                  textDecoration: 'none',
+                  position: 'relative'
+                }}
+              >
+                {/* Badge */}
+                {badgeCount > 0 && (
+                  <div style={{
+                    position: 'absolute', top: 12, right: 12, background: '#EF4444', color: '#fff',
+                    fontSize: '11px', fontWeight: 800, padding: '2px 6px', borderRadius: '999px',
+                    minWidth: '20px', textAlign: 'center', boxShadow: '0 2px 4px rgba(239,68,68,0.3)'
+                  }}>
+                    {badgeCount}
+                  </div>
+                )}
+                
+                {/* Icon circle */}
+                <div style={{
+                  width: '46px', height: '46px', borderRadius: '14px',
+                  background: item.bg,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '22px',
+                }}>
+                  {item.icon}
                 </div>
-                <div style={{ marginTop: '4px' }}>
-                  <svg viewBox="0 0 24 24" style={{ width: '14px', height: '14px', color: item.color }} fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <path d="M5 12h14M12 5l7 7-7 7" />
-                  </svg>
+                {/* Label */}
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827', lineHeight: 1.2 }}>
+                    {item.label}
+                  </div>
+                  <div style={{ marginTop: '4px' }}>
+                    <svg viewBox="0 0 24 24" style={{ width: '14px', height: '14px', color: item.color }} fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M5 12h14M12 5l7 7-7 7" />
+                    </svg>
+                  </div>
                 </div>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            );
+          })}
         </div>
 
         <div style={{ height: '32px' }} />

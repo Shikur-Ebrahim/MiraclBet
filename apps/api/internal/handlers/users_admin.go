@@ -172,3 +172,18 @@ func (h *UsersAdminHandler) AdjustBalance(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]float64{"balance": newBalance})
 }
+
+// GetPendingCounts returns the count of pending deposits and withdrawals for the admin dashboard.
+func (h *UsersAdminHandler) GetPendingCounts(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var deposits, withdrawals int
+
+	h.db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM deposits WHERE status = 'pending'").Scan(&deposits)
+	h.db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM withdrawals WHERE status = 'pending'").Scan(&withdrawals)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]int{
+		"deposits":    deposits,
+		"withdrawals": withdrawals,
+	})
+}
