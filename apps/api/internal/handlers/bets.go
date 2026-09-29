@@ -314,3 +314,121 @@ func (h *BetsHandler) respondError(w http.ResponseWriter, code int, message stri
 		Message: message,
 	})
 }
+
+// CheckBet is a PUBLIC endpoint — no auth needed.
+// GET /api/v1/bets/check?code=MXXXXX
+// Looks up a bet_slip that was placed using this booking code, returns it with legs.
+func (h *BetsHandler) CheckBet(w http.ResponseWriter, r *http.Request) {
+	code := r.URL.Query().Get("code")
+	if code == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "code is required"})
+		return
+	}
+
+	ctx := r.Context()
+
+	// A booking code links to a bet_bookings row; the user's bet_slip references that code.
+	// Find the most recent bet_slip whose booking_code matches OR whose slip_id references this booking.
+	// We store booking_code in bet_slips via the existing booking_code column (or by matching bet_bookings.code).
+	var s BetSlipResult
+	err := h.db.Pool.QueryRow(ctx, `
+		SELECT bs.id, bs.stake, bs.total_odds, bs.potential_payout, bs.status, bs.created_at
+		FROM bet_slips bs
+		WHERE bs.booking_code = $1
+		ORDER BY bs.created_at DESC
+		LIMIT 1
+	`, code).Scan(&s.ID, &s.Stake, &s.TotalOdds, &s.PotentialPayout, &s.Status, &s.CreatedAt)
+
+	if err != nil {
+		// Also try: admin manual booking code (bet_bookings.code = code)
+		// In this case, show the booking template itself rather than a user slip
+		var selJSON string
+		var totalOdds float64
+		var createdAt string
+		err2 := h.db.Pool.QueryRow(ctx, `
+			SELECT selections, total_odds, created_at FROM bet_bookings WHERE code = $1
+		`, code).Scan(&selJSON, &totalOdds, &createdAt)
+		if err2 != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Ticket not found. Please check the code and try again."})
+			return
+		}
+		// Return admin booking as a pseudo-slip
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id":               code,
+			"code":             code,
+			"stake":            0,
+			"total_odds":       totalOdds,
+			"potential_payout": 0,
+			"status":           "BOOKING",
+			"created_at":       createdAt,
+			"is_booking":       true,
+			"selections_raw":   selJSON,
+		})
+		return
+	}
+
+	// Fetch legs with live status evaluation
+	legRows, err := h.db.Pool.Query(ctx, `
+		SELECT
+			bl.id, bl.fixture_id, bl.match_name, bl.market_name, bl.selection_name, bl.odds,
+			CASE
+				WHEN bl.status IN ('WON','LOST','VOID') THEN bl.status
+				WHEN f.status_short IN ('FT','AET','PEN') THEN
+					CASE bl.market_name
+						WHEN 'Match Winner' THEN
+							CASE
+								WHEN bl.selection_name = 'Home Win' AND COALESCE(f.score_home,0) > COALESCE(f.score_away,0) THEN 'WON'
+								WHEN bl.selection_name = 'Away Win' AND COALESCE(f.score_away,0) > COALESCE(f.score_home,0) THEN 'WON'
+								WHEN bl.selection_name = 'Draw'     AND COALESCE(f.score_home,0) = COALESCE(f.score_away,0) THEN 'WON'
+								ELSE 'LOST'
+							END
+						WHEN 'Both Teams to Score' THEN
+							CASE
+								WHEN bl.selection_name = 'Yes' AND COALESCE(f.score_home,0) > 0 AND COALESCE(f.score_away,0) > 0 THEN 'WON'
+								WHEN bl.selection_name = 'No'  AND (COALESCE(f.score_home,0) = 0 OR COALESCE(f.score_away,0) = 0) THEN 'WON'
+								ELSE 'LOST'
+							END
+						WHEN 'Over 2.5 Goals' THEN
+							CASE WHEN COALESCE(f.score_home,0) + COALESCE(f.score_away,0) > 2 THEN 'WON' ELSE 'LOST' END
+						WHEN 'Under 2.5 Goals' THEN
+							CASE WHEN COALESCE(f.score_home,0) + COALESCE(f.score_away,0) <= 2 THEN 'WON' ELSE 'LOST' END
+						WHEN 'Draw No Bet' THEN
+							CASE
+								WHEN bl.selection_name = 'Home' AND COALESCE(f.score_home,0) > COALESCE(f.score_away,0) THEN 'WON'
+								WHEN bl.selection_name = 'Away' AND COALESCE(f.score_away,0) > COALESCE(f.score_home,0) THEN 'WON'
+								WHEN COALESCE(f.score_home,0) = COALESCE(f.score_away,0) THEN 'VOID'
+								ELSE 'LOST'
+							END
+						ELSE 'LOST'
+					END
+				WHEN f.status_short IN ('CANC','PSTP','ABD') THEN 'VOID'
+				ELSE bl.status
+			END as effective_status,
+			COALESCE(bl.home_logo, ''), COALESCE(bl.away_logo, ''), COALESCE(bl.kickoff_at, '')
+		FROM bet_legs bl
+		LEFT JOIN fixtures f ON f.external_id = bl.fixture_id
+		WHERE bl.bet_slip_id = $1
+	`, s.ID)
+	if err == nil {
+		defer legRows.Close()
+		var legs []BetLegResult
+		for legRows.Next() {
+			var l BetLegResult
+			legRows.Scan(&l.ID, &l.FixtureID, &l.MatchName, &l.MarketName, &l.SelectionName, &l.Odds, &l.Status, &l.HomeLogo, &l.AwayLogo, &l.KickoffAt)
+			legs = append(legs, l)
+		}
+		if legs == nil {
+			legs = []BetLegResult{}
+		}
+		s.Legs = legs
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(s)
+}
+

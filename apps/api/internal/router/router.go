@@ -1,4 +1,4 @@
-package router
+﻿package router
 
 import (
 	"net/http"
@@ -47,6 +47,7 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service) http.Handle
 
 		betsHandler := handlers.NewBetsHandler(db)
 		r.Post("/bets", betsHandler.PlaceBet)
+		r.Get("/bets/check", betsHandler.CheckBet)
 		r.Get("/bets", betsHandler.ListMyBets)
 		r.Get("/bets/{id}", betsHandler.GetBet)
 
@@ -57,7 +58,7 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service) http.Handle
 		// Settlement handler created here, routes added in the unified /admin block below
 		settlementHandler := handlers.NewSettlementHandler(db)
 
-		// Debug endpoints — shows raw API response to diagnose odds issues
+		// Debug endpoints â€” shows raw API response to diagnose odds issues
 		debugHandler := handlers.NewDebugHandler(cfg)
 		r.Get("/debug/odds", debugHandler.TestOdds)
 		r.Get("/debug/odds/live", debugHandler.TestLiveOdds)
@@ -119,3 +120,4 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service) http.Handle
 
 	return r
 }
+
