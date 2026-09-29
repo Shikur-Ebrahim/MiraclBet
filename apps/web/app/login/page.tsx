@@ -45,6 +45,8 @@ function LoginForm() {
       // Immediate redirect
       if (data.user.role === 'ADMIN') {
         window.location.href = '/admin';
+      } else if (data.user.role === 'WORKER') {
+        window.location.href = '/worker';
       } else {
         window.location.href = redirect ? redirect : '/';
       }

@@ -28,10 +28,11 @@ type LoginResponse struct {
 }
 
 type User struct {
-	ID      string  `json:"id"`
-	Phone   string  `json:"phone"`
-	Role    string  `json:"role"`
-	Balance float64 `json:"balance"`
+	ID         string   `json:"id"`
+	Phone      string   `json:"phone"`
+	Role       string   `json:"role"`
+	Balance    float64  `json:"balance"`
+	Privileges []string `json:"privileges"`
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -44,15 +45,21 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var user User
 	var hash string
 	var isActive bool
+	var privBytes []byte
 
-	// Look up user by phone number and check is_active
 	err := h.db.Pool.QueryRow(r.Context(),
-		"SELECT id, phone, role, COALESCE(balance, 0), password_hash, COALESCE(is_active, true) FROM users WHERE phone = $1",
-		req.Phone).Scan(&user.ID, &user.Phone, &user.Role, &user.Balance, &hash, &isActive)
+		`SELECT id, phone, role, COALESCE(balance, 0), password_hash, COALESCE(is_active, true), COALESCE(privileges, '[]'::jsonb) 
+		 FROM users WHERE phone = $1`,
+		req.Phone).Scan(&user.ID, &user.Phone, &user.Role, &user.Balance, &hash, &isActive, &privBytes)
 
 	if err != nil {
 		h.respondError(w, http.StatusUnauthorized, "Invalid phone number or password")
 		return
+	}
+
+	json.Unmarshal(privBytes, &user.Privileges)
+	if user.Privileges == nil {
+		user.Privileges = []string{}
 	}
 
 	// Check if account is deactivated
@@ -144,13 +151,19 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var user User
+	var privBytes []byte
 	err := h.db.Pool.QueryRow(r.Context(),
-		"SELECT id, phone, role, COALESCE(balance, 0) FROM users WHERE id = $1", userID,
-	).Scan(&user.ID, &user.Phone, &user.Role, &user.Balance)
+		`SELECT id, phone, role, COALESCE(balance, 0), COALESCE(privileges, '[]'::jsonb) FROM users WHERE id = $1`, userID,
+	).Scan(&user.ID, &user.Phone, &user.Role, &user.Balance, &privBytes)
 
 	if err != nil {
 		h.respondError(w, http.StatusNotFound, "User not found")
 		return
+	}
+
+	json.Unmarshal(privBytes, &user.Privileges)
+	if user.Privileges == nil {
+		user.Privileges = []string{}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
