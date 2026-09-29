@@ -358,7 +358,7 @@ export default function AdminManualBetPage() {
   };
 
   /* ── CREATE VIEW ── */
-  const CreateView = () => (
+  const createView = (
     <div>
       <div style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: 10, padding: '10px 14px', marginBottom: 18, display: 'flex', gap: 8, alignItems: 'center' }}>
         <Zap size={15} style={{ color: '#059669', flexShrink: 0 }} />
@@ -418,7 +418,7 @@ export default function AdminManualBetPage() {
 
           <div>
             <label style={{ fontSize: 11, color: '#4B5563', fontWeight: 700, display: 'block', marginBottom: 6, letterSpacing: 0.5 }}>ODDS</label>
-            <input type="number" value={leg.odds} onChange={e => updateLeg(i, 'odds', e.target.value)} onBlur={() => formatOdds(i)} min="1.01" step="0.01"
+            <input type="text" inputMode="decimal" value={leg.odds} onChange={e => updateLeg(i, 'odds', e.target.value)} onBlur={() => formatOdds(i)} min="1.01" step="0.01"
               style={{ width: '100%', background: '#F0FDF4', border: `1.5px solid ${parseFloat(leg.odds) > 1 ? '#A7F3D0' : '#D1D5DB'}`, borderRadius: 10, padding: '12px 14px', color: '#047857', fontSize: 22, fontWeight: 900, outline: 'none', boxSizing: 'border-box', textAlign: 'center' }} />
           </div>
         </div>
@@ -475,7 +475,7 @@ export default function AdminManualBetPage() {
   );
 
   /* ── LIST VIEW ── */
-  const ListView = () => (
+  const listView = (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <div>
@@ -532,7 +532,7 @@ export default function AdminManualBetPage() {
           ))}
         </div>
 
-        {view === 'create' ? <CreateView /> : <ListView />}
+        {view === 'create' ? createView : listView}
       </div>
     </div>
   );
