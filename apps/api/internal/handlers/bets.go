@@ -316,11 +316,12 @@ func (h *BetsHandler) respondError(w http.ResponseWriter, code int, message stri
 }
 
 // CheckBet is a PUBLIC endpoint — no auth needed.
-// GET /api/v1/bets/check?code=MXXXXX
-// Looks up a bet_slip that was placed using this booking code, returns it with legs.
+// GET /api/v1/bets/check?code=TICKET-XXXXXXXX  or  ?code=MXXXXX (admin booking code)
+// The TICKET- prefix comes from the barcode shown in Bet History.
+// Also accepts partial slip IDs and booking codes.
 func (h *BetsHandler) CheckBet(w http.ResponseWriter, r *http.Request) {
-	code := r.URL.Query().Get("code")
-	if code == "" {
+	raw := r.URL.Query().Get("code")
+	if raw == "" {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": "code is required"})
@@ -329,17 +330,35 @@ func (h *BetsHandler) CheckBet(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	// A booking code links to a bet_bookings row; the user's bet_slip references that code.
-	// Find the most recent bet_slip whose booking_code matches OR whose slip_id references this booking.
-	// We store booking_code in bet_slips via the existing booking_code column (or by matching bet_bookings.code).
+	// Normalise: strip "TICKET-" prefix (shown in bet history barcode)
+	code := raw
+	if len(code) > 7 && code[:7] == "TICKET-" {
+		code = code[7:]
+	}
+
 	var s BetSlipResult
+
+	// 1. Try: exact slip ID match (UUID or partial — TICKET-70D8B690-0F5 → 70d8b690…)
+	//    The barcode shows slip.id.slice(0,12).toUpperCase() so we do ILIKE prefix search
 	err := h.db.Pool.QueryRow(ctx, `
-		SELECT bs.id, bs.stake, bs.total_odds, bs.potential_payout, bs.status, bs.created_at
-		FROM bet_slips bs
-		WHERE bs.booking_code = $1
-		ORDER BY bs.created_at DESC
+		SELECT id, stake, total_odds, potential_payout, status, created_at
+		FROM bet_slips
+		WHERE UPPER(REPLACE(id::text, '-', '')) LIKE UPPER(REPLACE($1, '-', '')) || '%'
+		   OR id::text ILIKE $1 || '%'
+		ORDER BY created_at DESC
 		LIMIT 1
 	`, code).Scan(&s.ID, &s.Stake, &s.TotalOdds, &s.PotentialPayout, &s.Status, &s.CreatedAt)
+
+	// 2. If not found, try booking_code column
+	if err != nil {
+		err = h.db.Pool.QueryRow(ctx, `
+			SELECT id, stake, total_odds, potential_payout, status, created_at
+			FROM bet_slips
+			WHERE booking_code = $1
+			ORDER BY created_at DESC
+			LIMIT 1
+		`, code).Scan(&s.ID, &s.Stake, &s.TotalOdds, &s.PotentialPayout, &s.Status, &s.CreatedAt)
+	}
 
 	if err != nil {
 		// Also try: admin manual booking code (bet_bookings.code = code)

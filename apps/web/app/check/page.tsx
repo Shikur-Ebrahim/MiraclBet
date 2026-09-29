@@ -305,14 +305,14 @@ export default function CheckBetPage() {
                 type="text"
                 value={code}
                 onChange={e => { setCode(e.target.value.toUpperCase()); setError(''); setSlip(null); }}
-                placeholder="e.g. M38DJ91"
+                placeholder="e.g. TICKET-70D8B690C-0F5"
                 autoComplete="off"
                 spellCheck={false}
                 style={{
                   flex: 1, padding: '13px 14px',
                   background: '#F9FAFB', border: `2px solid ${error ? '#FECACA' : code ? '#A7F3D0' : '#E5E7EB'}`,
-                  borderRadius: 10, fontSize: 18, fontWeight: 900, color: '#059669',
-                  fontFamily: 'monospace', letterSpacing: 3, outline: 'none',
+                  borderRadius: 10, fontSize: 14, fontWeight: 800, color: '#059669',
+                  fontFamily: 'monospace', letterSpacing: 1, outline: 'none',
                   textTransform: 'uppercase', transition: 'border-color 0.15s'
                 }}
               />
@@ -375,10 +375,10 @@ export default function CheckBetPage() {
           <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #E5E7EB', padding: '16px', marginTop: 4 }}>
             <p style={{ fontSize: 12, fontWeight: 700, color: '#4B5563', margin: '0 0 10px', letterSpacing: 0.5 }}>HOW TO USE</p>
             {[
-              { icon: '🎟️', text: 'Enter your MiraclBet ticket code (starts with M)' },
-              { icon: '🔍', text: 'Tap "Check Ticket" to view the full bet details' },
-              { icon: '📊', text: 'See live match status, win/loss results and payout' },
-              { icon: '🚫', text: 'No login required — anyone can check any code' },
+              { icon: '🎟️', text: 'Find your ticket code at the bottom of any bet in "Bets" — it looks like TICKET-70D8B690C-0F5' },
+              { icon: '📋', text: 'Copy the full code including "TICKET-" or just the part after it' },
+              { icon: '🔍', text: 'Tap "Check Ticket" to see full bet details, match results, and payout' },
+              { icon: '🚫', text: 'No login required — anyone can check any ticket code' },
             ].map((t, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
                 <span style={{ fontSize: 16, flexShrink: 0 }}>{t.icon}</span>
