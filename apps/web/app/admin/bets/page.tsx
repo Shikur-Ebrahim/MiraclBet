@@ -229,7 +229,7 @@ export default function AdminTicketsPage() {
         padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '12px',
         position: 'sticky', top: 0, zIndex: 100, boxShadow: '0 1px 4px rgba(0,0,0,0.06)'
       }}>
-        <div onClick={() => window.history.back()} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px' }}>
+        <div onClick={() => { const u = localStorage.getItem('miraclbet_user'); const role = u ? JSON.parse(u).role : 'ADMIN'; window.location.href = role === 'WORKER' ? '/worker' : '/admin'; }} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px' }}>
           <svg viewBox="0 0 24 24" style={{ width: 18, height: 18, color: '#6B7280' }} fill="none" stroke="currentColor" strokeWidth="2.5">
             <polyline points="15 18 9 12 15 6" />
           </svg>

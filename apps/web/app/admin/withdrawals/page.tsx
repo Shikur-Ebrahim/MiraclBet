@@ -80,7 +80,7 @@ export default function AdminWithdrawalsPage() {
         padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '12px',
         position: 'sticky', top: 0, zIndex: 100,
       }}>
-        <button onClick={() => router.push('/admin')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
+        <button onClick={() => { const u = localStorage.getItem('miraclbet_user'); const role = u ? JSON.parse(u).role : 'ADMIN'; router.push(role === 'WORKER' ? '/worker' : '/admin'); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
           <svg viewBox="0 0 24 24" style={{ width: '24px', height: '24px', color: '#111827' }} fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M15 18l-6-6 6-6" />
           </svg>

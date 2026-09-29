@@ -240,6 +240,7 @@ export default function AdminManualBetPage() {
   const [savedTeams, setSavedTeams] = useState<Team[]>([]);
   const [tickets, setTickets] = useState<ManualTicket[]>([]);
   const [ticketsLoading, setTicketsLoading] = useState(false);
+  const [userRole, setUserRole] = useState('ADMIN');
 
   const fetchTickets = useCallback(async () => {
     setTicketsLoading(true);
@@ -255,7 +256,8 @@ export default function AdminManualBetPage() {
     const saved = localStorage.getItem('miraclbet_user');
     if (!saved) { router.push('/login'); return; }
     const u = JSON.parse(saved);
-    if (u.role !== 'ADMIN') { router.push('/'); return; }
+    if (u.role !== 'ADMIN' && !(u.role === 'WORKER' && (u.privileges || []).includes('manual-bet'))) { router.push('/worker'); return; }
+    setUserRole(u.role || 'ADMIN');
     fetch(`${API}/api/v1/admin/teams`).then(r => r.json()).then(d => setSavedTeams(d || []));
     fetchTickets();
   }, [router, fetchTickets]);
@@ -507,7 +509,7 @@ export default function AdminManualBetPage() {
 
         {/* Top bar */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-          <button onClick={() => router.push('/admin')} style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 8, color: '#4B5563', cursor: 'pointer', padding: '7px 9px', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+          <button onClick={() => router.push(userRole === 'WORKER' ? '/worker' : '/admin')} style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 8, color: '#4B5563', cursor: 'pointer', padding: '7px 9px', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
             <ArrowLeft size={18} />
           </button>
           <div style={{ flex: 1 }}>
