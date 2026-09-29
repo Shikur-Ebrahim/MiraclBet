@@ -27,7 +27,7 @@ export default function AdminDashboard() {
     const savedUser = localStorage.getItem('miraclbet_user');
     if (!savedUser) { router.push('/login'); return; }
     const parsed = JSON.parse(savedUser);
-    if (parsed.role !== 'ADMIN') { router.push('/'); return; }
+    if (parsed.role !== 'ADMIN') { if (parsed.role === 'WORKER') router.push('/worker'); else if (parsed.role === 'AGENT') router.push('/agent'); else router.push('/'); return; }
     setUser(parsed);
 
     // Fetch pending counts

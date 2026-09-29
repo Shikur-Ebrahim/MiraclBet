@@ -47,6 +47,8 @@ function LoginForm() {
         window.location.href = '/admin';
       } else if (data.user.role === 'WORKER') {
         window.location.href = '/worker';
+      } else if (data.user.role === 'AGENT') {
+        window.location.href = '/agent';
       } else {
         window.location.href = redirect ? redirect : '/';
       }

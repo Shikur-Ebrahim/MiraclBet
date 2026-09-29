@@ -104,6 +104,7 @@ func (h *BetsHandler) PlaceBet(w http.ResponseWriter, r *http.Request) {
 
 	// 1. Check user balance with a row-level lock
 	var currentBalance float64
+	var role string
 	err = tx.QueryRow(ctx,
 		"SELECT COALESCE(balance, 0) FROM users WHERE id = $1 FOR UPDATE",
 		req.UserID,
@@ -113,16 +114,18 @@ func (h *BetsHandler) PlaceBet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if currentBalance < req.Stake {
+	if role != "AGENT" && currentBalance < req.Stake {
 		h.respondError(w, http.StatusBadRequest, "Insufficient balance")
 		return
 	}
 
 	// 2. Deduct balance
-	_, err = tx.Exec(ctx,
-		"UPDATE users SET balance = balance - $1 WHERE id = $2",
-		req.Stake, req.UserID,
-	)
+	if role != "AGENT" {
+		_, err = tx.Exec(ctx,
+			"UPDATE users SET balance = balance - $1 WHERE id = $2",
+			req.Stake, req.UserID,
+		)
+	}
 	if err != nil {
 		h.respondError(w, http.StatusInternalServerError, "Failed to update balance")
 		return

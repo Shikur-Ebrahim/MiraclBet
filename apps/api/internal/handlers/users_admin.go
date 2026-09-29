@@ -136,8 +136,8 @@ func (h *UsersAdminHandler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid body", http.StatusBadRequest)
 		return
 	}
-	if req.Role != "USER" && req.Role != "ADMIN" && req.Role != "WORKER" {
-		http.Error(w, "Role must be USER, WORKER or ADMIN", http.StatusBadRequest)
+	if req.Role != "USER" && req.Role != "ADMIN" && req.Role != "WORKER" && req.Role != "AGENT" {
+		http.Error(w, "Role must be USER, WORKER, AGENT or ADMIN", http.StatusBadRequest)
 		return
 	}
 

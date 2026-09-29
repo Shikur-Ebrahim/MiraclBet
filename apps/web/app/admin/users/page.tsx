@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
-type Role = 'USER' | 'WORKER' | 'ADMIN';
+type Role = 'USER' | 'WORKER' | 'AGENT' | 'ADMIN';
 
 type User = {
   id: string;
@@ -27,9 +27,10 @@ const ROLE_CONFIG: Record<Role, { bg: string; text: string; border: string; avat
   USER:   { bg: '#EFF6FF', text: '#3B82F6', border: '#BFDBFE', avatarBg: '#EFF6FF', avatarText: '#3B82F6' },
   WORKER: { bg: '#F0FDF4', text: '#16A34A', border: '#BBF7D0', avatarBg: '#F0FDF4', avatarText: '#16A34A' },
   ADMIN:  { bg: '#FEF3C7', text: '#D97706', border: '#FDE68A', avatarBg: '#FEF3C7', avatarText: '#D97706' },
+  AGENT:  { bg: '#F3E8FF', text: '#9333EA', border: '#E9D5FF', avatarBg: '#F3E8FF', avatarText: '#9333EA' },
 };
 
-const ALL_ROLES: Role[] = ['USER', 'WORKER', 'ADMIN'];
+const ALL_ROLES: Role[] = ['USER', 'WORKER', 'AGENT', 'ADMIN'];
 
 function shortId(id: string) { return id.slice(-6).toUpperCase(); }
 function formatDate(d: string) {
@@ -220,7 +221,7 @@ export default function AdminUsersPage() {
 
           {/* Role filter */}
           <div style={{ display: 'flex', gap: '6px' }}>
-            {(['ALL', 'USER', 'WORKER', 'ADMIN'] as const).map(r => (
+            {(['ALL', 'USER', 'WORKER', 'AGENT', 'ADMIN'] as const).map(r => (
               <button key={r} onClick={() => setFilterRole(r)} style={{
                 flex: 1, padding: '7px 4px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
                 background: filterRole === r ? '#111827' : '#F1F5F9',
