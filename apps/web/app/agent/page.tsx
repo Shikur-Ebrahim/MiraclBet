@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import QRCode from 'react-qr-code';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
@@ -305,6 +306,11 @@ export default function AgentPage() {
 
             {/* Footer */}
             <div style={{ textAlign: 'center', marginTop: 24, paddingTop: 14, borderTop: '2px dashed #000', fontSize: 11 }}>
+              {placedTicketId && (
+                <div style={{ display: 'flex', justifyContent: 'center', margin: '16px 0' }}>
+                  <QRCode value={`https://www.miraclbet.com/check?code=TICKET-${placedTicketId.substring(0, 8).toUpperCase()}`} size={120} level="M" />
+                </div>
+              )}
               <div>Scan to check status online</div>
               <div style={{ fontWeight: 700, marginTop: 4 }}>www.miraclbet.com/check</div>
             </div>
