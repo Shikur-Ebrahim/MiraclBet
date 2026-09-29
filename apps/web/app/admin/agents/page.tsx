@@ -47,11 +47,12 @@ export default function AgentsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: phone.trim(), role: 'AGENT' }),
       });
-      const data = await res.json();
       if (!res.ok) {
-        setAddError(data || 'User not found. Check the phone number.');
+        const text = await res.text();
+        setAddError(text || 'User not found. Check the phone number.');
         return;
       }
+      const data = await res.json();
       setAddSuccess('Agent assigned successfully!');
       setPhone('');
       await fetchAgents();
