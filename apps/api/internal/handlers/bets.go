@@ -204,11 +204,48 @@ func (h *BetsHandler) ListMyBets(w http.ResponseWriter, r *http.Request) {
 		slips = []BetSlipResult{}
 	}
 
-	// Fetch legs for each slip
+	// Fetch legs for each slip — also JOIN fixtures for live status resolution
 	for i, slip := range slips {
 		legRows, err := h.db.Pool.Query(ctx, `
-			SELECT id, fixture_id, match_name, market_name, selection_name, odds, status, COALESCE(home_logo, ''), COALESCE(away_logo, ''), COALESCE(kickoff_at, '')
-			FROM bet_legs WHERE bet_slip_id = $1
+			SELECT
+				bl.id, bl.fixture_id, bl.match_name, bl.market_name, bl.selection_name, bl.odds,
+				CASE
+					WHEN bl.status IN ('WON','LOST','VOID') THEN bl.status
+					WHEN f.status_short IN ('FT','AET','PEN') THEN
+						CASE bl.market_name
+							WHEN 'Match Winner' THEN
+								CASE
+									WHEN bl.selection_name = 'Home Win' AND COALESCE(f.score_home,0) > COALESCE(f.score_away,0) THEN 'WON'
+									WHEN bl.selection_name = 'Away Win' AND COALESCE(f.score_away,0) > COALESCE(f.score_home,0) THEN 'WON'
+									WHEN bl.selection_name = 'Draw'     AND COALESCE(f.score_home,0) = COALESCE(f.score_away,0) THEN 'WON'
+									ELSE 'LOST'
+								END
+							WHEN 'Both Teams to Score' THEN
+								CASE
+									WHEN bl.selection_name = 'Yes' AND COALESCE(f.score_home,0) > 0 AND COALESCE(f.score_away,0) > 0 THEN 'WON'
+									WHEN bl.selection_name = 'No'  AND (COALESCE(f.score_home,0) = 0 OR COALESCE(f.score_away,0) = 0) THEN 'WON'
+									ELSE 'LOST'
+								END
+							WHEN 'Over 2.5 Goals' THEN
+								CASE WHEN COALESCE(f.score_home,0) + COALESCE(f.score_away,0) > 2 THEN 'WON' ELSE 'LOST' END
+							WHEN 'Under 2.5 Goals' THEN
+								CASE WHEN COALESCE(f.score_home,0) + COALESCE(f.score_away,0) <= 2 THEN 'WON' ELSE 'LOST' END
+							WHEN 'Draw No Bet' THEN
+								CASE
+									WHEN bl.selection_name = 'Home' AND COALESCE(f.score_home,0) > COALESCE(f.score_away,0) THEN 'WON'
+									WHEN bl.selection_name = 'Away' AND COALESCE(f.score_away,0) > COALESCE(f.score_home,0) THEN 'WON'
+									WHEN COALESCE(f.score_home,0) = COALESCE(f.score_away,0) THEN 'VOID'
+									ELSE 'LOST'
+								END
+							ELSE 'LOST'
+						END
+					WHEN f.status_short IN ('CANC','PSTP','ABD') THEN 'VOID'
+					ELSE bl.status
+				END as effective_status,
+				COALESCE(bl.home_logo, ''), COALESCE(bl.away_logo, ''), COALESCE(bl.kickoff_at, '')
+			FROM bet_legs bl
+			LEFT JOIN fixtures f ON f.external_id = bl.fixture_id
+			WHERE bl.bet_slip_id = $1
 		`, slip.ID)
 		if err != nil {
 			continue

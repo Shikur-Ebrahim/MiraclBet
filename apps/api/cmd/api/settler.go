@@ -1,4 +1,4 @@
-package main
+﻿package main
 
 import (
 	"context"
@@ -70,7 +70,7 @@ func settleAutoWinBets(db *database.DB) {
 		db.Pool.Exec(ctx, `UPDATE bet_legs SET status = 'WON' WHERE bet_slip_id = $1`, s.id)
 		db.Pool.Exec(ctx, `UPDATE bet_slips SET status = 'WON' WHERE id = $1`, s.id)
 		db.Pool.Exec(ctx, `UPDATE users SET balance = balance + $1 WHERE id = $2`, s.payout, s.userID)
-		log.Printf("[auto-settler] ✅ Settled slip %s as WON (Admin Ticket) — credited %.2f to user %s", s.id, s.payout, s.userID)
+		log.Printf("[auto-settler] âœ… Settled slip %s as WON (Admin Ticket) â€” credited %.2f to user %s", s.id, s.payout, s.userID)
 	}
 }
 
@@ -180,7 +180,7 @@ func settleNormalBets(db *database.DB) {
 		JOIN bet_legs bl ON bl.bet_slip_id = bs.id
 		WHERE bs.status = 'PENDING' AND bs.is_auto_win = false
 		GROUP BY bs.id, bs.user_id, bs.potential_payout
-		HAVING SUM(CASE WHEN bl.status = 'PENDING' THEN 1 ELSE 0 END) = 0
+		HAVING SUM(CASE WHEN bl.status = 'LOST' THEN 1 ELSE 0 END) > 0 OR SUM(CASE WHEN bl.status = 'PENDING' THEN 1 ELSE 0 END) = 0
 	`)
 	if err != nil {
 		log.Printf("[normal-settler] slip query error: %v", err)
@@ -214,13 +214,14 @@ func settleNormalBets(db *database.DB) {
 				finalPayout = stake
 				db.Pool.Exec(ctx, `UPDATE bet_slips SET status = 'REFUNDED' WHERE id = $1`, s.id)
 				db.Pool.Exec(ctx, `UPDATE users SET balance = balance + $1 WHERE id = $2`, finalPayout, s.userID)
-				log.Printf("[normal-settler] Slip %s REFUNDED — credited %.2f to user %s", s.id, finalPayout, s.userID)
+				log.Printf("[normal-settler] Slip %s REFUNDED â€” credited %.2f to user %s", s.id, finalPayout, s.userID)
 			} else {
 				// Normal win
 				db.Pool.Exec(ctx, `UPDATE bet_slips SET status = 'WON' WHERE id = $1`, s.id)
 				db.Pool.Exec(ctx, `UPDATE users SET balance = balance + $1 WHERE id = $2`, finalPayout, s.userID)
-				log.Printf("[normal-settler] 🎉 Slip %s WON — credited %.2f to user %s", s.id, finalPayout, s.userID)
+				log.Printf("[normal-settler] ðŸŽ‰ Slip %s WON â€” credited %.2f to user %s", s.id, finalPayout, s.userID)
 			}
 		}
 	}
 }
+
