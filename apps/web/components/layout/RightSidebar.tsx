@@ -118,6 +118,19 @@ export function RightSidebar() {
     if (!user) { setPlaceError('Please log in to place bets'); return; }
     const stakeNum = parseFloat(stake);
     if (!stakeNum || stakeNum < 1) { setPlaceError('Enter a valid stake (min 1 Br)'); return; }
+
+    // Frontend kickoff guard — block before even hitting the server
+    const now = Date.now();
+    for (const b of betslip) {
+      if (b.kickoffAt) {
+        const ko = new Date(b.kickoffAt).getTime();
+        if (now >= ko) {
+          setPlaceError(`"${b.matchName}" has already started. Remove it to continue.`);
+          return;
+        }
+      }
+    }
+
     setPlacing(true);
     try {
       const res = await fetch(`${API}/api/v1/bets`, {
@@ -126,9 +139,14 @@ export function RightSidebar() {
         body: JSON.stringify({
           user_id: user.id, stake: stakeNum, total_odds: totalOdds,
           selections: betslip.map(b => ({
-            matchName: b.matchName, marketName: b.marketName,
-            selectionName: b.selectionName, odds: b.odds,
-            homeLogo: b.homeLogo, awayLogo: b.awayLogo,
+            fixtureId:     b.fixtureId,
+            matchName:     b.matchName,
+            marketName:    b.marketName,
+            selectionName: b.selectionName,
+            odds:          b.odds,
+            homeLogo:      b.homeLogo,
+            awayLogo:      b.awayLogo,
+            kickoffAt:     b.kickoffAt,  // ← now sent to backend so server can double-check
           })),
         }),
       });
@@ -217,21 +235,33 @@ export function RightSidebar() {
                 {placeError && (
                   <div className="px-3 py-2.5 rounded-xl text-xs font-bold text-center" style={{ background: '#1A0506', color: '#EF4444', border: '1px solid #EF444444' }}>⚠️ {placeError}</div>
                 )}
-                {betslip.map((b, i) => (
-                  <div key={i} className="rounded-xl p-3 relative group" style={{ background: '#111F35', border: '1px solid rgba(255,255,255,0.08)' }}>
-                    <button onClick={() => removeBet(i)}
-                      className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                      style={{ background: '#EF4444', color: '#fff' }}>
-                      <svg viewBox="0 0 24 24" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="3"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                    </button>
-                    <div className="text-white/90 text-xs font-bold leading-tight mb-1 pr-5 truncate">{b.matchName}</div>
-                    <div className="text-white/50 text-[10px] mb-2">{b.marketName}</div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-lg" style={{ background: '#19E66B22', color: '#19E66B' }}>{b.selectionName}</span>
-                      <span className="text-sm font-black" style={{ color: '#F5A623' }}>{b.odds.toFixed(2)}</span>
+                {betslip.map((b, i) => {
+                  const hasStarted = b.kickoffAt ? Date.now() >= new Date(b.kickoffAt).getTime() : false;
+                  return (
+                    <div key={i} className="rounded-xl p-3 relative group" style={{
+                      background: hasStarted ? '#1A0A0A' : '#111F35',
+                      border: hasStarted ? '1px solid rgba(239,68,68,0.5)' : '1px solid rgba(255,255,255,0.08)'
+                    }}>
+                      <button onClick={() => removeBet(i)}
+                        className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        style={{ background: '#EF4444', color: '#fff' }}>
+                        <svg viewBox="0 0 24 24" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="3"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                      </button>
+                      {hasStarted && (
+                        <div className="flex items-center gap-1 mb-1.5 px-2 py-1 rounded-lg" style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)' }}>
+                          <svg viewBox="0 0 24 24" className="w-3 h-3 shrink-0" fill="none" stroke="#EF4444" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                          <span className="text-[9px] font-bold" style={{ color: '#EF4444' }}>MATCH STARTED — Remove to place bet</span>
+                        </div>
+                      )}
+                      <div className="text-white/90 text-xs font-bold leading-tight mb-1 pr-5 truncate">{b.matchName}</div>
+                      <div className="text-white/50 text-[10px] mb-2">{b.marketName}</div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-lg" style={{ background: hasStarted ? 'rgba(239,68,68,0.15)' : '#19E66B22', color: hasStarted ? '#EF4444' : '#19E66B' }}>{b.selectionName}</span>
+                        <span className="text-sm font-black" style={{ color: hasStarted ? '#9CA3AF' : '#F5A623' }}>{b.odds.toFixed(2)}</span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Stake + Place */}
@@ -263,15 +293,28 @@ export function RightSidebar() {
                 </div>
 
                 {/* Place bet */}
-                <button onClick={placeBet} disabled={placing || !stake}
-                  className="w-full py-3 rounded-xl text-sm font-black transition-all"
-                  style={{
-                    background: placing || !stake ? '#1A2535' : 'linear-gradient(135deg, #19E66B, #0DB857)',
-                    color: placing || !stake ? '#4B5563' : '#000',
-                    cursor: placing || !stake ? 'not-allowed' : 'pointer',
-                  }}>
-                  {placing ? '⏳ Placing...' : `PLACE BET · ${payout} Br`}
-                </button>
+                {(() => {
+                  const hasAnyStarted = betslip.some(b => b.kickoffAt && Date.now() >= new Date(b.kickoffAt).getTime());
+                  const disabled = placing || !stake || hasAnyStarted;
+                  return (
+                    <>
+                      {hasAnyStarted && (
+                        <div className="mb-2 px-3 py-2 rounded-xl text-[10px] font-bold text-center" style={{ background: 'rgba(239,68,68,0.12)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}>
+                          ⚠️ Remove started matches before placing a bet
+                        </div>
+                      )}
+                      <button onClick={placeBet} disabled={disabled}
+                        className="w-full py-3 rounded-xl text-sm font-black transition-all"
+                        style={{
+                          background: disabled ? '#1A2535' : 'linear-gradient(135deg, #19E66B, #0DB857)',
+                          color: disabled ? '#4B5563' : '#000',
+                          cursor: disabled ? 'not-allowed' : 'pointer',
+                        }}>
+                        {placing ? '⏳ Placing...' : hasAnyStarted ? '🚫 Contains Started Matches' : `PLACE BET · ${payout} Br`}
+                      </button>
+                    </>
+                  );
+                })()}
               </div>
             </>
           )}
