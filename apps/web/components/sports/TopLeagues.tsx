@@ -81,7 +81,7 @@ export function SportsNav({
             onTabChange?.('prematch');
             onOpenSidebar?.();
           }}
-          className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-colors"
+          className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-colors md:hidden"
           style={{ background: '#19E66B22', border: '1px solid #19E66B55', color: '#19E66B' }}
         >
           <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">

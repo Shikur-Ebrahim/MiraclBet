@@ -93,7 +93,7 @@ export function HomeSportsSection() {
   const handleLeaguesLoaded  = useCallback((list: LeagueItem[])  => setAllLeagues(list),   []);
 
   return (
-    <div>
+    <div className="flex flex-col md:flex-row min-h-[calc(100vh-60px)]">
       <Sidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
@@ -105,7 +105,8 @@ export function HomeSportsSection() {
         }}
       />
 
-      <SportsNav
+      <div className="flex-1 w-full min-w-0">
+        <SportsNav
         activeSport={activeSport}
         onSportChange={s => { setActiveSport(s); setSelectedCountry(null); setSelectedLeague(null); setSearchQuery(''); }}
         timeRange={timeRange}
@@ -300,9 +301,9 @@ export function HomeSportsSection() {
           filterCountry={selectedCountry?.country ?? undefined}
           filterSearch={searchQuery || undefined}
           onFixturesLoaded={handleFixturesLoaded}
-          onLeaguesLoaded={handleLeaguesLoaded}
-        />
+          />
       </section>
+      </div>
     </div>
   );
 }

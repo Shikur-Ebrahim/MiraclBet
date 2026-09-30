@@ -167,10 +167,10 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
 
   return (
     <>
-      {/* Backdrop overlay — only in DOM when open so it never blocks touches */}
+      {/* Backdrop overlay — only in DOM when open so it never blocks touches (mobile only) */}
       {isOpen && (
         <div 
-          className="fixed inset-0 bg-black/60 z-[45]"
+          className="fixed inset-0 bg-black/60 z-[45] md:hidden"
           onClick={onClose}
         />
       )}
@@ -178,7 +178,7 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
       {/* Sidebar drawer */}
       <div 
         className={clsx(
-          "fixed top-0 left-0 bottom-0 z-[55] w-[85vw] max-w-sm flex flex-col shadow-2xl transition-transform duration-300",
+          "fixed top-0 left-0 bottom-0 z-[55] w-[85vw] max-w-xs flex flex-col shadow-2xl transition-transform duration-300 md:relative md:w-64 md:translate-x-0 md:shadow-none",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
         style={{ background: '#072414' }}
@@ -191,7 +191,7 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
               <span className="text-white">Miracl</span>
               <span style={{ color: '#19E66B' }}>Bet</span>
             </div>
-            <button onClick={onClose} className="p-2 text-white hover:bg-white/10 rounded-full transition-colors">
+            <button onClick={onClose} className="p-2 text-white hover:bg-white/10 rounded-full transition-colors md:hidden">
               <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M18 6L6 18M6 6l12 12" />
               </svg>
