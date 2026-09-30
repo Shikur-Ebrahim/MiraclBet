@@ -128,7 +128,7 @@ function Sidebar({
   );
 }
 
-function PlaceBetView({ agent }: { agent: AgentSession }) {
+function PlaceBetView({ agent, onBetPlaced }: { agent: AgentSession; onBetPlaced: () => void }) {
   const [bookingCode, setBookingCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -179,6 +179,8 @@ function PlaceBetView({ agent }: { agent: AgentSession }) {
       }
       const data = await res.json();
       setPlacedTicketId(data.id || data.slip_id || booking.code);
+      // Auto-navigate to My Tickets after showing success briefly
+      setTimeout(() => onBetPlaced(), 1500);
     } catch { setError('Network error placing bet.'); }
     finally { setPlacing(false); }
   };
@@ -846,7 +848,7 @@ export default function AgentPage() {
 
         {/* Page content */}
         <div style={{ flex: 1, padding: '20px 16px' }}>
-          {activeView === 'place-bet' && <PlaceBetView agent={agent} />}
+          {activeView === 'place-bet' && <PlaceBetView agent={agent} onBetPlaced={() => setActiveView('my-tickets')} />}
           {activeView === 'my-tickets' && <MyTicketsView agent={agent} />}
         </div>
       </div>
