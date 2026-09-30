@@ -40,6 +40,7 @@ type AgentTicket = {
 type ActiveView = 'place-bet' | 'my-tickets';
 
 /* ─── Sidebar ─────────────────────────────────────────────── */
+/* ─── Sidebar ─────────────────────────────────────────────── */
 function Sidebar({
   active, onNav, agent, onLogout,
 }: {
@@ -98,7 +99,7 @@ function Sidebar({
               onClick={() => onNav(item.id)}
               style={{
                 width: '100%', display: 'flex', alignItems: 'center', gap: 12,
-                padding: '11px 14px', borderRadius: 10, border: 'none', marginBottom: 4,
+                padding: '13px 14px', borderRadius: 10, border: 'none', marginBottom: 4,
                 background: isActive ? '#F5A623' : 'transparent',
                 color: isActive ? '#111827' : '#9CA3AF',
                 fontWeight: isActive ? 800 : 600, fontSize: 14,
@@ -112,17 +113,9 @@ function Sidebar({
         })}
       </nav>
 
-      {/* Bottom: logout */}
+      {/* Logout */}
       <div style={{ padding: '16px 12px', borderTop: '1px solid #1F2937' }}>
-        <button
-          onClick={onLogout}
-          style={{
-            width: '100%', display: 'flex', alignItems: 'center', gap: 12,
-            padding: '11px 14px', borderRadius: 10, border: 'none',
-            background: 'transparent', color: '#EF4444', fontWeight: 700,
-            fontSize: 14, cursor: 'pointer', textAlign: 'left',
-          }}
-        >
+        <button onClick={onLogout} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 10, border: 'none', background: 'transparent', color: '#EF4444', fontWeight: 700, fontSize: 14, cursor: 'pointer', textAlign: 'left' }}>
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.2">
             <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
             <polyline points="16 17 21 12 16 7" />
@@ -135,7 +128,6 @@ function Sidebar({
   );
 }
 
-/* ─── Place Bet View ──────────────────────────────────────── */
 function PlaceBetView({ agent }: { agent: AgentSession }) {
   const [bookingCode, setBookingCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -623,10 +615,12 @@ function MyTicketsView({ agent }: { agent: AgentSession }) {
 }
 
 /* ─── Main Agent Page ────────────────────────────────────── */
+/* ─── Main Agent Page ────────────────────────────────────── */
 export default function AgentPage() {
   const router = useRouter();
   const [agent, setAgent] = useState<AgentSession | null>(null);
   const [activeView, setActiveView] = useState<ActiveView>('place-bet');
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('miraclbet_user');
@@ -641,42 +635,119 @@ export default function AgentPage() {
     router.push('/login');
   };
 
+  const handleNav = (view: ActiveView) => {
+    setActiveView(view);
+    setDrawerOpen(false); // auto-close drawer on mobile
+  };
+
   if (!agent) return null;
+
+  const pageTitle = activeView === 'place-bet' ? '🖨️ Place Bet & Print' : '🎟️ My Tickets';
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#F3F4F6', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-      {/* Sidebar */}
-      <div className="no-print">
-        <Sidebar active={activeView} onNav={setActiveView} agent={agent} onLogout={handleLogout} />
+
+      {/* ── Desktop permanent sidebar ── */}
+      <div className="no-print agent-sidebar-desktop">
+        <Sidebar active={activeView} onNav={handleNav} agent={agent} onLogout={handleLogout} />
       </div>
 
-      {/* Main content area */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
-        {/* Top header bar */}
-        <div className="no-print" style={{ background: '#fff', borderBottom: '1px solid #E5E7EB', padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1 style={{ margin: 0, fontSize: 17, fontWeight: 900, color: '#111827' }}>
-            {activeView === 'place-bet' ? '🖨️ Place Bet & Print Ticket' : '🎟️ My Tickets'}
+      {/* ── Mobile: blur backdrop ── */}
+      {drawerOpen && (
+        <div
+          onClick={() => setDrawerOpen(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 40, backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)' }}
+        />
+      )}
+
+      {/* ── Mobile: slide-in drawer ── */}
+      <div
+        className="no-print agent-sidebar-mobile"
+        style={{
+          position: 'fixed', top: 0, left: 0, height: '100vh', zIndex: 50,
+          transform: drawerOpen ? 'translateX(0)' : 'translateX(-260px)',
+          transition: 'transform 0.28s cubic-bezier(0.4,0,0.2,1)',
+          boxShadow: drawerOpen ? '6px 0 40px rgba(0,0,0,0.4)' : 'none',
+        }}
+      >
+        {/* Close button */}
+        {drawerOpen && (
+          <button
+            onClick={() => setDrawerOpen(false)}
+            style={{ position: 'absolute', top: 12, right: -44, background: '#374151', border: 'none', borderRadius: '50%', width: 36, height: 36, color: '#fff', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60, boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}
+            aria-label="Close menu"
+          >
+            ✕
+          </button>
+        )}
+        <Sidebar active={activeView} onNav={handleNav} agent={agent} onLogout={handleLogout} />
+      </div>
+
+      {/* ── Main content area ── */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto', minWidth: 0 }}>
+
+        {/* Sticky top navbar */}
+        <div className="no-print" style={{
+          background: '#111827', borderBottom: '1px solid #1F2937',
+          padding: '0 16px', display: 'flex', alignItems: 'center',
+          gap: 10, height: 56, position: 'sticky', top: 0, zIndex: 30,
+        }}>
+          {/* Hamburger — mobile only */}
+          <button
+            className="agent-hamburger"
+            onClick={() => setDrawerOpen(true)}
+            aria-label="Open menu"
+            style={{ background: 'rgba(255,255,255,0.08)', border: 'none', cursor: 'pointer', padding: '8px 9px', borderRadius: 8, flexDirection: 'column', gap: 5, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <span style={{ display: 'block', width: 20, height: 2, background: '#fff', borderRadius: 2 }} />
+            <span style={{ display: 'block', width: 20, height: 2, background: '#fff', borderRadius: 2 }} />
+            <span style={{ display: 'block', width: 14, height: 2, background: '#F5A623', borderRadius: 2 }} />
+          </button>
+
+          {/* Mobile logo */}
+          <div className="agent-mobile-logo" style={{ fontWeight: 900, fontSize: 16, color: '#fff', flexShrink: 0 }}>
+            Miracl<span style={{ color: '#F5A623' }}>Bet</span>
+            <span style={{ marginLeft: 5, background: '#F5A623', color: '#111827', padding: '1px 5px', borderRadius: 4, fontSize: 8, fontWeight: 900, verticalAlign: 'middle' }}>AGENT</span>
+          </div>
+
+          <h1 style={{ margin: 0, flex: 1, fontSize: 14, fontWeight: 800, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {pageTitle}
           </h1>
-          <div style={{ fontSize: 12, color: '#6B7280', background: '#F3F4F6', padding: '6px 12px', borderRadius: 8, fontWeight: 600 }}>
-            Agent: {agent.phone}
+
+          <div style={{ fontSize: 11, color: '#9CA3AF', background: '#1F2937', padding: '5px 10px', borderRadius: 8, fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>
+            {agent.phone}
           </div>
         </div>
 
         {/* Page content */}
-        <div style={{ flex: 1, padding: '24px' }}>
+        <div style={{ flex: 1, padding: '20px 16px' }}>
           {activeView === 'place-bet' && <PlaceBetView agent={agent} />}
           {activeView === 'my-tickets' && <MyTicketsView agent={agent} />}
         </div>
       </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
+        /* ≥768px desktop: permanent sidebar, hide mobile UI */
+        @media (min-width: 768px) {
+          .agent-sidebar-desktop { display: block !important; }
+          .agent-sidebar-mobile  { display: none   !important; }
+          .agent-hamburger       { display: none   !important; }
+          .agent-mobile-logo     { display: none   !important; }
+        }
+        /* <768px mobile: slide drawer, hamburger visible */
+        @media (max-width: 767px) {
+          .agent-sidebar-desktop { display: none  !important; }
+          .agent-sidebar-mobile  { display: block !important; }
+          .agent-hamburger       { display: flex  !important; }
+          .agent-mobile-logo     { display: block !important; }
+        }
         @media print {
           .no-print { display: none !important; }
           body * { visibility: hidden; }
           .print-receipt, .print-receipt * { visibility: visible; }
           .print-receipt { position: fixed; left: 0; top: 0; width: 80mm; padding: 10px; box-shadow: none !important; }
         }
-      ` }} />
+      `}} />
     </div>
   );
 }
