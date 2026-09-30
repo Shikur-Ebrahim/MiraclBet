@@ -178,18 +178,21 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
       {/* Sidebar drawer */}
       <div 
         className={clsx(
-          "fixed top-0 left-0 bottom-0 z-[55] w-[85vw] max-w-xs flex flex-col shadow-2xl transition-transform duration-300 md:relative md:w-64 md:translate-x-0 md:shadow-none",
+          "fixed top-0 left-0 bottom-0 z-[55] w-[85vw] max-w-xs flex flex-col shadow-2xl transition-transform duration-300 md:sticky md:top-0 md:h-screen md:translate-x-0 md:shadow-none md:w-64",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
         style={{ background: '#072414' }}
       >
         {/* ── STICKY HEADER ── */}
-        <div className="shrink-0 pt-4 px-4 pb-2 z-10" style={{ background: '#072414' }}>
+        <div className="shrink-0 pt-4 px-4 pb-3 z-10" style={{ background: '#072414', borderBottom: '1px solid rgba(25,230,107,0.15)' }}>
           {/* Header */}
-          <div className="flex items-center justify-between mb-5">
-            <div className="text-2xl font-bold tracking-tight">
-              <span className="text-white">Miracl</span>
-              <span style={{ color: '#19E66B' }}>Bet</span>
+          <div className="flex items-center justify-between mb-1">
+            <div>
+              <div className="text-2xl font-black tracking-tight">
+                <span className="text-white">Miracl</span>
+                <span style={{ color: '#19E66B' }}>Bet</span>
+              </div>
+              <div className="text-[10px] text-white/30 font-semibold tracking-widest uppercase mt-0.5">Bet · Win · Repeat</div>
             </div>
             <button onClick={onClose} className="p-2 text-white hover:bg-white/10 rounded-full transition-colors md:hidden">
               <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2">
@@ -267,7 +270,7 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
         </div>
 
         {/* ── SCROLLABLE LIST ── */}
-        <div className="flex-1 overflow-y-auto px-4 pb-24 pt-2">
+        <div className="flex-1 overflow-y-auto px-4 pb-24 md:pb-[54px] pt-2">
           {/* ── TOP LEAGUES SECTION ── */}
         <div className="mb-3">
           <button
