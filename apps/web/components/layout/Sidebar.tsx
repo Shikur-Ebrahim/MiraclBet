@@ -178,7 +178,7 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
       {/* Sidebar drawer */}
       <div 
         className={clsx(
-          "fixed top-0 left-0 bottom-0 z-[55] w-[85vw] max-w-xs flex flex-col shadow-2xl transition-transform duration-300 md:fixed md:top-[56px] md:left-0 md:bottom-[54px] md:z-[35] md:translate-x-0 md:shadow-2xl md:w-64",
+          "fixed top-0 left-0 bottom-0 z-[55] w-[85vw] max-w-xs flex flex-col shadow-2xl transition-transform duration-300 md:fixed md:top-[56px] md:left-0 md:bottom-0 md:z-[35] md:translate-x-0 md:shadow-2xl md:w-64",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
         style={{ background: '#072414' }}
@@ -270,7 +270,7 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
         </div>
 
         {/* ── SCROLLABLE LIST ── */}
-        <div className="flex-1 overflow-y-auto px-4 pb-24 md:pb-[54px] pt-2">
+        <div className="flex-1 overflow-y-auto px-4 pb-24 md:pb-6 pt-2">
           {/* ── TOP LEAGUES SECTION ── */}
         <div className="mb-3">
           <button

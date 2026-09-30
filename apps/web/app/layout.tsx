@@ -4,6 +4,7 @@ import './globals.css';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { BottomNav } from '@/components/layout/BottomNav';
+import { RightSidebar } from '@/components/layout/RightSidebar';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
@@ -24,8 +25,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={inter.variable}>
       <body className="min-h-screen flex flex-col bg-dark text-white">
         <Header />
-        <main className="flex-1 md:pl-64">{children}</main>
+        <main className="flex-1 md:pl-64 md:pr-[280px]">{children}</main>
         <Footer />
+        <RightSidebar />
         <BottomNav />
       </body>
     </html>
