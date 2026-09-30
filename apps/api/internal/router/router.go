@@ -25,6 +25,7 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service) http.Handle
 
 	fixturesHandler := handlers.NewFixturesHandler(db, cfg)
 	metaHandler := handlers.NewMetaHandler(db)
+	chatHandler := handlers.NewChatHandler(cfg)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -38,6 +39,7 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service) http.Handle
 		r.Get("/meta/sports", metaHandler.GetSports)
 		r.Get("/meta/leagues/top", metaHandler.GetTopLeagues)
 		r.Get("/meta/leagues", metaHandler.GetLeagues)
+		r.Post("/chat", chatHandler.HandleChat)
 
 		authHandler := handlers.NewAuthHandler(db)
 		r.Post("/auth/login", authHandler.Login)

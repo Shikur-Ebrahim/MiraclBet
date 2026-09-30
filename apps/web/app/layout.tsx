@@ -6,6 +6,7 @@ import { Footer } from '@/components/layout/Footer';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { RightSidebar } from '@/components/layout/RightSidebar';
 import { DesktopSidebar } from '@/components/layout/DesktopSidebar';
+import { AiAssistant } from '@/components/layout/AiAssistant';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <RightSidebar />
         <DesktopSidebar />
         <BottomNav />
+        <AiAssistant />
       </body>
     </html>
   );

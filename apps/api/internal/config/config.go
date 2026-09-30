@@ -33,6 +33,8 @@ type Config struct {
     R2SecretAccessKey string
     R2BucketName     string
     R2PublicURL      string
+
+    GroqAPIKey string
 }
 
 func Load() (*Config, error) {
@@ -65,6 +67,8 @@ func Load() (*Config, error) {
         R2SecretAccessKey: getEnv("R2_SECRET_ACCESS_KEY", ""),
         R2BucketName:      getEnv("R2_BUCKET_NAME", ""),
         R2PublicURL:       getEnv("R2_PUBLIC_URL", ""),
+
+        GroqAPIKey: getEnv("GROQ_API_KEY", ""),
     }
 
     if cfg.DatabaseURL == "" {
