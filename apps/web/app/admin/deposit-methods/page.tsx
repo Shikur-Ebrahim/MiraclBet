@@ -11,6 +11,7 @@ type PaymentMethod = {
   account_number: string;
   logo_url: string | null;
   is_active: boolean;
+  min_deposit: number;
 };
 
 const providers = [
@@ -38,8 +39,14 @@ export default function DepositMethodsAdmin() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [accountName, setAccountName] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
+  const [minDepositInput, setMinDepositInput] = useState('450');
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+
+  // Inline min deposit editing state
+  const [editingMinId, setEditingMinId] = useState<string | null>(null);
+  const [editingMinValue, setEditingMinValue] = useState('');
+  const [savingMin, setSavingMin] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -78,6 +85,7 @@ export default function DepositMethodsAdmin() {
     formData.append('provider_name', providerName);
     formData.append('account_name', accountName);
     formData.append('account_number', accountNumber);
+    formData.append('min_deposit', minDepositInput || '450');
     if (logoFile) {
       formData.append('logo', logoFile);
     }
@@ -94,6 +102,7 @@ export default function DepositMethodsAdmin() {
       setProviderName(providers[0]);
       setAccountName('');
       setAccountNumber('');
+      setMinDepositInput('450');
       setLogoFile(null);
       setLogoPreview(null);
       
@@ -127,6 +136,25 @@ export default function DepositMethodsAdmin() {
       fetchMethods();
     } catch (err) {
       console.error('Failed to update status', err);
+    }
+  };
+
+  const updateMinDeposit = async (id: string) => {
+    const val = parseFloat(editingMinValue);
+    if (!val || val <= 0) return;
+    setSavingMin(true);
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/payment-methods/${id}/min-deposit`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ min_deposit: val }),
+      });
+      setEditingMinId(null);
+      fetchMethods();
+    } catch (err) {
+      console.error('Failed to update min deposit', err);
+    } finally {
+      setSavingMin(false);
     }
   };
 
@@ -212,6 +240,49 @@ export default function DepositMethodsAdmin() {
                   </div>
                   <div style={{ fontSize: '14px', fontWeight: 700, color: '#374151', marginTop: '2px' }}>
                     {method.account_number}
+                  </div>
+                  {/* Min Deposit row */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}>
+                    {editingMinId === method.id ? (
+                      <>
+                        <input
+                          type="number"
+                          value={editingMinValue}
+                          onChange={e => setEditingMinValue(e.target.value)}
+                          autoFocus
+                          style={{
+                            width: '90px', padding: '4px 8px', fontSize: '13px', fontWeight: 700,
+                            border: '1.5px solid #16A34A', borderRadius: '6px', outline: 'none',
+                            color: '#111827', background: '#F0FDF4',
+                          }}
+                        />
+                        <span style={{ fontSize: '12px', color: '#374151', fontWeight: 600 }}>Br</span>
+                        <button
+                          onClick={() => updateMinDeposit(method.id)}
+                          disabled={savingMin}
+                          style={{ padding: '4px 10px', fontSize: '12px', fontWeight: 700, borderRadius: '6px', border: 'none', cursor: 'pointer', background: '#16A34A', color: '#fff' }}
+                        >
+                          {savingMin ? '...' : 'Save'}
+                        </button>
+                        <button
+                          onClick={() => setEditingMinId(null)}
+                          style={{ padding: '4px 8px', fontSize: '12px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: '#F3F4F6', color: '#6B7280' }}
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span style={{ fontSize: '12px', fontWeight: 600, color: '#6B7280' }}>Min deposit:</span>
+                        <span style={{ fontSize: '13px', fontWeight: 800, color: '#16A34A' }}>{method.min_deposit?.toLocaleString() ?? 450} Br</span>
+                        <button
+                          onClick={() => { setEditingMinId(method.id); setEditingMinValue(String(method.min_deposit ?? 450)); }}
+                          style={{ padding: '2px 8px', fontSize: '11px', fontWeight: 600, borderRadius: '5px', border: '1px solid #D1D5DB', cursor: 'pointer', background: '#fff', color: '#374151' }}
+                        >
+                          Edit
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -324,6 +395,21 @@ export default function DepositMethodsAdmin() {
                   placeholder="e.g. 1000123456789 or 0911223344"
                   style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #D1D5DB', background: '#FFFFFF', fontSize: '15px', color: '#111827', outline: 'none' }}
                 />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>
+                  Minimum Deposit Amount (Br)
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="number" value={minDepositInput} onChange={e => setMinDepositInput(e.target.value)}
+                    min="1" placeholder="450"
+                    style={{ width: '100%', padding: '12px 40px 12px 12px', borderRadius: '10px', border: '1.5px solid #16A34A', background: '#F0FDF4', fontSize: '15px', fontWeight: 700, color: '#111827', outline: 'none' }}
+                  />
+                  <span style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', fontSize: '13px', fontWeight: 700, color: '#6B7280' }}>Br</span>
+                </div>
+                <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#9CA3AF' }}>Users cannot deposit less than this amount. Default: 450 Br</p>
               </div>
 
               <div>

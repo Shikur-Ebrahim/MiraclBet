@@ -94,6 +94,7 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service) http.Handle
 			r.Post("/payment-methods", paymentMethodsHandler.Create)
 			r.Delete("/payment-methods/{id}", paymentMethodsHandler.Delete)
 			r.Put("/payment-methods/{id}/status", paymentMethodsHandler.UpdateStatus)
+					r.Patch("/payment-methods/{id}/min-deposit", paymentMethodsHandler.UpdateMinDeposit)
 
 			r.Get("/withdrawal-methods", withdrawalMethodsHandler.List)
 			r.Post("/withdrawal-methods", withdrawalMethodsHandler.Create)
