@@ -158,21 +158,13 @@ function SelectPicker({ label, value, options, onChange }: { label: string; valu
 /* ─── Ticket Card ───────────────────────────────────────── */
 function TicketCard({ ticket }: { ticket: ManualTicket }) {
   const [copied, setCopied] = useState(false);
+  const [, setTick] = useState(0); // forces re-render every second
 
-  const lastKickoff = ticket.selections.reduce((max, s) => {
-    const t = s.kickoffAt ? new Date(s.kickoffAt).getTime() : 0;
-    return t > max ? t : max;
-  }, 0);
-  const settlesAt = lastKickoff + 105 * 60 * 1000;
-  const now = Date.now();
-  const isFinished = now >= settlesAt;
-  const isActive = lastKickoff > 0 && now >= lastKickoff && !isFinished;
-  const isPending = lastKickoff > 0 && now < lastKickoff;
-
-  const statusLabel = isFinished ? 'SETTLED ✓' : isActive ? 'LIVE ⚡' : isPending ? 'SCHEDULED' : '—';
-  const statusColor = isFinished ? '#059669' : isActive ? '#EF4444' : '#D97706';
-  const statusBg = isFinished ? '#F0FDF4' : isActive ? '#FEF2F2' : '#FFFBEB';
-  const statusBorder = isFinished ? '#A7F3D0' : isActive ? '#FECACA' : '#FDE68A';
+  // Re-render every second so statuses update live
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const copy = () => {
     navigator.clipboard.writeText(ticket.code);
@@ -180,47 +172,121 @@ function TicketCard({ ticket }: { ticket: ManualTicket }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const now = Date.now();
+  const MATCH_DURATION_MS = 105 * 60 * 1000; // 105 min including extra time
+
+  // Per-leg status
+  const legStatuses = ticket.selections.map(s => {
+    if (!s.kickoffAt) return 'PENDING';
+    const ko = new Date(s.kickoffAt).getTime();
+    const ends = ko + MATCH_DURATION_MS;
+    if (now >= ends) return 'WON';
+    if (now >= ko)   return 'LIVE';
+    return 'PENDING';
+  });
+
+  // Overall ticket status
+  const allWon     = legStatuses.every(st => st === 'WON');
+  const anyLive    = legStatuses.some(st => st === 'LIVE');
+  const allPending = legStatuses.every(st => st === 'PENDING');
+
+  const ticketStatus = allWon ? 'WON' : anyLive ? 'LIVE' : allPending ? 'PENDING' : 'IN PROGRESS';
+  const statusColor  = allWon ? '#059669' : anyLive ? '#EF4444' : '#D97706';
+  const statusBg     = allWon ? '#F0FDF4' : anyLive ? '#FEF2F2' : '#FFFBEB';
+  const statusBorder = allWon ? '#A7F3D0' : anyLive ? '#FECACA' : '#FDE68A';
+  const statusIcon   = allWon ? '✅' : anyLive ? '⚡' : '⏳';
+
+  // Progress count
+  const wonCount  = legStatuses.filter(st => st === 'WON').length;
+  const liveCount = legStatuses.filter(st => st === 'LIVE').length;
+  const total     = legStatuses.length;
+
+  const LEG_CFG = {
+    WON:     { bg: '#F0FDF4', border: '#A7F3D0', color: '#059669', icon: '✅', label: 'WON' },
+    LIVE:    { bg: '#FEF2F2', border: '#FECACA', color: '#EF4444', icon: '⚡ LIVE', label: 'LIVE' },
+    PENDING: { bg: '#F9FAFB', border: '#E5E7EB', color: '#9CA3AF', icon: '⏳', label: 'PENDING' },
+  };
+
   return (
-    <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #E5E7EB', marginBottom: 14, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+    <div style={{ background: '#fff', borderRadius: 14, border: '1.5px solid #E5E7EB', marginBottom: 14, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+
       {/* Ticket header */}
       <div style={{ padding: '12px 14px', background: '#F9FAFB', borderBottom: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Ticket size={15} style={{ color: '#6B7280' }} />
-          <span style={{ fontFamily: 'monospace', fontSize: 18, fontWeight: 900, color: '#047857', letterSpacing: 3 }}>{ticket.code}</span>
+          <span style={{ fontFamily: 'monospace', fontSize: 16, fontWeight: 900, color: '#047857', letterSpacing: 2 }}>{ticket.code}</span>
+          {/* Progress pill */}
+          <span style={{ fontSize: 11, fontWeight: 800, color: '#6B7280', background: '#F3F4F6', padding: '2px 8px', borderRadius: 20 }}>
+            {wonCount}/{total} done
+          </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 20, background: statusBg, color: statusColor, border: `1px solid ${statusBorder}` }}>{statusLabel}</span>
+          <span style={{ fontSize: 12, fontWeight: 800, padding: '4px 12px', borderRadius: 20, background: statusBg, color: statusColor, border: `1.5px solid ${statusBorder}`, display: 'flex', alignItems: 'center', gap: 5 }}>
+            {statusIcon} {ticketStatus}
+          </span>
           <button onClick={copy} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', background: copied ? '#059669' : '#111827', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
             {copied ? <><Check size={12} /> Copied!</> : <><Copy size={12} /> Copy</>}
           </button>
         </div>
       </div>
 
-      {/* Matches */}
+      {/* Progress bar */}
+      <div style={{ height: 4, background: '#F3F4F6', position: 'relative' }}>
+        <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${(wonCount / Math.max(total, 1)) * 100}%`, background: allWon ? '#059669' : '#F5A623', transition: 'width 1s ease', borderRadius: '0 4px 4px 0' }} />
+      </div>
+
+      {/* Legs */}
       <div style={{ padding: '10px 14px' }}>
-        {ticket.selections.map((s, si) => (
-          <div key={si} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: si < ticket.selections.length - 1 ? '1px dashed #F3F4F6' : 'none' }}>
-            <span style={{ fontSize: 11, background: '#F3F4F6', color: '#6B7280', padding: '2px 7px', borderRadius: 5, fontWeight: 700, flexShrink: 0 }}>{si + 1}</span>
-            {s.homeLogo && <img src={s.homeLogo} width={22} height={22} alt="" style={{ objectFit: 'contain' }} />}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.matchName || 'Match'}</div>
-              <div style={{ fontSize: 11, color: '#6B7280' }}>{s.selectionName} · {s.marketName}</div>
+        {ticket.selections.map((s, si) => {
+          const st = legStatuses[si];
+          const cfg = LEG_CFG[st as keyof typeof LEG_CFG] || LEG_CFG.PENDING;
+          const ko = s.kickoffAt ? new Date(s.kickoffAt) : null;
+          const ends = ko ? new Date(ko.getTime() + MATCH_DURATION_MS) : null;
+
+          return (
+            <div key={si} style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '10px 10px', borderRadius: 10, marginBottom: si < ticket.selections.length - 1 ? 6 : 0,
+              background: cfg.bg, border: `1px solid ${cfg.border}`,
+              transition: 'background 0.5s, border 0.5s',
+            }}>
+              {/* Leg number */}
+              <span style={{ fontSize: 11, background: cfg.color, color: '#fff', padding: '2px 8px', borderRadius: 5, fontWeight: 800, flexShrink: 0, minWidth: 22, textAlign: 'center' }}>{si + 1}</span>
+
+              {/* Home logo */}
+              {s.homeLogo && <img src={s.homeLogo} width={22} height={22} alt="" style={{ objectFit: 'contain', flexShrink: 0 }} />}
+
+              {/* Match info */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.matchName || 'Match'}</div>
+                <div style={{ fontSize: 11, color: '#6B7280' }}>{s.selectionName} · {s.marketName}</div>
+                {ko && (
+                  <div style={{ fontSize: 10, color: cfg.color, fontWeight: 700, marginTop: 2 }}>
+                    {st === 'PENDING' ? `Kicks off: ${ko.toLocaleString()}` : st === 'LIVE' ? `⚡ Live — ends ~${ends?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : `Finished: ${ends?.toLocaleString()}`}
+                  </div>
+                )}
+              </div>
+
+              {/* Away logo */}
+              {s.awayLogo && <img src={s.awayLogo} width={22} height={22} alt="" style={{ objectFit: 'contain', flexShrink: 0 }} />}
+
+              {/* Odds + status */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
+                <span style={{ fontSize: 13, fontWeight: 900, color: '#047857' }}>{s.odds?.toFixed(2)}</span>
+                <span style={{ fontSize: 10, fontWeight: 800, color: cfg.color }}>{cfg.icon}</span>
+              </div>
             </div>
-            {s.awayLogo && <img src={s.awayLogo} width={22} height={22} alt="" style={{ objectFit: 'contain' }} />}
-            <span style={{ fontSize: 13, fontWeight: 900, color: '#047857', flexShrink: 0 }}>{s.odds?.toFixed(2)}</span>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Footer */}
-      <div style={{ padding: '8px 14px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #F3F4F6' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <Clock size={12} style={{ color: '#9CA3AF' }} />
-          <span style={{ fontSize: 11, color: '#9CA3AF' }}>
-            {isFinished ? 'Settled' : 'Settles'}: {settlesAt ? new Date(settlesAt).toLocaleString() : '—'}
-          </span>
+      <div style={{ padding: '8px 14px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #F3F4F6' }}>
+        <div style={{ fontSize: 12, color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Clock size={12} />
+          {allWon ? '🎉 All matches settled — Ticket WON!' : liveCount > 0 ? `${liveCount} match${liveCount > 1 ? 'es' : ''} live now` : `${wonCount} of ${total} matches done`}
         </div>
-        <span style={{ fontSize: 13, fontWeight: 900, color: '#047857' }}>{ticket.total_odds.toFixed(2)}x</span>
+        <span style={{ fontSize: 14, fontWeight: 900, color: '#047857' }}>{ticket.total_odds.toFixed(2)}x</span>
       </div>
     </div>
   );
