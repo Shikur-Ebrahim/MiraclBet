@@ -645,7 +645,7 @@ export default function AgentPage() {
   const pageTitle = activeView === 'place-bet' ? '🖨️ Place Bet & Print' : '🎟️ My Tickets';
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#F3F4F6', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: '#F3F4F6', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
 
       {/* ── Desktop permanent sidebar ── */}
       <div className="no-print agent-sidebar-desktop">
@@ -729,7 +729,7 @@ export default function AgentPage() {
       <style dangerouslySetInnerHTML={{ __html: `
         /* ≥768px desktop: permanent sidebar, hide mobile UI */
         @media (min-width: 768px) {
-          .agent-sidebar-desktop { display: block !important; }
+          .agent-sidebar-desktop { display: block !important; height: 100%; flex-shrink: 0; }
           .agent-sidebar-mobile  { display: none   !important; }
           .agent-hamburger       { display: none   !important; }
           .agent-mobile-logo     { display: none   !important; }
