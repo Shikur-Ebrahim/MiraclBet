@@ -227,8 +227,8 @@ export function RightSidebar() {
             </div>
           ) : (
             <>
-              {/* Selections */}
-              <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2">
+              {/* Selections — capped scroll so buttons below are always visible */}
+              <div className="overflow-y-auto px-3 py-2 space-y-2" style={{ maxHeight: 'calc(100vh - 56px - 48px - 240px)' }}>
                 {placedMsg && (
                   <div className="px-3 py-2.5 rounded-xl text-xs font-bold text-center" style={{ background: '#052E16', color: '#19E66B', border: '1px solid #19E66B44' }}>{placedMsg}</div>
                 )}
@@ -264,53 +264,93 @@ export function RightSidebar() {
                 })}
               </div>
 
-              {/* Stake + Place */}
-              <div className="shrink-0 px-3 py-3 border-t" style={{ borderColor: 'rgba(255,255,255,0.07)', background: '#060F1E' }}>
+              {/* ── BOTTOM ACTION PANEL — always pinned at bottom, never hidden ── */}
+              <div className="shrink-0 mt-auto px-3 py-3 border-t" style={{ borderColor: 'rgba(255,255,255,0.07)', background: '#060F1E' }}>
                 {/* Summary */}
-                <div className="flex justify-between text-xs text-white/50 mb-2">
+                <div className="flex justify-between text-xs text-white/50 mb-1.5">
                   <span>{betslip.length} selection{betslip.length !== 1 ? 's' : ''}</span>
                   <span>Total odds: <strong className="text-white">{totalOdds.toFixed(2)}</strong></span>
                 </div>
 
-                {/* Clear */}
-                <button onClick={clearAll} className="w-full text-xs text-white/30 hover:text-red-400 transition-colors text-right mb-2">Clear all</button>
+                <button onClick={clearAll} className="w-full text-[10px] text-white/30 hover:text-red-400 transition-colors text-right mb-2">Clear all</button>
 
                 {/* Stake input */}
                 <div className="relative mb-2">
                   <input
                     type="number" value={stake} onChange={e => setStake(e.target.value)}
                     placeholder="Stake amount (Br)"
-                    className="w-full rounded-xl px-4 py-3 text-white text-sm font-bold outline-none"
+                    className="w-full rounded-xl px-4 py-2.5 text-white text-sm font-bold outline-none"
                     style={{ background: '#111F35', border: '1.5px solid rgba(25,230,107,0.35)', caretColor: '#19E66B' }}
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-white/30">Br</span>
                 </div>
 
                 {/* Payout */}
-                <div className="flex justify-between items-center mb-3 px-1">
+                <div className="flex justify-between items-center mb-2 px-1">
                   <span className="text-xs text-white/40">Potential Win:</span>
-                  <span className="text-base font-black" style={{ color: '#19E66B' }}>{payout} Br</span>
+                  <span className="text-sm font-black" style={{ color: '#19E66B' }}>{payout} Br</span>
                 </div>
 
-                {/* Place bet */}
+                {/* Place Bet + Generate Code — BOTH always visible */}
                 {(() => {
                   const hasAnyStarted = betslip.some(b => b.kickoffAt && Date.now() >= new Date(b.kickoffAt).getTime());
                   const disabled = placing || !stake || hasAnyStarted;
                   return (
                     <>
                       {hasAnyStarted && (
-                        <div className="mb-2 px-3 py-2 rounded-xl text-[10px] font-bold text-center" style={{ background: 'rgba(239,68,68,0.12)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}>
+                        <div className="mb-2 px-3 py-1.5 rounded-xl text-[10px] font-bold text-center" style={{ background: 'rgba(239,68,68,0.12)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}>
                           ⚠️ Remove started matches before placing a bet
                         </div>
                       )}
+                      {/* PLACE BET button */}
                       <button onClick={placeBet} disabled={disabled}
-                        className="w-full py-3 rounded-xl text-sm font-black transition-all"
+                        className="w-full py-2.5 rounded-xl text-sm font-black transition-all mb-2"
                         style={{
                           background: disabled ? '#1A2535' : 'linear-gradient(135deg, #19E66B, #0DB857)',
                           color: disabled ? '#4B5563' : '#000',
                           cursor: disabled ? 'not-allowed' : 'pointer',
                         }}>
                         {placing ? '⏳ Placing...' : hasAnyStarted ? '🚫 Contains Started Matches' : `PLACE BET · ${payout} Br`}
+                      </button>
+
+                      {/* GENERATE CODE button */}
+                      <button
+                        disabled={disabled}
+                        onClick={async () => {
+                          const user = JSON.parse(localStorage.getItem('miraclbet_user') || 'null');
+                          if (!user) { setPlaceError('Please log in to generate code'); return; }
+                          const stakeNum = parseFloat(stake);
+                          if (!stakeNum || stakeNum < 1) { setPlaceError('Enter a valid stake (min 1 Br)'); return; }
+                          setPlacing(true);
+                          try {
+                            const res = await fetch(`${API}/api/v1/bets/booking`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                user_id: user.id, stake: stakeNum, total_odds: totalOdds,
+                                selections: betslip.map(b => ({
+                                  fixtureId: b.fixtureId, matchName: b.matchName,
+                                  marketName: b.marketName, selectionName: b.selectionName,
+                                  odds: b.odds, homeLogo: b.homeLogo, awayLogo: b.awayLogo, kickoffAt: b.kickoffAt,
+                                })),
+                              }),
+                            });
+                            if (!res.ok) { const txt = await res.text(); setPlaceError(txt || 'Failed to generate code'); return; }
+                            const data = await res.json();
+                            setPlacedMsg(`🎟️ Code: ${data.code || data.booking_code}`);
+                            clearAll(); setStake('');
+                            setTimeout(() => setPlacedMsg(''), 10000);
+                          } catch { setPlaceError('Network error. Try again.'); }
+                          finally { setPlacing(false); }
+                        }}
+                        className="w-full py-2.5 rounded-xl text-xs font-black transition-all"
+                        style={{
+                          background: disabled ? '#0D1A2A' : '#111F35',
+                          color: disabled ? '#374151' : '#F5A623',
+                          border: `1px solid ${disabled ? 'transparent' : 'rgba(245,166,35,0.4)'}`,
+                          cursor: disabled ? 'not-allowed' : 'pointer',
+                        }}>
+                        🎟️ GENERATE CODE
                       </button>
                     </>
                   );
