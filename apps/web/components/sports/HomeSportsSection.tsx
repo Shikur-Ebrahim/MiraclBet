@@ -325,6 +325,7 @@ export function HomeSportsSection() {
           filterCountry={selectedCountry?.country ?? undefined}
           filterSearch={searchQuery || undefined}
           onFixturesLoaded={handleFixturesLoaded}
+          onLeaguesLoaded={handleLeaguesLoaded}
           />
       </section>
       </div>
