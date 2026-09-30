@@ -59,7 +59,7 @@ func (h *FixturesHandler) Live(w http.ResponseWriter, r *http.Request) {
 	if h.db != nil {
 		fixtures := h.queryFixturesWithArg(ctx, `
 			SELECT f.external_id, f.home_team_name, COALESCE(f.home_team_logo,''), f.away_team_name, COALESCE(f.away_team_logo,''),
-				COALESCE(l.name,'Unknown') as league, COALESCE(f.league_external_id,'') as league_external_id,
+				COALESCE(l.name,'Unknown') as league, COALESCE(l.external_id, f.league_external_id, '') as league_external_id,
 				COALESCE(f.league_logo_url,'') as league_logo_url, COALESCE(l.country,'') as country,
 				COALESCE(l.country_flag_url,'') as country_flag_url,
 				f.starts_at, f.status_short, f.elapsed, f.score_home, f.score_away, f.is_live,
@@ -115,7 +115,7 @@ func (h *FixturesHandler) ByDate(w http.ResponseWriter, r *http.Request) {
 			// Filter by league external_id
 			fixtures = h.queryFixturesWithArgs(ctx, `
 				SELECT f.external_id, f.home_team_name, COALESCE(f.home_team_logo,''), f.away_team_name, COALESCE(f.away_team_logo,''),
-					COALESCE(l.name,'Unknown') as league, COALESCE(f.league_external_id,'') as league_external_id,
+					COALESCE(l.name,'Unknown') as league, COALESCE(l.external_id, f.league_external_id, '') as league_external_id,
 					COALESCE(f.league_logo_url,'') as league_logo_url, COALESCE(l.country,'') as country,
 					COALESCE(l.country_flag_url,'') as country_flag_url,
 					f.starts_at, f.status_short, f.elapsed::int, f.score_home::int, f.score_away::int, f.is_live,
@@ -135,7 +135,7 @@ func (h *FixturesHandler) ByDate(w http.ResponseWriter, r *http.Request) {
 		} else {
 			fixtures = h.queryFixturesWithArgs(ctx, `
 				SELECT f.external_id, f.home_team_name, COALESCE(f.home_team_logo,''), f.away_team_name, COALESCE(f.away_team_logo,''),
-					COALESCE(l.name,'Unknown') as league, COALESCE(f.league_external_id,'') as league_external_id,
+					COALESCE(l.name,'Unknown') as league, COALESCE(l.external_id, f.league_external_id, '') as league_external_id,
 					COALESCE(f.league_logo_url,'') as league_logo_url, COALESCE(l.country,'') as country,
 					COALESCE(l.country_flag_url,'') as country_flag_url,
 					f.starts_at, f.status_short, f.elapsed::int, f.score_home::int, f.score_away::int, f.is_live,
