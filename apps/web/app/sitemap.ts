@@ -14,12 +14,24 @@ export default function sitemap(): MetadataRoute.Sitemap {
       url: `${baseUrl}/login`,
       lastModified: new Date(),
       changeFrequency: 'yearly',
-      priority: 0.8,
+      priority: 0.9,
     },
     {
       url: `${baseUrl}/register`,
       lastModified: new Date(),
       changeFrequency: 'yearly',
+      priority: 0.9,
+    },
+    {
+      url: `${baseUrl}/check`,
+      lastModified: new Date(),
+      changeFrequency: 'always',
+      priority: 0.8,
+    },
+    {
+      url: `${baseUrl}/deposit`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
       priority: 0.8,
     },
     {
@@ -32,13 +44,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       url: `${baseUrl}/sports`,
       lastModified: new Date(),
       changeFrequency: 'hourly',
-      priority: 0.9,
-    },
-    {
-      url: `${baseUrl}/mobile-apps`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.7,
+      priority: 0.8,
     }
   ];
 }
