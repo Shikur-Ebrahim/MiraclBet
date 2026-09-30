@@ -254,8 +254,7 @@ export function HomeSportsSection() {
               </button>
               {allLeagues.length === 0 ? (
                 <div className="flex items-center justify-center py-8 gap-2">
-                  <div className="w-4 h-4 border-2 border-[#19E66B] border-t-transparent rounded-full animate-spin"/>
-                  <span className="text-sm text-gray-400">Loading leagues...</span>
+                  <span className="text-sm text-gray-400">No leagues available</span>
                 </div>
               ) : (
                 // Automatically filter leagues if a country is selected!

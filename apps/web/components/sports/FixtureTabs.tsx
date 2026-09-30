@@ -492,9 +492,10 @@ export function FixtureTabs({
       if (f.country && f.country !== 'World') {
         cMap.set(f.country, { country: f.country, flag: f.country_flag_url });
       }
-      if (f.league_external_id && f.league) {
-        lMap.set(String(f.league_external_id), {
-          id: String(f.league_external_id),
+      const lid = f.league_external_id || f.league;
+      if (lid && f.league) {
+        lMap.set(String(lid), {
+          id: String(lid),
           name: f.league,
           logo: f.league_logo_url,
           country: f.country || '',
@@ -671,7 +672,7 @@ export function FixtureTabs({
     if (leagueId && !filterCountry) {
       // League only: hard filter
       return baseFixtures.filter(f =>
-        String(f.league_external_id) === String(leagueId)
+        String(f.league_external_id || f.league) === String(leagueId)
       );
     }
     return [...baseFixtures];
@@ -693,8 +694,8 @@ export function FixtureTabs({
   displayFixtures.sort((a, b) => {
     // 0. If both country + league selected: selected league's matches first
     if (filterCountry && leagueId) {
-      const aIsSelected = String(a.league_external_id) === String(leagueId);
-      const bIsSelected = String(b.league_external_id) === String(leagueId);
+      const aIsSelected = String(a.league_external_id || a.league) === String(leagueId);
+      const bIsSelected = String(b.league_external_id || b.league) === String(leagueId);
       if (aIsSelected && !bIsSelected) return -1;
       if (!aIsSelected && bIsSelected) return 1;
     }
