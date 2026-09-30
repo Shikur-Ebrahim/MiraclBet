@@ -202,7 +202,7 @@ export function RightSidebar() {
   return (
     <div
       className="hidden md:flex fixed top-[56px] right-0 bottom-0 z-[35] flex-col"
-      style={{ width: 280, background: '#0A1628', borderLeft: '1px solid rgba(255,255,255,0.07)' }}
+      style={{ width: 350, background: '#0A1628', borderLeft: '1px solid rgba(255,255,255,0.07)' }}
     >
       {/* Tabs */}
       <div className="flex shrink-0 border-b" style={{ borderColor: 'rgba(255,255,255,0.07)', background: '#060F1E' }}>
