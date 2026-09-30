@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import BetslipPage from '@/app/betslip/page';
 
 type RightTab = 'betslip' | 'check' | 'deposit';
 
@@ -216,14 +217,10 @@ export function RightSidebar() {
         />
       </div>
 
-      {/* ─── BETSLIP (Loads Mobile Page Directly) ─── */}
+      {/* ─── BETSLIP (Renders Mobile Page Component Directly) ─── */}
       {tab === 'betslip' && (
         <div className="flex flex-col flex-1 overflow-hidden bg-[#0A0E1A]">
-          <iframe 
-            src="/betslip" 
-            className="w-full h-full border-0" 
-            title="MiraclBet Betslip"
-          />
+          <BetslipPage />
         </div>
       )}
 
