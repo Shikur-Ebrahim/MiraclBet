@@ -294,7 +294,8 @@ export function RightSidebar() {
                 {/* Place Bet + Generate Code — BOTH always visible */}
                 {(() => {
                   const hasAnyStarted = betslip.some(b => b.kickoffAt && Date.now() >= new Date(b.kickoffAt).getTime());
-                  const disabled = placing || !stake || hasAnyStarted;
+                  const placeBetDisabled = placing || !stake || hasAnyStarted;
+                  const genCodeDisabled  = placing || hasAnyStarted; // ← no stake required
                   return (
                     <>
                       {hasAnyStarted && (
@@ -302,32 +303,32 @@ export function RightSidebar() {
                           ⚠️ Remove started matches before placing a bet
                         </div>
                       )}
-                      {/* PLACE BET button */}
-                      <button onClick={placeBet} disabled={disabled}
+                      {/* PLACE BET button — requires stake */}
+                      <button onClick={placeBet} disabled={placeBetDisabled}
                         className="w-full py-2.5 rounded-xl text-sm font-black transition-all mb-2"
                         style={{
-                          background: disabled ? '#1A2535' : 'linear-gradient(135deg, #19E66B, #0DB857)',
-                          color: disabled ? '#4B5563' : '#000',
-                          cursor: disabled ? 'not-allowed' : 'pointer',
+                          background: placeBetDisabled ? '#1A2535' : 'linear-gradient(135deg, #19E66B, #0DB857)',
+                          color: placeBetDisabled ? '#4B5563' : '#000',
+                          cursor: placeBetDisabled ? 'not-allowed' : 'pointer',
                         }}>
                         {placing ? '⏳ Placing...' : hasAnyStarted ? '🚫 Contains Started Matches' : `PLACE BET · ${payout} Br`}
                       </button>
 
-                      {/* GENERATE CODE button */}
+                      {/* GENERATE CODE button — NO stake required */}
                       <button
-                        disabled={disabled}
+                        disabled={genCodeDisabled}
                         onClick={async () => {
                           const user = JSON.parse(localStorage.getItem('miraclbet_user') || 'null');
                           if (!user) { setPlaceError('Please log in to generate code'); return; }
-                          const stakeNum = parseFloat(stake);
-                          if (!stakeNum || stakeNum < 1) { setPlaceError('Enter a valid stake (min 1 Br)'); return; }
                           setPlacing(true);
                           try {
                             const res = await fetch(`${API}/api/v1/bets/booking`, {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({
-                                user_id: user.id, stake: stakeNum, total_odds: totalOdds,
+                                user_id: user.id,
+                                stake: parseFloat(stake) || 0,
+                                total_odds: totalOdds,
                                 selections: betslip.map(b => ({
                                   fixtureId: b.fixtureId, matchName: b.matchName,
                                   marketName: b.marketName, selectionName: b.selectionName,
@@ -339,16 +340,16 @@ export function RightSidebar() {
                             const data = await res.json();
                             setPlacedMsg(`🎟️ Code: ${data.code || data.booking_code}`);
                             clearAll(); setStake('');
-                            setTimeout(() => setPlacedMsg(''), 10000);
+                            setTimeout(() => setPlacedMsg(''), 15000);
                           } catch { setPlaceError('Network error. Try again.'); }
                           finally { setPlacing(false); }
                         }}
                         className="w-full py-2.5 rounded-xl text-xs font-black transition-all"
                         style={{
-                          background: disabled ? '#0D1A2A' : '#111F35',
-                          color: disabled ? '#374151' : '#F5A623',
-                          border: `1px solid ${disabled ? 'transparent' : 'rgba(245,166,35,0.4)'}`,
-                          cursor: disabled ? 'not-allowed' : 'pointer',
+                          background: genCodeDisabled ? '#0D1A2A' : '#111F35',
+                          color: genCodeDisabled ? '#374151' : '#F5A623',
+                          border: `1px solid ${genCodeDisabled ? 'transparent' : 'rgba(245,166,35,0.4)'}`,
+                          cursor: genCodeDisabled ? 'not-allowed' : 'pointer',
                         }}>
                         🎟️ GENERATE CODE
                       </button>
