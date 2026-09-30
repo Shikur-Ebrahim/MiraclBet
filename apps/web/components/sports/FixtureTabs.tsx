@@ -454,8 +454,8 @@ export function FixtureTabs({
     return 999;
   }
 
-  // ALWAYS strictly drop matches without displayable odds
-  const baseFixtures = allFixtures.filter(f => {
+  // strictly drop matches without displayable odds and filter by date
+  const validFixtures = allFixtures.filter(f => {
     const markets = f.advanced_odds?.markets;
     if (!markets || markets.length === 0) return false;
     if (!getOdds(f).hasRealOdds) return false;
@@ -467,13 +467,13 @@ export function FixtureTabs({
       const m = String(d.getMonth() + 1).padStart(2, '0');
       const day = String(d.getDate()).padStart(2, '0');
       const localDateStr = `${y}-${m}-${day}`;
-      
-      if (localDateStr !== filterDate) {
-        return false;
-      }
+      if (localDateStr !== filterDate) return false;
     }
+    return true;
+  });
 
-    // If a country filter is applied, also enforce it
+  const baseFixtures = validFixtures.filter(f => {
+    // If a country filter is applied, enforce it on the display
     if (filterCountry) {
       const c = filterCountry.toLowerCase();
       const matchCountry = f.country?.toLowerCase() === c;
@@ -488,7 +488,8 @@ export function FixtureTabs({
     const cMap = new Map<string, { country: string; flag?: string }>();
     const lMap = new Map<string, { id: string; name: string; logo?: string; country: string }>();
 
-    for (const f of baseFixtures) {
+    // Use validFixtures so the dropdowns don't shrink when a country is selected
+    for (const f of validFixtures) {
       if (f.country && f.country !== 'World') {
         cMap.set(f.country, { country: f.country, flag: f.country_flag_url });
       }
@@ -517,7 +518,7 @@ export function FixtureTabs({
       });
       onLeaguesLoaded(lList);
     }
-  }, [baseFixtures, onFixturesLoaded, onLeaguesLoaded]);
+  }, [validFixtures, onFixturesLoaded, onLeaguesLoaded]);
 
   // Reset page when filters change
   useEffect(() => { setPage(0); }, [sport, leagueId, activeTab, timeRange, filterDate, filterCountry, filterSearch]);

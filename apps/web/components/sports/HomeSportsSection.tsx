@@ -252,37 +252,37 @@ export function HomeSportsSection() {
               >
                 🏆 All Leagues
               </button>
-              {allLeagues.length === 0 ? (
-                <div className="flex items-center justify-center py-8 gap-2">
-                  <span className="text-sm text-gray-400">No leagues available</span>
-                </div>
-              ) : (
-                // Automatically filter leagues if a country is selected!
-                allLeagues
-                  .filter(l => !selectedCountry || l.country === selectedCountry.country)
-                  .map(l => (
-                    <button key={l.id}
-                      onClick={() => {
-                        setSelectedLeague(l);
-                        // Also auto-select country if not already set!
-                        if (!selectedCountry && l.country) {
-                           setSelectedCountry({ country: l.country });
-                        }
-                        setOpenDropdown(null);
-                      }}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 border-b border-gray-50 last:border-0 ${selectedLeague?.id === l.id ? 'bg-[#E8FFF2] text-[#0D8A3C]' : 'text-gray-700 hover:bg-gray-50'}`}
-                    >
-                      {l.logo
-                        ? <Image src={l.logo} alt={l.name} width={22} height={22} className="object-contain shrink-0" unoptimized />
-                        : <span className="w-5 h-5 flex items-center justify-center text-sm shrink-0">🏆</span>}
-                      <div className="flex-1 text-left min-w-0">
-                        <div className="text-sm font-medium truncate">{l.name}</div>
-                        {l.country && <div className="text-[10px] text-gray-400">{l.country}</div>}
-                      </div>
-                      {selectedLeague?.id === l.id && <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-[#19E66B] shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>}
-                    </button>
-                  ))
-              )}
+              {(() => {
+                const filteredLeagues = allLeagues.filter(l => !selectedCountry || l.country === selectedCountry.country);
+                if (filteredLeagues.length === 0) {
+                  return (
+                    <div className="flex items-center justify-center py-8 gap-2">
+                      <span className="text-sm text-gray-400">No leagues available</span>
+                    </div>
+                  );
+                }
+                return filteredLeagues.map(l => (
+                  <button key={l.id}
+                    onClick={() => {
+                      setSelectedLeague(l);
+                      if (!selectedCountry && l.country) {
+                         setSelectedCountry({ country: l.country });
+                      }
+                      setOpenDropdown(null);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 border-b border-gray-50 last:border-0 ${selectedLeague?.id === l.id ? 'bg-[#E8FFF2] text-[#0D8A3C]' : 'text-gray-700 hover:bg-gray-50'}`}
+                  >
+                    {l.logo
+                      ? <Image src={l.logo} alt={l.name} width={22} height={22} className="object-contain shrink-0" unoptimized />
+                      : <span className="w-5 h-5 flex items-center justify-center text-sm shrink-0">🏆</span>}
+                    <div className="flex-1 text-left min-w-0">
+                      <div className="text-sm font-medium truncate">{l.name}</div>
+                      {l.country && <div className="text-[10px] text-gray-400">{l.country}</div>}
+                    </div>
+                    {selectedLeague?.id === l.id && <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-[#19E66B] shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>}
+                  </button>
+                ));
+              })()}
             </div>
           )}
         </div>
