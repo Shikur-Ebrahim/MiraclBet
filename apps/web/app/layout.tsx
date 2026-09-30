@@ -24,7 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={inter.variable}>
       <body className="min-h-screen flex flex-col bg-dark text-white">
         <Header />
-        <main className="flex-1">{children}</main>
+        <main className="flex-1 md:pl-64">{children}</main>
         <Footer />
         <BottomNav />
       </body>
