@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import BetslipPage from '@/app/betslip/page';
+import CheckPage from '@/app/check/page';
 
 type RightTab = 'betslip' | 'check' | 'deposit';
 
@@ -219,61 +220,15 @@ export function RightSidebar() {
 
       {/* ─── BETSLIP (Renders Mobile Page Component Directly) ─── */}
       {tab === 'betslip' && (
-        <div className="flex flex-col flex-1 overflow-y-auto bg-[#0A0E1A] [&>div>div:first-child]:hidden [&>div]:!min-h-0 [&>div]:!pb-0">
+        <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden bg-[#0A0E1A] [&>div>div:first-child]:hidden [&>div]:!min-h-0 [&>div]:!pb-0">
           <BetslipPage />
         </div>
       )}
 
-      {/* ─── CHECK ─── */}
+      {/* ─── CHECK (Renders Check Page Directly) ─── */}
       {tab === 'check' && (
-        <div className="flex flex-col flex-1 overflow-y-auto px-4 py-4">
-          <div className="text-center mb-5">
-            <div className="text-3xl mb-2">🔍</div>
-            <div className="text-white font-bold text-sm">Check Ticket Status</div>
-            <div className="text-white/40 text-xs mt-1">Enter your ticket code to check results</div>
-          </div>
-
-          <input
-            value={ticketCode} onChange={e => setTicketCode(e.target.value.toUpperCase())}
-            onKeyDown={e => e.key === 'Enter' && checkTicket()}
-            placeholder="e.g. TICKET-AB12CD34"
-            className="w-full rounded-xl px-4 py-3 text-white text-sm font-bold outline-none mb-3"
-            style={{ background: '#111F35', border: '1.5px solid rgba(255,255,255,0.1)', textTransform: 'uppercase' }}
-          />
-          <button onClick={checkTicket} disabled={checking || !ticketCode}
-            className="w-full py-3 rounded-xl text-sm font-black mb-4"
-            style={{ background: checking || !ticketCode ? '#1A2535' : '#19E66B', color: checking || !ticketCode ? '#4B5563' : '#000', cursor: checking || !ticketCode ? 'not-allowed' : 'pointer' }}>
-            {checking ? '⏳ Checking...' : 'CHECK TICKET'}
-          </button>
-
-          {checkError && (
-            <div className="rounded-xl px-4 py-3 text-xs font-bold mb-3" style={{ background: '#1A0506', color: '#EF4444', border: '1px solid #EF444430' }}>⚠️ {checkError}</div>
-          )}
-
-          {checkResult && (
-            <div className="rounded-xl p-4 space-y-3" style={{ background: '#111F35', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <div className="flex items-center justify-between">
-                <span className="text-white/60 text-xs">Status</span>
-                <StatusBadge status={checkResult.status} />
-              </div>
-              {checkResult.stake !== undefined && (
-                <div className="flex justify-between text-xs"><span className="text-white/40">Stake</span><span className="text-white font-bold">{checkResult.stake?.toFixed(2)} Br</span></div>
-              )}
-              {checkResult.total_odds !== undefined && (
-                <div className="flex justify-between text-xs"><span className="text-white/40">Total Odds</span><span className="text-white font-bold">{checkResult.total_odds?.toFixed(2)}</span></div>
-              )}
-              {checkResult.potential_payout !== undefined && (
-                <div className="flex justify-between text-xs"><span className="text-white/40">Payout</span><span className="font-black" style={{ color: '#19E66B' }}>{checkResult.potential_payout?.toFixed(2)} Br</span></div>
-              )}
-              {checkResult.selections && checkResult.selections.length > 0 && (
-                <div className="pt-2 border-t border-white/10 space-y-1">
-                  {checkResult.selections.map((s, i) => (
-                    <div key={i} className="text-xs text-white/50 truncate">{s.matchName} — <span className="text-white/80">{s.selectionName}</span> @ <span style={{ color: '#F5A623' }}>{s.odds?.toFixed(2)}</span></div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+        <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden bg-[#0A0E1A] [&>div>div:first-child]:hidden [&>div]:!min-h-0 [&>div]:!pb-0">
+          <CheckPage />
         </div>
       )}
 
