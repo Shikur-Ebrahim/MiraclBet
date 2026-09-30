@@ -5,6 +5,7 @@ import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { RightSidebar } from '@/components/layout/RightSidebar';
+import { DesktopSidebar } from '@/components/layout/DesktopSidebar';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
@@ -28,6 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main className="flex-1 md:pl-64 md:pr-[280px]">{children}</main>
         <Footer />
         <RightSidebar />
+        <DesktopSidebar />
         <BottomNav />
       </body>
     </html>

@@ -92,18 +92,43 @@ export function HomeSportsSection() {
   const handleFixturesLoaded = useCallback((list: CountryItem[]) => setAllCountries(list), []);
   const handleLeaguesLoaded  = useCallback((list: LeagueItem[])  => setAllLeagues(list),   []);
 
+  // Listen to DesktopSidebar custom events (fired from layout-level sidebar)
+  useEffect(() => {
+    const onSport = (e: Event) => {
+      const sport = (e as CustomEvent<string>).detail;
+      setActiveSport(sport);
+      setSelectedCountry(null);
+      setSelectedLeague(null);
+    };
+    const onLeague = (e: Event) => {
+      const { id, name } = (e as CustomEvent<{ id: string; name: string }>).detail;
+      setActiveSport('football');
+      setSelectedCountry(null);
+      setSelectedLeague({ id, name, country: '' });
+    };
+    window.addEventListener('miraclbet_sidebar_sport', onSport);
+    window.addEventListener('miraclbet_sidebar_league', onLeague);
+    return () => {
+      window.removeEventListener('miraclbet_sidebar_sport', onSport);
+      window.removeEventListener('miraclbet_sidebar_league', onLeague);
+    };
+  }, []);
+
   return (
     <div>
-      <Sidebar
-        isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
-        onSelectSport={s => { setActiveSport(s); setSelectedCountry(null); setSelectedLeague(null); }}
-        onSelectLeague={(id, name) => {
-          setActiveSport('football');
-          setSelectedCountry(null); // Clear country so league takes precedence, or we could find the country for this league
-          setSelectedLeague({ id, name, country: '' }); // We'll set a basic object, the dropdowns will catch it
-        }}
-      />
+      {/* Mobile-only sidebar drawer — desktop uses DesktopSidebar from layout */}
+      <div className="md:hidden">
+        <Sidebar
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          onSelectSport={s => { setActiveSport(s); setSelectedCountry(null); setSelectedLeague(null); }}
+          onSelectLeague={(id, name) => {
+            setActiveSport('football');
+            setSelectedCountry(null);
+            setSelectedLeague({ id, name, country: '' });
+          }}
+        />
+      </div>
 
       <div className="flex-1 w-full min-w-0">
         <SportsNav
