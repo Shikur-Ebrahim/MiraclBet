@@ -455,33 +455,37 @@ export function FixtureTabs({
   }
 
   // strictly drop matches without displayable odds and filter by date
-  const validFixtures = allFixtures.filter(f => {
-    const markets = f.advanced_odds?.markets;
-    if (!markets || markets.length === 0) return false;
-    if (!getOdds(f).hasRealOdds) return false;
-    
-    // STRICT DATE FILTER — compare in local time (same timezone as user display)
-    if (filterDate) {
-      const d = new Date(f.kickoff_at);
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      const localDateStr = `${y}-${m}-${day}`;
-      if (localDateStr !== filterDate) return false;
-    }
-    return true;
-  });
+  const validFixtures = React.useMemo(() => {
+    return allFixtures.filter(f => {
+      const markets = f.advanced_odds?.markets;
+      if (!markets || markets.length === 0) return false;
+      if (!getOdds(f).hasRealOdds) return false;
+      
+      // STRICT DATE FILTER — compare in local time (same timezone as user display)
+      if (filterDate) {
+        const d = new Date(f.kickoff_at);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const localDateStr = `${y}-${m}-${day}`;
+        if (localDateStr !== filterDate) return false;
+      }
+      return true;
+    });
+  }, [allFixtures, filterDate]);
 
-  const baseFixtures = validFixtures.filter(f => {
-    // If a country filter is applied, enforce it on the display
-    if (filterCountry) {
-      const c = filterCountry.toLowerCase();
-      const matchCountry = f.country?.toLowerCase() === c;
-      const matchLeague = f.league?.toLowerCase().includes(c);
-      return matchCountry || matchLeague;
-    }
-    return true;
-  });
+  const baseFixtures = React.useMemo(() => {
+    return validFixtures.filter(f => {
+      // If a country filter is applied, enforce it on the display
+      if (filterCountry) {
+        const c = filterCountry.toLowerCase();
+        const matchCountry = f.country?.toLowerCase() === c;
+        const matchLeague = f.league?.toLowerCase().includes(c);
+        return matchCountry || matchLeague;
+      }
+      return true;
+    });
+  }, [validFixtures, filterCountry]);
 
   // Notify parent whenever fixtures change — emit countries + leagues for the CURRENT day filter
   useEffect(() => {
