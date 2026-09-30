@@ -1,21 +1,6 @@
 'use client';
 
-import React from 'react';
-
-const SPORTS = [
-  { key: 'football',   label: 'Football',  icon: '⚽' },
-  { key: 'hockey',     label: 'Hockey',    icon: '🏒' },
-  { key: 'tennis',     label: 'Tennis',    icon: '🎾' },
-  { key: 'basketball', label: 'Basketball',icon: '🏀' },
-  { key: 'baseball',   label: 'Baseball',  icon: '⚾' },
-  { key: 'volleyball', label: 'Volleyball',icon: '🏐' },
-  { key: 'rugby',      label: 'Rugby',     icon: '🏉' },
-  { key: 'handball',   label: 'Handball',  icon: '🤾' },
-  { key: 'mma',        label: 'MMA',       icon: '🥊' },
-  { key: 'nba',        label: 'NBA',       icon: '🏀' },
-  { key: 'nfl',        label: 'NFL',       icon: '🏈' },
-  { key: 'formula-1',  label: 'Formula 1', icon: '🏎️' },
-];
+import React, { useState, useEffect } from 'react';
 
 interface SportNavProps {
   onSportChange?: (sport: string) => void;
@@ -41,10 +26,44 @@ export function SportsNav({
   onSearchChange,
   searchQuery = '',
 }: SportNavProps) {
+  const [sportsList, setSportsList] = useState<{ slug: string; name: string; emoji: string; count: number }[]>([]);
+
+  useEffect(() => {
+    const fetchSports = async () => {
+      try {
+        const API = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
+        const url = new URL(`${API}/api/v1/meta/sports`);
+        if (activeTab === 'live') {
+          url.searchParams.set('live', 'true');
+        } else if (timeRange !== undefined) {
+          url.searchParams.set('days', String(timeRange));
+        }
+        const res = await fetch(url.toString());
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            setSportsList(data);
+            return;
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch sports', err);
+      }
+      // Fallback
+      setSportsList([
+        { slug: 'football',   name: 'Football',   emoji: '⚽', count: 0 },
+        { slug: 'hockey',     name: 'Hockey',     emoji: '🏒', count: 0 },
+        { slug: 'tennis',     name: 'Tennis',     emoji: '🎾', count: 0 },
+        { slug: 'basketball', name: 'Basketball', emoji: '🏀', count: 0 },
+        { slug: 'baseball',   name: 'Baseball',   emoji: '⚾', count: 0 },
+      ]);
+    };
+    fetchSports();
+  }, [activeTab, timeRange]);
+
   const handleSelect = (key: string) => {
     onSportChange?.(key);
   };
-
 
   const isLive = activeTab === 'live';
 
@@ -52,21 +71,21 @@ export function SportsNav({
     <section style={{ background: '#0D1913' }} className="border-b border-brand pb-2">
       {/* Sports horizontal scroll */}
       <div className="flex overflow-x-auto gap-1 px-2 pt-3 pb-2" style={{ scrollbarWidth: 'none' }}>
-        {SPORTS.map((sport) => {
-          const isActive = activeSport === sport.key;
+        {sportsList.map((sport) => {
+          const isActive = activeSport === sport.slug;
           return (
             <button
-              key={sport.key}
-              onClick={() => handleSelect(sport.key)}
+              key={sport.slug}
+              onClick={() => handleSelect(sport.slug)}
               className="flex flex-col items-center gap-1.5 min-w-[72px] px-2 py-2 rounded-xl transition-all"
               style={{
                 background: isActive ? '#19E66B18' : 'transparent',
                 borderBottom: isActive ? '2px solid #19E66B' : '2px solid transparent',
               }}
             >
-              <span className="text-3xl leading-none">{sport.icon}</span>
+              <span className="text-3xl leading-none">{sport.emoji}</span>
               <span className={`text-xs font-semibold whitespace-nowrap ${isActive ? 'text-primary' : 'text-muted'}`}>
-                {sport.label}
+                {sport.name}
               </span>
             </button>
           );
