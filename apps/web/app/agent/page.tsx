@@ -179,8 +179,6 @@ function PlaceBetView({ agent, onBetPlaced }: { agent: AgentSession; onBetPlaced
       }
       const data = await res.json();
       setPlacedTicketId(data.id || data.slip_id || booking.code);
-      // Auto-navigate to My Tickets after showing success briefly
-      setTimeout(() => onBetPlaced(), 1500);
     } catch { setError('Network error placing bet.'); }
     finally { setPlacing(false); }
   };
