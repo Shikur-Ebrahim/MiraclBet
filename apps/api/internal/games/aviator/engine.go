@@ -43,14 +43,16 @@ type Engine struct {
 	// SSE clients — protected by clientsMu (completely separate from stateMu)
 	clientsMu sync.Mutex
 	clients   map[chan []byte]bool
+	wakeupCh  chan struct{}
 }
 
 func NewEngine(db *pgxpool.Pool) *Engine {
 	e := &Engine{
-		db:      db,
-		clients: make(map[chan []byte]bool),
-		status:  StatusWaiting,
-		history: make([]map[string]interface{}, 0),
+		db:       db,
+		clients:  make(map[chan []byte]bool),
+		status:   StatusWaiting,
+		history:  make([]map[string]interface{}, 0),
+		wakeupCh: make(chan struct{}, 1),
 	}
 	e.loadHistory()
 	go e.runLoop()
@@ -80,11 +82,40 @@ func (e *Engine) loadHistory() {
 	}
 }
 
+// clientCount returns the number of currently connected SSE clients.
+func (e *Engine) clientCount() int {
+	e.clientsMu.Lock()
+	defer e.clientsMu.Unlock()
+	return len(e.clients)
+}
+
+// waitForClients blocks until at least one SSE client is connected.
+func (e *Engine) waitForClients() {
+	for {
+		if e.clientCount() > 0 {
+			return
+		}
+		// Drain any stale signal
+		select {
+		case <-e.wakeupCh:
+		default:
+		}
+		// Block until a client wakes us up (or poll every 500ms as fallback)
+		select {
+		case <-e.wakeupCh:
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
+}
+
 func (e *Engine) runLoop() {
 	for {
+		// Pause when nobody is watching
+		e.waitForClients()
 		e.doWaiting()
+		e.waitForClients()
 		e.doFlying()
-		// Sleep for 2.5 seconds to show the "FLEW AWAY" crash screen
+		// Show crash screen for 2.5 seconds, then next round
 		time.Sleep(2500 * time.Millisecond)
 	}
 }
@@ -240,6 +271,12 @@ func (e *Engine) AddClient(ch chan []byte) {
 	e.clientsMu.Lock()
 	e.clients[ch] = true
 	e.clientsMu.Unlock()
+
+	// Wake up the game loop if it was idle waiting for clients
+	select {
+	case e.wakeupCh <- struct{}{}:
+	default:
+	}
 
 	// Send init message
 	initial, _ := json.Marshal(map[string]interface{}{
