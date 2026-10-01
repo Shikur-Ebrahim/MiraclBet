@@ -66,8 +66,8 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service, aviatorEngi
 			r.Post("/games/aviator/bet", aviatorHandler.PlaceBet)
 			r.Post("/games/aviator/cashout", aviatorHandler.CashOut)
 		}
-
-		// Settlement handler created here, routes added in the unified /admin block below
+		
+		settlementHandler := handlers.NewSettlementHandler(db)
 
 		// Debug endpoints â€” shows raw API response to diagnose odds issues
 		debugHandler := handlers.NewDebugHandler(cfg)
