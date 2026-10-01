@@ -6,12 +6,13 @@ import (
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/miraclbet/api/internal/config"
 	"github.com/miraclbet/api/internal/database"
+	"github.com/miraclbet/api/internal/games/aviator"
 	"github.com/miraclbet/api/internal/handlers"
 	"github.com/miraclbet/api/internal/middleware"
 	"github.com/miraclbet/api/internal/storage"
 )
 
-func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service) http.Handler {
+func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service, aviatorEngine *aviator.Engine) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(chimiddleware.RequestID)
@@ -57,8 +58,16 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service) http.Handle
 		r.Post("/betslips", betslipsHandler.BookBet)
 		r.Get("/betslips/{code}", betslipsHandler.GetBooking)
 
+		// Aviator Game Routes
+		if aviatorEngine != nil {
+			aviatorHandler := aviator.NewHandlers(aviatorEngine)
+			r.Get("/games/aviator/stream", aviatorHandler.SSEHandler)
+			
+			r.Post("/games/aviator/bet", aviatorHandler.PlaceBet)
+			r.Post("/games/aviator/cashout", aviatorHandler.CashOut)
+		}
+
 		// Settlement handler created here, routes added in the unified /admin block below
-		settlementHandler := handlers.NewSettlementHandler(db)
 
 		// Debug endpoints â€” shows raw API response to diagnose odds issues
 		debugHandler := handlers.NewDebugHandler(cfg)

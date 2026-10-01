@@ -12,6 +12,7 @@ import (
 
 	"github.com/miraclbet/api/internal/config"
 	"github.com/miraclbet/api/internal/database"
+	"github.com/miraclbet/api/internal/games/aviator"
 	"github.com/miraclbet/api/internal/router"
 	"github.com/miraclbet/api/internal/storage"
 )
@@ -58,9 +59,14 @@ func main() {
 		}
 	}
 
+	var aviatorEngine *aviator.Engine
+	if db != nil {
+		aviatorEngine = aviator.NewEngine(db.Pool)
+	}
+
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%s", cfg.Port),
-		Handler:      router.New(cfg, db, r2Service),
+		Handler:      router.New(cfg, db, r2Service, aviatorEngine),
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,
