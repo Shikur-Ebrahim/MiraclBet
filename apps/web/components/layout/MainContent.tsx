@@ -11,7 +11,7 @@ export function MainContent({ children }: { children: React.ReactNode }) {
   const isFullScreen = FULL_SCREEN_ROUTES.some(p => pathname.startsWith(p));
 
   return (
-    <main className={`flex-1 ${isFullScreen ? '' : 'md:pl-64 md:pr-[350px]'}`}>
+    <main className={`flex-1 flex flex-col ${isFullScreen ? '' : 'md:pl-64 md:pr-[350px]'}`}>
       {children}
     </main>
   );

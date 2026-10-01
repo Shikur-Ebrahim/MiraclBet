@@ -74,8 +74,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-screen flex flex-col bg-dark text-white">
         <Header />
-        <MainContent>{children}</MainContent>
-        <Footer />
+        <MainContent>
+          <div className="flex-1 flex flex-col">
+            {children}
+          </div>
+          <Footer />
+        </MainContent>
         <RightSidebar />
         <DesktopSidebar />
         <BottomNav />
