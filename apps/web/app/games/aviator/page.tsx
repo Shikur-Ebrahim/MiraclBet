@@ -64,6 +64,44 @@ function pickFakePlayers(count: number): FakePlayer[] {
   }));
 }
 
+// ── Top player type ───────────────────────────────────────────────────────────
+interface TopPlayer {
+  phone: string;
+  bet: number;
+  result: number;
+  win: number;
+  roundMax: number;
+  rounds: number;
+  date: string;
+}
+
+function generateTopPlayers(sortBy: 'x'|'win'|'rounds', period: 'day'|'month'|'year'): TopPlayer[] {
+  const scale    = period === 'day' ? 1 : period === 'month' ? 30 : 365;
+  const maxRnd   = period === 'day' ? 80 : period === 'month' ? 2000 : 20000;
+  const today    = new Date();
+  const fmt = (d: Date) => `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getFullYear()).slice(-2)}`;
+  const betChoices = [50,100,200,500,1000,2000,5000];
+  return PHONE_POOL.slice(200, 220).map((p, i) => {
+    const seed     = (i + 1) * 17;
+    const result   = parseFloat((1.5 + (seed % 40) * 1.2 + Math.random() * 30).toFixed(2));
+    const roundMax = parseFloat((result * 1.5 + (seed % 20) * 3 + Math.random() * 80).toFixed(2));
+    const bet      = betChoices[(seed + i) % betChoices.length];
+    const win      = parseFloat((bet * result * (scale > 1 ? Math.sqrt(scale) * 1.2 : 1)).toFixed(2));
+    const rounds   = Math.floor(10 + (seed % maxRnd));
+    const d = new Date(today); d.setDate(d.getDate() - Math.floor(Math.random() * scale));
+    return { phone: maskPhone(p), bet, result, win, roundMax, rounds, date: fmt(d) };
+  }).sort((a, b) =>
+    sortBy === 'x'   ? b.result - a.result :
+    sortBy === 'win' ? b.win    - a.win :
+    b.rounds - a.rounds
+  );
+}
+
+interface PrevRound {
+  crashPoint: number;
+  players: FakePlayer[];
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface LocalUser { id: string; phone: string; balance: number; role: string; }
 
@@ -94,7 +132,10 @@ export default function AviatorPage() {
 
   // ── fake players live bets table
   const [fakePlayers,    setFakePlayers]    = useState<FakePlayer[]>([]);
+  const [prevRound,      setPrevRound]      = useState<PrevRound|null>(null);
   const [betTab,         setBetTab]         = useState<'all'|'prev'|'top'>('all');
+  const [topSortBy,      setTopSortBy]      = useState<'x'|'win'|'rounds'>('x');
+  const [topPeriod,      setTopPeriod]      = useState<'day'|'month'|'year'>('day');
   const fakeIntervalRef = useRef<ReturnType<typeof setInterval>|null>(null);
 
   // ── game refs
@@ -189,8 +230,11 @@ export default function AviatorPage() {
 
   function finishFakePlayers(crashPt: number) {
     if (fakeIntervalRef.current) { clearInterval(fakeIntervalRef.current!); }
-    setFakePlayers(prev => prev.map(p => p.cashedOut ? p : { ...p, multiplier: 0, win: 0, cashedOut: true }));
-    void crashPt;
+    setFakePlayers(prev => {
+      const finished = prev.map(p => p.cashedOut ? p : { ...p, multiplier: 0, win: 0, cashedOut: true });
+      setPrevRound({ crashPoint: crashPt, players: finished });
+      return finished;
+    });
   }
 
   // ── Canvas RAF ────────────────────────────────────────────────────────────
@@ -668,93 +712,214 @@ export default function AviatorPage() {
         )}
       </div>
 
-      {/* ════════════════════════════════════════════════════════════════
+      {/* ════════════════════════════════════════════════════════════
           LIVE BETS TABLE  (Spribe-style)
-      ════════════════════════════════════════════════════════════════ */}
+      ════════════════════════════════════════════════════════════ */}
       <div style={{ background:'#060e1c', borderTop:'1px solid rgba(255,255,255,.06)', paddingBottom:80 }}>
         {/* Tab bar */}
         <div style={{ display:'flex', borderBottom:'1px solid rgba(255,255,255,.06)' }}>
           {(['all','prev','top'] as const).map(tab => (
             <button key={tab} onClick={() => setBetTab(tab)}
-              style={{ flex:1, padding:'11px 4px', background:'none', border:'none', color: betTab===tab ? '#ff6b35':'#6b7280', fontSize:13, fontWeight: betTab===tab ? 800:500, cursor:'pointer', borderBottom: betTab===tab ? '2px solid #ff6b35':'2px solid transparent' }}>
-              {tab === 'all' ? 'All Bets' : tab === 'prev' ? 'Previous' : 'Top Bets'}
+              style={{ flex:1, padding:'11px 4px', background: betTab===tab ? 'rgba(255,107,53,.08)' : 'none', border:'none', color: betTab===tab ? '#ff6b35':'#6b7280', fontSize:13, fontWeight: betTab===tab ? 800:500, cursor:'pointer', borderBottom: betTab===tab ? '2px solid #ff6b35':'2px solid transparent' }}>
+              {tab === 'all' ? 'All Bets' : tab === 'prev' ? 'Previous' : 'Top'}
             </button>
           ))}
         </div>
 
-        {/* Summary row */}
-        {betTab !== 'top' && fakePlayers.length > 0 && (
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 14px', background:'rgba(255,107,53,.05)', borderBottom:'1px solid rgba(255,255,255,.04)' }}>
-            <div>
-              <span style={{ color:'#ff6b35', fontWeight:800, fontSize:13 }}>{totalCashedOut}/{totalBets}</span>
-              <span style={{ color:'#6b7280', fontSize:11, marginLeft:5 }}>Bets</span>
-              {/* Green progress bar */}
-              <div style={{ marginTop:3, width:120, height:3, background:'rgba(255,255,255,.08)', borderRadius:2 }}>
-                <div style={{ height:3, borderRadius:2, background:'#19e66b', width:`${totalBets > 0 ? (totalCashedOut/totalBets)*100 : 0}%`, transition:'width .3s' }}/>
+        {/* ── ALL BETS TAB ── */}
+        {betTab === 'all' && (
+          <>
+            {fakePlayers.length > 0 && (
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 14px', background:'rgba(255,107,53,.05)', borderBottom:'1px solid rgba(255,255,255,.04)' }}>
+                <div>
+                  <span style={{ color:'#ff6b35', fontWeight:800, fontSize:13 }}>{totalCashedOut}/{totalBets}</span>
+                  <span style={{ color:'#6b7280', fontSize:11, marginLeft:5 }}>Bets</span>
+                  <div style={{ marginTop:3, width:120, height:3, background:'rgba(255,255,255,.08)', borderRadius:2 }}>
+                    <div style={{ height:3, borderRadius:2, background:'#19e66b', width:`${totalBets > 0 ? (totalCashedOut/totalBets)*100 : 0}%`, transition:'width .3s' }}/>
+                  </div>
+                </div>
+                <div style={{ textAlign:'right' }}>
+                  <div style={{ color:'#19e66b', fontWeight:800, fontSize:14 }}>{fmtBr(totalWin)}</div>
+                  <div style={{ color:'#6b7280', fontSize:10 }}>Total Win</div>
+                </div>
               </div>
+            )}
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 80px 64px 80px', padding:'6px 14px', borderBottom:'1px solid rgba(255,255,255,.04)' }}>
+              <span style={{ color:'#4b5563', fontSize:10, fontWeight:700 }}>PLAYER</span>
+              <span style={{ color:'#4b5563', fontSize:10, fontWeight:700, textAlign:'right' }}>BET Br</span>
+              <span style={{ color:'#4b5563', fontSize:10, fontWeight:700, textAlign:'center' }}>X</span>
+              <span style={{ color:'#4b5563', fontSize:10, fontWeight:700, textAlign:'right' }}>WIN Br</span>
             </div>
-            <div style={{ textAlign:'right' }}>
-              <div style={{ color:'#19e66b', fontWeight:800, fontSize:14 }}>{fmtBr(totalWin)}</div>
-              <div style={{ color:'#6b7280', fontSize:10 }}>Total Win</div>
+            <div style={{ maxHeight:340, overflowY:'auto' }}>
+              {sortedDisplay.map((p, i) => {
+                const won  = p.cashedOut && p.win && p.win > 0;
+                const lost = p.cashedOut && (!p.win || p.win <= 0);
+                const mc   = won && p.multiplier ? multColor(p.multiplier) : undefined;
+                return (
+                  <div key={p.id+i} style={{ display:'grid', gridTemplateColumns:'1fr 80px 64px 80px', padding:'9px 14px', borderBottom:'1px solid rgba(255,255,255,.025)', background: won ? 'rgba(25,230,107,.03)':'transparent', alignItems:'center' }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                      <div style={{ width:28, height:28, borderRadius:'50%', background:`hsl(${(parseInt(p.id)||i)*67%360},55%,42%)`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:800, color:'#fff', flexShrink:0 }}>
+                        {p.phone[0]}
+                      </div>
+                      <span style={{ color:'#d1d5db', fontSize:12, fontWeight:600 }}>{p.phone}</span>
+                    </div>
+                    <span style={{ color:'#9ca3af', fontSize:12, textAlign:'right' }}>{p.bet.toLocaleString()}</span>
+                    <div style={{ textAlign:'center' }}>
+                      {won && p.multiplier ? (
+                        <span style={{ fontSize:11, fontWeight:800, color:mc, background:`${mc}20`, padding:'2px 6px', borderRadius:8, border:`1px solid ${mc}40` }}>
+                          {fmtX(p.multiplier)}
+                        </span>
+                      ) : lost ? <span style={{ fontSize:10, color:'#4b5563' }}>—</span>
+                        : <span style={{ fontSize:11, color:'#374151' }}>…</span>}
+                    </div>
+                    <span style={{ color: won ? '#19e66b':'#4b5563', fontSize:12, fontWeight: won?700:400, textAlign:'right' }}>
+                      {won ? p.win!.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—'}
+                    </span>
+                  </div>
+                );
+              })}
+              {fakePlayers.length === 0 && (
+                <div style={{ padding:'28px', textAlign:'center', color:'#374151', fontSize:12 }}>
+                  Waiting for next round to start…
+                </div>
+              )}
             </div>
-          </div>
+          </>
         )}
 
-        {/* Column headers */}
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 80px 64px 80px', padding:'6px 14px', borderBottom:'1px solid rgba(255,255,255,.04)' }}>
-          <span style={{ color:'#4b5563', fontSize:10, fontWeight:700 }}>PLAYER</span>
-          <span style={{ color:'#4b5563', fontSize:10, fontWeight:700, textAlign:'right' }}>BET Br</span>
-          <span style={{ color:'#4b5563', fontSize:10, fontWeight:700, textAlign:'center' }}>X</span>
-          <span style={{ color:'#4b5563', fontSize:10, fontWeight:700, textAlign:'right' }}>WIN Br</span>
-        </div>
-
-        {/* Rows */}
-        <div style={{ maxHeight:320, overflowY:'auto' }}>
-          {(betTab === 'top' ? topPlayers : betTab === 'prev' ? [] : sortedDisplay).map((p, i) => {
-            const hasCashedOut = p.cashedOut && p.win && p.win > 0;
-            const isLost = p.cashedOut && (!p.win || p.win <= 0);
-            const mc = hasCashedOut && p.multiplier ? multColor(p.multiplier) : undefined;
-            return (
-              <div key={p.id+i} style={{ display:'grid', gridTemplateColumns:'1fr 80px 64px 80px', padding:'9px 14px', borderBottom:'1px solid rgba(255,255,255,.025)', background: hasCashedOut ? 'rgba(25,230,107,.025)' : 'transparent', alignItems:'center' }}>
-                {/* Avatar + phone */}
-                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                  <div style={{ width:28, height:28, borderRadius:'50%', background:`hsl(${parseInt(p.id)*67%360},55%,45%)`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:800, color:'#fff', flexShrink:0 }}>
-                    {p.phone[0]}
-                  </div>
-                  <span style={{ color:'#d1d5db', fontSize:12, fontWeight:600 }}>{p.phone}</span>
-                </div>
-                {/* Bet */}
-                <span style={{ color:'#9ca3af', fontSize:12, textAlign:'right' }}>{p.bet.toLocaleString()}</span>
-                {/* Multiplier badge */}
-                <div style={{ textAlign:'center' }}>
-                  {hasCashedOut && p.multiplier ? (
-                    <span style={{ fontSize:11, fontWeight:800, color: mc, background: mc ? mc+'20':'transparent', padding:'2px 6px', borderRadius:8, border:`1px solid ${mc}40` }}>
-                      {fmtX(p.multiplier)}
-                    </span>
-                  ) : isLost ? (
-                    <span style={{ fontSize:10, color:'#4b5563' }}>—</span>
-                  ) : (
-                    <span style={{ fontSize:11, color:'#374151' }}>…</span>
-                  )}
-                </div>
-                {/* Win */}
-                <span style={{ color: hasCashedOut ? '#19e66b' : '#4b5563', fontSize:12, fontWeight: hasCashedOut ? 700:400, textAlign:'right' }}>
-                  {hasCashedOut ? p.win!.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—'}
-                </span>
+        {/* ── PREVIOUS TAB ── */}
+        {betTab === 'prev' && (
+          <>
+            {!prevRound ? (
+              <div style={{ padding:'28px', textAlign:'center', color:'#374151', fontSize:12 }}>
+                Previous round data will appear here after the first round ends
               </div>
-            );
-          })}
-          {(betTab === 'prev') && (
-            <div style={{ padding:'24px', textAlign:'center', color:'#374151', fontSize:12 }}>
-              Previous round results will appear here
-            </div>
-          )}
-          {fakePlayers.length === 0 && betTab !== 'prev' && (
-            <div style={{ padding:'24px', textAlign:'center', color:'#374151', fontSize:12 }}>
-              Waiting for next round to start…
-            </div>
-          )}
-        </div>
+            ) : (
+              <>
+                {/* Round result banner */}
+                <div style={{ padding:'14px 16px', textAlign:'center', background:'rgba(255,255,255,.03)', borderBottom:'1px solid rgba(255,255,255,.06)' }}>
+                  <div style={{ color:'#9ca3af', fontSize:12, marginBottom:4 }}>Round Result</div>
+                  <div style={{ fontSize:32, fontWeight:900, color: multColor(prevRound.crashPoint) }}>
+                    {fmtX(prevRound.crashPoint)}
+                  </div>
+                </div>
+                {/* Columns */}
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 80px 64px 80px', padding:'6px 14px', borderBottom:'1px solid rgba(255,255,255,.04)' }}>
+                  <span style={{ color:'#4b5563', fontSize:10, fontWeight:700 }}>PLAYER</span>
+                  <span style={{ color:'#4b5563', fontSize:10, fontWeight:700, textAlign:'right' }}>BET Br</span>
+                  <span style={{ color:'#4b5563', fontSize:10, fontWeight:700, textAlign:'center' }}>X</span>
+                  <span style={{ color:'#4b5563', fontSize:10, fontWeight:700, textAlign:'right' }}>WIN Br</span>
+                </div>
+                {/* Rows — cashed out first */}
+                <div style={{ maxHeight:380, overflowY:'auto' }}>
+                  {[
+                    ...prevRound.players.filter(p => p.win && p.win > 0).sort((a,b) => (b.win??0)-(a.win??0)),
+                    ...prevRound.players.filter(p => !p.win || p.win <= 0),
+                  ].map((p, i) => {
+                    const won = p.win && p.win > 0;
+                    const mc  = won && p.multiplier ? multColor(p.multiplier) : undefined;
+                    return (
+                      <div key={i} style={{ display:'grid', gridTemplateColumns:'1fr 80px 64px 80px', padding:'9px 14px', borderBottom:'1px solid rgba(255,255,255,.025)', background: won ? 'rgba(25,230,107,.03)':'transparent', alignItems:'center' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                          <div style={{ width:28, height:28, borderRadius:'50%', background:`hsl(${i*67%360},55%,42%)`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:800, color:'#fff', flexShrink:0 }}>
+                            {p.phone[0]}
+                          </div>
+                          <span style={{ color:'#d1d5db', fontSize:12, fontWeight:600 }}>{p.phone}</span>
+                        </div>
+                        <span style={{ color:'#9ca3af', fontSize:12, textAlign:'right' }}>{p.bet.toLocaleString()}</span>
+                        <div style={{ textAlign:'center' }}>
+                          {won && p.multiplier ? (
+                            <span style={{ fontSize:11, fontWeight:800, color:mc, background:`${mc}20`, padding:'2px 6px', borderRadius:8, border:`1px solid ${mc}40` }}>
+                              {fmtX(p.multiplier)}
+                            </span>
+                          ) : <span style={{ fontSize:10, color:'#4b5563' }}>—</span>}
+                        </div>
+                        <span style={{ color: won ? '#19e66b':'#4b5563', fontSize:12, fontWeight: won?700:400, textAlign:'right' }}>
+                          {won ? p.win!.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </>
+        )}
+
+        {/* ── TOP TAB ── */}
+        {betTab === 'top' && (() => {
+          const topData = generateTopPlayers(topSortBy, topPeriod);
+          return (
+            <>
+              {/* Sort-by row */}
+              <div style={{ display:'flex', padding:'8px 12px', gap:6, borderBottom:'1px solid rgba(255,255,255,.06)' }}>
+                {(['x','win','rounds'] as const).map(s => (
+                  <button key={s} onClick={() => setTopSortBy(s)}
+                    style={{ flex:1, padding:'7px 4px', borderRadius:8, border:'none', background: topSortBy===s ? '#ff6b35':'#0d1f38', color: topSortBy===s ? '#fff':'#6b7280', fontSize:12, fontWeight:700, cursor:'pointer' }}>
+                    {s === 'x' ? 'X' : s === 'win' ? 'Win' : 'Rounds'}
+                  </button>
+                ))}
+              </div>
+              {/* Time filter row */}
+              <div style={{ display:'flex', padding:'8px 12px', gap:6, borderBottom:'1px solid rgba(255,255,255,.06)' }}>
+                {(['day','month','year'] as const).map(p => (
+                  <button key={p} onClick={() => setTopPeriod(p)}
+                    style={{ flex:1, padding:'7px 4px', borderRadius:8, border:'none', background: topPeriod===p ? '#1d4ed8':'#0d1f38', color: topPeriod===p ? '#fff':'#6b7280', fontSize:12, fontWeight:700, cursor:'pointer' }}>
+                    {p === 'day' ? 'Day' : p === 'month' ? 'Month' : 'Year'}
+                  </button>
+                ))}
+              </div>
+              {/* Cards */}
+              <div style={{ maxHeight:400, overflowY:'auto' }}>
+                {topData.map((p, i) => {
+                  const rc = multColor(p.result);
+                  const rmc = multColor(p.roundMax);
+                  return (
+                    <div key={i} style={{ padding:'12px 14px', borderBottom:'1px solid rgba(255,255,255,.04)', background: i === 0 ? 'rgba(255,191,36,.04)':'transparent' }}>
+                      {/* Header row */}
+                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                          <div style={{ width:32, height:32, borderRadius:'50%', background:`hsl(${i*67%360},55%,42%)`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:800, color:'#fff', flexShrink:0 }}>
+                            {p.phone[0]}
+                          </div>
+                          <div>
+                            <div style={{ color:'#d1d5db', fontSize:13, fontWeight:700 }}>{p.phone}</div>
+                            <div style={{ color:'#4b5563', fontSize:10 }}>{p.date}</div>
+                          </div>
+                        </div>
+                        {/* Shield badge */}
+                        <div style={{ width:24, height:24, borderRadius:'50%', background:'rgba(59,130,246,.15)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12 }}>🛡️</div>
+                      </div>
+                      {/* Stats grid */}
+                      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:4 }}>
+                        <div>
+                          <div style={{ color:'#4b5563', fontSize:9, fontWeight:700, marginBottom:2 }}>BET Br</div>
+                          <div style={{ color:'#9ca3af', fontSize:12, fontWeight:600 }}>{p.bet.toLocaleString()}</div>
+                        </div>
+                        <div>
+                          <div style={{ color:'#4b5563', fontSize:9, fontWeight:700, marginBottom:2 }}>RESULT</div>
+                          <div style={{ color:rc, fontSize:12, fontWeight:800 }}>{fmtX(p.result)}</div>
+                        </div>
+                        <div>
+                          <div style={{ color:'#4b5563', fontSize:9, fontWeight:700, marginBottom:2 }}>WIN Br</div>
+                          <div style={{ color:'#19e66b', fontSize:12, fontWeight:700 }}>{p.win.toLocaleString('en',{maximumFractionDigits:2})}</div>
+                        </div>
+                        <div>
+                          <div style={{ color:'#4b5563', fontSize:9, fontWeight:700, marginBottom:2 }}>
+                            {topSortBy === 'rounds' ? 'ROUNDS' : 'RND MAX'}
+                          </div>
+                          <div style={{ color: topSortBy==='rounds' ? '#fbbf24' : rmc, fontSize:12, fontWeight:700 }}>
+                            {topSortBy === 'rounds' ? p.rounds.toLocaleString() : fmtX(p.roundMax)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          );
+        })()}
       </div>
     </div>
   );
