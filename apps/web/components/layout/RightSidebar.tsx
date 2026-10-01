@@ -219,7 +219,14 @@ export function RightSidebar() {
           <div className="text-white/40 text-sm mb-8">Add money to your account securely</div>
 
           <button
-            onClick={() => window.location.href = '/account'}
+            onClick={() => {
+              const userStr = localStorage.getItem('miraclbet_user');
+              if (!userStr || userStr === 'null') {
+                window.location.href = '/login?callback=/deposit';
+              } else {
+                window.location.href = '/deposit';
+              }
+            }}
             className="w-full py-4 rounded-xl text-sm font-black transition-transform hover:scale-105 active:scale-95"
             style={{
               background: 'linear-gradient(135deg, #19E66B, #0DB857)',
