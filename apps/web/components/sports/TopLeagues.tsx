@@ -50,24 +50,23 @@ export function SportsNav({
 
   return (
     <section style={{ background: '#0D1913' }} className="border-b border-brand pb-2">
-      {/* Sports horizontal scroll */}
-      <div className="flex overflow-x-auto gap-1 px-2 pt-3 pb-2" style={{ scrollbarWidth: 'none' }}>
+      {/* Sports horizontal scroll — compact pill style */}
+      <div className="flex overflow-x-auto gap-1.5 px-3 pt-3 pb-2" style={{ scrollbarWidth: 'none' }}>
         {SPORTS.map((sport) => {
           const isActive = activeSport === sport.key;
           return (
             <button
               key={sport.key}
               onClick={() => handleSelect(sport.key)}
-              className="flex flex-col items-center gap-1.5 min-w-[72px] px-2 py-2 rounded-xl transition-all"
+              className="flex items-center gap-1.5 shrink-0 px-3 py-1.5 rounded-full text-[13px] font-bold transition-all whitespace-nowrap"
               style={{
-                background: isActive ? '#19E66B18' : 'transparent',
-                borderBottom: isActive ? '2px solid #19E66B' : '2px solid transparent',
+                background: isActive ? '#19E66B' : '#0D2018',
+                color: isActive ? '#032107' : '#8D9B94',
+                border: isActive ? '1.5px solid #19E66B' : '1.5px solid #1C3026',
               }}
             >
-              <span className="text-3xl leading-none">{sport.icon}</span>
-              <span className={`text-xs font-semibold whitespace-nowrap ${isActive ? 'text-primary' : 'text-muted'}`}>
-                {sport.label}
-              </span>
+              <span className="text-base leading-none">{sport.icon}</span>
+              <span>{sport.label}</span>
             </button>
           );
         })}
