@@ -303,8 +303,8 @@ export default function CheckBetPage() {
           <h1 style={{ fontSize: 17, fontWeight: 900, color: '#111827', margin: 0 }}>Check Ticket</h1>
           <p style={{ fontSize: 11, color: '#9CA3AF', margin: 0 }}>Enter any MiraclBet ticket code</p>
         </div>
-        {/* If in QR mode with result, show "Search Again" */}
-        {isQRMode && (
+        {/* If result is shown, show "Search Again" */}
+        {slip && (
           <button onClick={handleClear} style={{ background: '#F3F4F6', border: '1px solid #E5E7EB', padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, color: '#374151', cursor: 'pointer' }}>
             Search Again
           </button>
@@ -326,15 +326,15 @@ export default function CheckBetPage() {
         </div>
       )}
 
-      {/* QR Mode: show result directly, no form */}
-      {isQRMode && !loading && slip && (
-        <div ref={resultRef} style={{ maxWidth: 520, margin: '0 auto', padding: '16px 16px 32px' }}>
+      {/* Result Display */}
+      {!loading && slip && (
+        <div ref={resultRef} style={{ maxWidth: 520, margin: '0 auto', padding: '16px 16px 32px', animation: 'fadeIn 0.3s ease' }}>
           <TicketDisplay slip={slip} />
         </div>
       )}
 
-      {/* QR Mode: error */}
-      {isQRMode && !loading && !slip && error && (
+      {/* Error Display */}
+      {!loading && !slip && error && (
         <div style={{ maxWidth: 520, margin: '32px auto', padding: '0 16px' }}>
           <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 12, padding: '20px', textAlign: 'center' }}>
             <div style={{ fontSize: 32, marginBottom: 8 }}>❌</div>
@@ -347,8 +347,8 @@ export default function CheckBetPage() {
         </div>
       )}
 
-      {/* Manual mode: full form + results */}
-      {!isQRMode && (
+      {/* Manual Input Form (Hidden when result is shown, loading, or error) */}
+      {!loading && !slip && !error && (
         <div style={{ maxWidth: 520, margin: '0 auto', padding: '24px 16px' }}>
 
           {/* Hero Icon */}
@@ -401,30 +401,21 @@ export default function CheckBetPage() {
             </form>
           </div>
 
-          {/* Result */}
-          {slip && (
-            <div style={{ animation: 'fadeIn 0.3s ease' }}>
-              <TicketDisplay slip={slip} />
-            </div>
-          )}
-
-          {/* Tips (only when no result) */}
-          {!slip && !loading && (
-            <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #E5E7EB', padding: '16px', marginTop: 4 }}>
-              <p style={{ fontSize: 12, fontWeight: 700, color: '#4B5563', margin: '0 0 10px', letterSpacing: 0.5 }}>HOW TO USE</p>
-              {[
-                { icon: '🎟️', text: 'Find your ticket code at the bottom of any bet in "Bets" — it looks like TICKET-70D8B690C-0F5' },
-                { icon: '📋', text: 'Copy the full code including "TICKET-" or just the part after it' },
-                { icon: '🔍', text: 'Tap "Check Ticket" to see full bet details, match results, and payout' },
-                { icon: '🚫', text: 'No login required — anyone can check any ticket code' },
-              ].map((t, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
-                  <span style={{ fontSize: 16, flexShrink: 0 }}>{t.icon}</span>
-                  <span style={{ fontSize: 13, color: '#6B7280' }}>{t.text}</span>
-                </div>
-              ))}
-            </div>
-          )}
+          {/* Tips */}
+          <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #E5E7EB', padding: '16px', marginTop: 4 }}>
+            <p style={{ fontSize: 12, fontWeight: 700, color: '#4B5563', margin: '0 0 10px', letterSpacing: 0.5 }}>HOW TO USE</p>
+            {[
+              { icon: '🎟️', text: 'Find your ticket code at the bottom of any bet in "Bets" — it looks like TICKET-70D8B690C-0F5' },
+              { icon: '📋', text: 'Copy the full code including "TICKET-" or just the part after it' },
+              { icon: '🔍', text: 'Type your code above to instantly see full bet details, match results, and payout' },
+              { icon: '🚫', text: 'No login required — anyone can check any ticket code' },
+            ].map((t, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
+                <span style={{ fontSize: 16, flexShrink: 0 }}>{t.icon}</span>
+                <span style={{ fontSize: 13, color: '#6B7280' }}>{t.text}</span>
+              </div>
+            ))}
+          </div>
 
           <div style={{ height: 32 }} />
         </div>
