@@ -239,7 +239,7 @@ export default function AviatorPage() {
     ctx.restore();
   }
 
-  // ──────────── Game loop ────────────
+  // ──────────── Game loop (PRACTICE MODE) ────────────
   const startRound = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
     const crash = genCrash();
@@ -263,7 +263,6 @@ export default function AviatorPage() {
       setCD(cd);
       if (cd <= 0) {
         clearInterval(timerRef.current!);
-        // Deduct bet if placed
         phaseRef.current = 'flying';
         setPhase('flying');
         startTsRef.current = Date.now();
@@ -283,13 +282,11 @@ export default function AviatorPage() {
             multRef.current = crash;
             setCrashAt(crash);
 
-            // If bet active and not cashed out → lost
             if (betRef.current !== null && cashedRef.current === null) {
               setMsg(`Lost ${fmtBr(betRef.current)} 💸`);
               betRef.current = null;
               setActiveBet(null);
             }
-
             setHistory(prev => [{ crashAt: crash, id: Date.now().toString() }, ...prev.slice(0, 19)]);
             setTimeout(() => startRound(), 4000);
           }
@@ -297,6 +294,82 @@ export default function AviatorPage() {
       }
     }, 1000);
   }, []);
+
+  // ──────────── SSE (REAL MODE) ────────────
+  useEffect(() => {
+    if (mode !== 'real') return;
+    
+    // Reset state before connecting
+    betRef.current = null;
+    cashedRef.current = null;
+    setActiveBet(null);
+    setCashedOut(null);
+    setMsg('');
+
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    const es = new EventSource(`${apiUrl}/api/v1/games/aviator/stream`);
+
+    es.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        
+        if (data.event === 'init') {
+          phaseRef.current = data.status;
+          multRef.current = data.multiplier;
+          setPhase(data.status);
+          setMult(data.multiplier);
+          if (data.countdown) setCD(data.countdown);
+          if (data.history) setHistory(data.history.map((h: any) => ({ id: h.id, crashAt: h.crash_at })));
+          if (data.status === 'flying') startTsRef.current = Date.now() - ((data.multiplier - 1) / GROWTH_RATE * TICK_MS);
+        }
+        else if (data.event === 'waiting') {
+          if (phaseRef.current !== 'waiting') {
+            phaseRef.current = 'waiting';
+            setPhase('waiting');
+            setCrashAt(null);
+            setCashedOut(null);
+            setProfit(null);
+            setMsg('');
+            // Only reset active bet if it wasn't placed for THIS new round
+            // (In a real app we'd track bet round_id, for MVP we just clear it)
+            if (betRef.current === null) setActiveBet(null); 
+          }
+          setCD(data.countdown);
+          multRef.current = 1.00;
+          setMult(1.00);
+        }
+        else if (data.event === 'flying') {
+          if (phaseRef.current !== 'flying') {
+            phaseRef.current = 'flying';
+            setPhase('flying');
+            startTsRef.current = Date.now();
+          }
+          multRef.current = data.multiplier;
+          setMult(data.multiplier);
+        }
+        else if (data.event === 'crashed') {
+          phaseRef.current = 'crashed';
+          crashRef.current = data.crash_at;
+          setPhase('crashed');
+          setMult(data.crash_at);
+          setCrashAt(data.crash_at);
+          
+          if (betRef.current !== null && cashedRef.current === null) {
+            setMsg(`Lost ${fmtBr(betRef.current)} 💸`);
+            betRef.current = null;
+            setActiveBet(null);
+            // Deducted balance is already true locally
+          }
+          
+          setHistory(prev => [{ crashAt: data.crash_at, id: Date.now().toString() }, ...prev.slice(0, 19)]);
+        }
+      } catch (err) { }
+    };
+
+    return () => {
+      es.close();
+    };
+  }, [mode]);
 
   // Start modes
   const handlePractice = () => {
@@ -311,13 +384,29 @@ export default function AviatorPage() {
     setMode('real');
     setBalance(user.balance || 0);
     setHistory([]);
-    setTimeout(() => startRound(), 200);
+    // SSE useEffect will take over
   };
 
   // Bet actions
-  const placeBet = () => {
+  const placeBet = async () => {
     const a = parseFloat(betAmt);
     if (!a || a <= 0 || a > balance || phase !== 'waiting' || activeBet !== null) return;
+    
+    if (mode === 'real') {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/games/aviator/bet`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-User-ID': user?.id || '' },
+          body: JSON.stringify({ amount: a })
+        });
+        if (!res.ok) {
+          const err = await res.text();
+          setMsg(err);
+          return;
+        }
+      } catch (e) { return; }
+    }
+    
     setBalance(b => b - a);
     betRef.current = a;
     setActiveBet(a);
@@ -325,16 +414,43 @@ export default function AviatorPage() {
   };
 
   const cancelBet = () => {
+    // Only allowed in practice for MVP
+    if (mode === 'real') return; 
     if (phase !== 'waiting' || activeBet === null) return;
     setBalance(b => b + activeBet);
     betRef.current = null;
     setActiveBet(null);
   };
 
-  const cashOut = () => {
-    const m = multRef.current;
+  const cashOut = async () => {
     const bet = betRef.current;
     if (phase !== 'flying' || bet === null || cashedRef.current !== null) return;
+    
+    if (mode === 'real') {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/games/aviator/cashout`, {
+          method: 'POST',
+          headers: { 'X-User-ID': user?.id || '' }
+        });
+        if (!res.ok) {
+          setMsg('Failed to cash out');
+          return;
+        }
+        const data = await res.json();
+        
+        cashedRef.current = data.multiplier;
+        setCashedOut(data.multiplier);
+        setBalance(b => b + data.win_amount);
+        betRef.current = null;
+        setActiveBet(null);
+        setProfit(data.win_amount - bet);
+        setMsg(`Won ${fmtBr(data.win_amount)} @ ${fmtX(data.multiplier)} 🎉`);
+        return;
+      } catch (e) { return; }
+    }
+    
+    // Practice logic
+    const m = multRef.current;
     cashedRef.current = m;
     setCashedOut(m);
     const win = Math.floor(bet * m * 100) / 100;
