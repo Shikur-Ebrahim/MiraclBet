@@ -391,7 +391,7 @@ export default function AviatorPage() {
 
   // ── place bet ──────────────────────────────────────────────────────────
   async function doPlaceBet(amount: number) {
-    if (!amount || amount <= 0 || activeBet !== null) return;
+    if (!amount || amount <= 0 || activeBet !== null || loading) return;
     if (mode === 'practice') {
       if (amount > balance) { setMsg('Insufficient balance'); return; }
       setBalance(b => b - amount);
@@ -423,7 +423,7 @@ export default function AviatorPage() {
   // ── cash out ───────────────────────────────────────────────────────────
   async function doCashOut() {
     const bet = betRef.current;
-    if (!bet || phaseRef.current !== 'flying' || cashRef.current !== null) return;
+    if (!bet || phaseRef.current !== 'flying' || cashRef.current !== null || loading) return;
     if (mode === 'practice') {
       const m = mult.current;
       cashRef.current = m; setCashedAt(m);

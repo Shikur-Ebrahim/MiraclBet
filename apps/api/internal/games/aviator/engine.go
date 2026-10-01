@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"strings"
 	"sync"
 	"time"
 
@@ -301,6 +302,9 @@ func (e *Engine) PlaceBet(ctx context.Context, userID string, amount float64) er
 
 	_, err = tx.Exec(ctx, `INSERT INTO aviator_bets (round_id, user_id, amount) VALUES ($1, $2, $3)`, roundID, userID, amount)
 	if err != nil {
+		if strings.Contains(err.Error(), "idx_aviator_bets_round_user") {
+			return fmt.Errorf("you have already placed a bet for this round")
+		}
 		return err
 	}
 
