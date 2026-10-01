@@ -5,8 +5,6 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.miraclbet.com:8443';
-const GROWTH = 0.005; // matches backend: 0.5% per 100ms
-const TICK   = 100;
 
 function fmtX(n: number)  { return n.toFixed(2) + 'x'; }
 function fmtBr(n: number) { return n.toLocaleString('en', { minimumFractionDigits: 2 }) + ' Br'; }
@@ -22,7 +20,6 @@ function histColor(m: number) {
   return { bg: 'rgba(25,230,107,0.12)', text: '#19e66b', border: 'rgba(25,230,107,0.3)' };
 }
 
-// ---------- tiny vanilla helper: update a DOM node by ID directly ----------
 function setEl(id: string, text: string, color?: string) {
   const el = document.getElementById(id);
   if (!el) return;
@@ -38,35 +35,45 @@ export default function AviatorPage() {
   const [balance,    setBalance]    = useState(10000);
   const [betAmt,     setBetAmt]     = useState('100');
   const [activeBet,  setActiveBet]  = useState<number|null>(null);
+  const [queuedBet,  setQueuedBet]  = useState<number|null>(null);
   const [cashedAt,   setCashedAt]   = useState<number|null>(null);
   const [history,    setHistory]    = useState<{id:string;m:number}[]>([]);
   const [msg,        setMsg]        = useState('');
   const [user,       setUser]       = useState<{id:string;balance:number}|null>(null);
 
-  // game refs — never trigger re-renders
+  // game refs
   const mult     = useRef(1.00);
   const crashed  = useRef(1.00);
-  const cd       = useRef(5);
   const betRef   = useRef<number|null>(null);
   const cashRef  = useRef<number|null>(null);
   const phaseRef = useRef<'waiting'|'flying'|'crashed'>('waiting');
-  const tickRef  = useRef<ReturnType<typeof setInterval>|null>(null);
   const esRef    = useRef<EventSource|null>(null);
+
+  const waitStartTs = useRef(0);
+  const waitTotal   = useRef(5);
+  const startTs     = useRef(0);
 
   // canvas
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef    = useRef(0);
-  const startTs   = useRef(0);
   const stars     = useRef<{x:number;y:number;r:number;a:number}[]>([]);
 
-  // ── load user ──────────────────────────────────────────────────────────
   useEffect(() => {
     stars.current = Array.from({length:70},()=>({ x:Math.random(), y:Math.random(), r:Math.random()*1.4+0.3, a:Math.random()*0.6+0.3 }));
     const u = localStorage.getItem('miraclbet_user');
     if (u) try { setUser(JSON.parse(u)); } catch{/**/}
   }, []);
 
-  // ── canvas RAF ─────────────────────────────────────────────────────────
+  // ── Auto-place queued bet when entering waiting phase ──
+  useEffect(() => {
+    if (phase === 'waiting' && queuedBet !== null) {
+      handlePlaceBet(queuedBet);
+      setQueuedBet(null);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
+
+  // ── canvas RAF ──
   useEffect(() => {
     if (screen !== 'game') return;
     let alive = true;
@@ -112,14 +119,25 @@ export default function AviatorPage() {
 
       // ── WAITING ──────────────────────────────────────────────────────
       if (ph === 'waiting') {
+        const elapsed = (Date.now() - waitStartTs.current) / 1000;
+        const left = Math.max(0, waitTotal.current - elapsed);
+        const pct = Math.max(0, Math.min(1, left / waitTotal.current));
+
         drawPlane(ctx, pL+8, H-pB-8, 0);
         ctx.textAlign = 'center'; ctx.font = '700 11px Inter,sans-serif';
         ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillText('WAITING FOR NEXT ROUND', W/2, H/2-42);
         ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = '600 12px Inter,sans-serif'; ctx.fillText('Starting in', W/2, H/2-18);
         ctx.fillStyle = '#ffffff'; ctx.font = `900 80px Inter,sans-serif`;
         ctx.shadowColor = 'rgba(255,255,255,0.2)'; ctx.shadowBlur = 24;
-        ctx.fillText(String(Math.max(0,cd.current)), W/2, H/2+32);
+        ctx.fillText(String(Math.ceil(left)), W/2, H/2+38);
         ctx.shadowBlur = 0;
+
+        // Smooth Progress Bar
+        ctx.fillStyle = 'rgba(255,255,255,0.1)';
+        ctx.beginPath(); ctx.roundRect(W/2-100, H/2+65, 200, 8, 4); ctx.fill();
+        ctx.fillStyle = '#ff6b35';
+        ctx.beginPath(); ctx.roundRect(W/2-100, H/2+65, 200 * pct, 8, 4); ctx.fill();
+
         rafRef.current = requestAnimationFrame(frame); return;
       }
 
@@ -180,7 +198,6 @@ export default function AviatorPage() {
       ctx.fillStyle=mc; ctx.fillText(fmtX(m), W/2, H/2+24);
       ctx.shadowBlur=0;
 
-      // also update HTML element directly (belt + suspenders)
       setEl('avi-mult', fmtX(m), mc);
 
       rafRef.current = requestAnimationFrame(frame);
@@ -190,7 +207,7 @@ export default function AviatorPage() {
     return () => { alive=false; cancelAnimationFrame(rafRef.current); };
   }, [screen]);
 
-  // ── canvas resize ──────────────────────────────────────────────────────
+  // ── canvas resize ──
   useEffect(() => {
     if (screen !== 'game') return;
     const resize = () => {
@@ -203,28 +220,21 @@ export default function AviatorPage() {
     return () => window.removeEventListener('resize', resize);
   }, [screen]);
 
-  // ── helpers ────────────────────────────────────────────────────────────
-  function stopTick() { if (tickRef.current) { clearInterval(tickRef.current); tickRef.current=null; } }
-
+  // ── helpers ──
   function goWait(countdown: number) {
-    stopTick();
-    phaseRef.current='waiting'; mult.current=1.00; cd.current=countdown;
+    phaseRef.current='waiting'; mult.current=1.00;
+    waitStartTs.current = Date.now();
+    waitTotal.current = countdown;
     betRef.current=null; cashRef.current=null;
     setPhase('waiting'); setActiveBet(null); setCashedAt(null); setMsg('');
-    // tick the countdown down every second
-    tickRef.current = setInterval(()=>{
-      cd.current = Math.max(0, cd.current-1);
-    }, 1000);
   }
 
   function goFly() {
-    stopTick();
     phaseRef.current='flying'; mult.current=1.00; startTs.current=Date.now();
     setPhase('flying');
   }
 
   function goCrash(point: number, lostBet: boolean) {
-    stopTick();
     phaseRef.current='crashed'; crashed.current=point; mult.current=point;
     setPhase('crashed');
     if (lostBet) {
@@ -235,11 +245,11 @@ export default function AviatorPage() {
     }
   }
 
-  // ── PRACTICE loop ──────────────────────────────────────────────────────
+  // ── PRACTICE ──
   function startPractice() {
     const crashPt = (()=>{ const r=Math.random(); return Math.max(1.01,Math.min(Math.floor(0.99/(1-r)*100)/100,200)); })();
     crashed.current = crashPt;
-    goWait(5);
+    goWait(6);
     setTimeout(()=>{
       goFly();
       const checker = setInterval(()=>{
@@ -248,13 +258,13 @@ export default function AviatorPage() {
           const lost = betRef.current!==null && cashRef.current===null;
           goCrash(crashPt, lost);
           setHistory(p=>[{id:Date.now().toString(),m:crashPt},...p.slice(0,19)]);
-          setTimeout(()=>startPractice(), 4000);
+          setTimeout(()=>startPractice(), 3000); // 3 sec crash screen in practice
         }
-      }, TICK);
-    }, 5000);
+      }, 100);
+    }, 6000);
   }
 
-  // ── REAL: SSE ──────────────────────────────────────────────────────────
+  // ── REAL: SSE ──
   useEffect(()=>{
     if (screen!=='game' || mode!=='real') return;
     if (esRef.current) esRef.current.close();
@@ -269,8 +279,7 @@ export default function AviatorPage() {
           case 'init':
             if (d.history) setHistory(d.history.map((h:{id:string;crash_at:number})=>({id:h.id,m:h.crash_at})));
             if (d.status==='waiting') {
-              if (phaseRef.current!=='waiting') goWait(d.countdown??5);
-              else { if (d.countdown !== undefined) cd.current = d.countdown; }
+              if (phaseRef.current!=='waiting') goWait(d.countdown??6);
             }
             else if (d.status==='flying') {
               if (phaseRef.current!=='flying') goFly();
@@ -280,8 +289,15 @@ export default function AviatorPage() {
             }
             break;
           case 'waiting':
-            if (phaseRef.current!=='waiting') goWait(d.countdown??5);
-            else { if (d.countdown !== undefined) cd.current = d.countdown; }
+            if (phaseRef.current!=='waiting') goWait(d.countdown??6);
+            else { 
+              // sync time if it drifted severely
+              const elapsed = (Date.now() - waitStartTs.current) / 1000;
+              const expectedLeft = waitTotal.current - elapsed;
+              if (d.countdown !== undefined && Math.abs(expectedLeft - d.countdown) > 1.5) {
+                waitTotal.current = d.countdown + elapsed;
+              }
+            }
             break;
           case 'flying':
             if (phaseRef.current!=='flying') goFly();
@@ -295,18 +311,18 @@ export default function AviatorPage() {
         }
       } catch(e) { console.error('[avi]',e); }
     };
-    return ()=>{ es.close(); stopTick(); };
+    return ()=>{ es.close(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screen, mode]);
 
-  // ── bet ────────────────────────────────────────────────────────────────
-  async function placeBet() {
-    const a = parseFloat(betAmt); if (!a||a<=0||a>balance||phase!=='waiting'||activeBet!==null) return;
+  // ── bet ──
+  async function handlePlaceBet(amt: number) {
+    if (!amt||amt<=0||amt>balance||activeBet!==null) return;
     if (mode==='real') {
-      const r = await fetch(`${API}/api/v1/games/aviator/bet`,{method:'POST',headers:{'Content-Type':'application/json','X-User-ID':user?.id??''},body:JSON.stringify({amount:a})});
+      const r = await fetch(`${API}/api/v1/games/aviator/bet`,{method:'POST',headers:{'Content-Type':'application/json','X-User-ID':user?.id??''},body:JSON.stringify({amount:amt})});
       if (!r.ok) { setMsg(await r.text()); return; }
     }
-    setBalance(b=>b-a); betRef.current=a; setActiveBet(a); setMsg('');
+    setBalance(b=>b-amt); betRef.current=amt; setActiveBet(amt); setMsg('');
   }
 
   async function cashOut() {
@@ -326,32 +342,26 @@ export default function AviatorPage() {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // MODE SELECT
-  // ═══════════════════════════════════════════════════════════════════════
   if (screen==='select') return (
     <div style={{minHeight:'100vh',background:'linear-gradient(160deg,#060d1a 0%,#0d1f3c 100%)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'24px 20px'}}>
-      {/* stars bg */}
       <div style={{position:'fixed',inset:0,overflow:'hidden',pointerEvents:'none'}}>
         {Array.from({length:50}).map((_,i)=>(
           <div key={i} style={{position:'absolute',left:`${(i*137)%100}%`,top:`${(i*91)%100}%`,width:(i%3)+1,height:(i%3)+1,borderRadius:'50%',background:'#fff',opacity:.3+(i%6)*.07}}/>
         ))}
       </div>
-
       <div style={{position:'relative',marginBottom:24,width:130,height:130,borderRadius:24,overflow:'hidden',boxShadow:'0 0 60px rgba(255,107,53,.45)',border:'2px solid rgba(255,107,53,.4)'}}>
         <Image src="/games/aviator.png" alt="Aviator" fill style={{objectFit:'cover'}} unoptimized/>
       </div>
-
       <h1 style={{fontSize:40,fontWeight:900,color:'#fff',margin:'0 0 6px',letterSpacing:-1}}>✈️ Aviator</h1>
       <p style={{color:'#6b7280',fontSize:14,margin:'0 0 40px',maxWidth:300,textAlign:'center',lineHeight:1.7}}>
         The multiplier rises as the plane climbs. Cash out before it flies away!
       </p>
-
       <div style={{display:'flex',flexDirection:'column',gap:12,width:'100%',maxWidth:320}}>
         <button
           onClick={()=>{ setScreen('game'); setMode('practice'); setBalance(10000); setHistory([]); setTimeout(startPractice,300); }}
           style={{padding:'18px 22px',borderRadius:16,border:'2px solid rgba(25,230,107,.3)',background:'rgba(25,230,107,.07)',color:'#19e66b',fontSize:16,fontWeight:800,cursor:'pointer',display:'flex',alignItems:'center',gap:12,textAlign:'left'}}>
           <span style={{fontSize:24}}>🎮</span>
-          <div><div>Practice Mode</div><div style={{fontSize:12,opacity:.65,fontWeight:500,marginTop:2}}>10,000 Br virtual chips • No login needed</div></div>
+          <div><div>Practice Mode</div><div style={{fontSize:12,opacity:.65,fontWeight:500,marginTop:2}}>10,000 Br virtual chips</div></div>
         </button>
         <button
           onClick={()=>{ if(!user){router.push('/login?callback=/games/aviator');return;} setScreen('game'); setMode('real'); setBalance(user.balance||0); setHistory([]); }}
@@ -360,26 +370,20 @@ export default function AviatorPage() {
           <div><div>Play Real Money</div><div style={{fontSize:12,opacity:.8,fontWeight:500,marginTop:2}}>{user?`Balance: ${fmtBr(user.balance??0)}`:'Tap to log in'}</div></div>
         </button>
       </div>
-
       <button onClick={()=>router.push('/')} style={{marginTop:32,background:'none',border:'none',color:'#4b5563',fontSize:13,cursor:'pointer'}}>← Back</button>
     </div>
   );
 
   // ═══════════════════════════════════════════════════════════════════════
-  // GAME SCREEN
-  // ═══════════════════════════════════════════════════════════════════════
   const isWait   = phase==='waiting';
   const isFly    = phase==='flying';
-  const isCrash  = phase==='crashed';
   const betAmt_n = parseFloat(betAmt||'0');
 
   return (
     <div style={{minHeight:'100vh',background:'#07101f',display:'flex',flexDirection:'column',fontFamily:'Inter,sans-serif'}}>
-
-      {/* ── Top bar ── */}
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 14px',background:'#070f1e',borderBottom:'1px solid rgba(255,255,255,0.06)'}}>
         <div style={{display:'flex',alignItems:'center',gap:10}}>
-          <button onClick={()=>{ setScreen('select'); stopTick(); cancelAnimationFrame(rafRef.current); if(esRef.current)esRef.current.close(); }}
+          <button onClick={()=>{ setScreen('select'); cancelAnimationFrame(rafRef.current); if(esRef.current)esRef.current.close(); }}
             style={{background:'none',border:'none',color:'#6b7280',cursor:'pointer',fontSize:20,lineHeight:1}}>←</button>
           <span style={{color:'#ff6b35',fontSize:17,fontWeight:900}}>✈️ Aviator</span>
           <span style={{fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:20,background:mode==='real'?'rgba(255,107,53,.18)':'rgba(25,230,107,.14)',color:mode==='real'?'#ff6b35':'#19e66b',border:`1px solid ${mode==='real'?'rgba(255,107,53,.35)':'rgba(25,230,107,.3)'}`}}>
@@ -392,7 +396,6 @@ export default function AviatorPage() {
         </div>
       </div>
 
-      {/* ── History pills ── */}
       <div style={{display:'flex',gap:6,padding:'7px 12px',overflowX:'auto',background:'#07101f',borderBottom:'1px solid rgba(255,255,255,0.04)'}}>
         {history.length===0 && <span style={{color:'#374151',fontSize:11}}>No rounds yet</span>}
         {history.slice(0,14).map(h=>{ const c=histColor(h.m); return (
@@ -402,10 +405,8 @@ export default function AviatorPage() {
         );})}
       </div>
 
-      {/* ── Canvas (draws everything) ── */}
       <div style={{position:'relative',flex:1,minHeight:250,maxHeight:320}}>
         <canvas ref={canvasRef} style={{display:'block',width:'100%',height:'100%'}}/>
-        {/* Fallback HTML element for multiplier (updated via setEl) */}
         <div id="avi-mult" style={{
           display: isFly ? 'block' : 'none',
           position:'absolute', left:0, right:0, top:'50%', transform:'translateY(-40%)',
@@ -414,62 +415,62 @@ export default function AviatorPage() {
         }}>1.00x</div>
       </div>
 
-      {/* ── Status message ── */}
       {msg && (
         <div style={{padding:'8px 14px',textAlign:'center',fontSize:13,fontWeight:700,color:msg.includes('Won')||msg.includes('🎉')?'#19e66b':'#ff3a3a',background:msg.includes('Won')||msg.includes('🎉')?'rgba(25,230,107,.08)':'rgba(255,58,58,.08)',borderTop:'1px solid rgba(255,255,255,.04)'}}>
           {msg}
         </div>
       )}
 
-      {/* ── Bet panel ── */}
       <div style={{padding:'12px 12px 28px',background:'#070f1e',borderTop:'1px solid rgba(255,255,255,.06)'}}>
-
-        {/* Amount input */}
         <div style={{display:'flex',alignItems:'center',background:'#0f1d35',borderRadius:12,padding:'10px 14px',marginBottom:9,border:'1px solid rgba(255,255,255,.07)'}}>
           <input type="number" value={betAmt} onChange={e=>setBetAmt(e.target.value)}
-            disabled={!!activeBet||isFly}
+            disabled={!!activeBet || !!queuedBet || isFly}
             style={{flex:1,background:'none',border:'none',outline:'none',color:'#fff',fontSize:20,fontWeight:700,fontFamily:'inherit'}}
             placeholder="0"/>
           <span style={{color:'#4b5563',fontWeight:600,fontSize:13}}>Br</span>
         </div>
 
-        {/* Quick amounts */}
         <div style={{display:'flex',gap:7,marginBottom:11}}>
           {[50,100,200,500,1000].map(v=>(
-            <button key={v} onClick={()=>setBetAmt(String((betAmt_n||0)+v))} disabled={!!activeBet||isFly}
+            <button key={v} onClick={()=>setBetAmt(String((betAmt_n||0)+v))} disabled={!!activeBet || !!queuedBet || isFly}
               style={{flex:1,padding:'7px 2px',borderRadius:9,border:'1px solid rgba(255,255,255,.07)',background:'#0f1d35',color:'#9ca3af',fontSize:11,fontWeight:700,cursor:'pointer'}}>
               +{v}
             </button>
           ))}
         </div>
 
-        {/* Action button */}
+        {/* Action Buttons */}
         {isWait && !activeBet && (
-          <button onClick={placeBet}
+          <button onClick={()=>handlePlaceBet(betAmt_n)}
             style={{width:'100%',padding:'15px',borderRadius:13,border:'none',background:'linear-gradient(135deg,#ff6b35,#e03000)',color:'#fff',fontSize:16,fontWeight:800,cursor:'pointer',boxShadow:'0 4px 18px rgba(255,107,53,.35)'}}>
             🎯 Place Bet — {betAmt_n.toLocaleString('en')} Br
           </button>
         )}
         {isWait && !!activeBet && (
-          <div style={{width:'100%',padding:'15px',borderRadius:13,background:'rgba(25,230,107,.08)',color:'#19e66b',fontSize:14,fontWeight:700,textAlign:'center',border:'1px solid rgba(25,230,107,.25)'}}>
-            ✓ {fmtBr(activeBet)} placed — starting soon...
+          <div style={{width:'100%',padding:'15px',borderRadius:13,background:'rgba(25,230,107,.08)',color:'#19e66b',fontSize:15,fontWeight:800,textAlign:'center',border:'1px solid rgba(25,230,107,.25)'}}>
+            ✓ Bet Placed
           </div>
         )}
+
         {isFly && !!activeBet && !cashedAt && (
           <button onClick={cashOut}
             style={{width:'100%',padding:'15px',borderRadius:13,border:'none',background:'linear-gradient(135deg,#19e66b,#00b845)',color:'#000',fontSize:16,fontWeight:900,cursor:'pointer',boxShadow:'0 4px 20px rgba(25,230,107,.42)'}}>
-            💸 CASH OUT — {fmtBr(Math.floor(activeBet * mult.current * 100)/100)}
+            💸 CASH OUT — {fmtBr(Math.floor((activeBet * mult.current)*100)/100)}
           </button>
         )}
-        {isFly && (!activeBet || !!cashedAt) && (
-          <div style={{width:'100%',padding:'15px',borderRadius:13,background:'#0f1d35',color:'#4b5563',fontSize:14,fontWeight:600,textAlign:'center'}}>
-            {cashedAt ? `✓ Cashed out @ ${fmtX(cashedAt)}` : 'Round in progress...'}
-          </div>
+
+        {/* Queuing system when not waiting */}
+        {!isWait && (!activeBet || !!cashedAt) && !queuedBet && (
+          <button onClick={()=>setQueuedBet(betAmt_n)}
+            style={{width:'100%',padding:'15px',borderRadius:13,border:'none',background:'linear-gradient(135deg,#3b82f6,#2563eb)',color:'#fff',fontSize:16,fontWeight:800,cursor:'pointer',boxShadow:'0 4px 18px rgba(59,130,246,.35)'}}>
+            🎯 Bet on Next Round — {betAmt_n} Br
+          </button>
         )}
-        {isCrash && (
-          <div style={{width:'100%',padding:'15px',borderRadius:13,background:'#0f1d35',color:'#4b5563',fontSize:14,fontWeight:600,textAlign:'center'}}>
-            Next round starting soon...
-          </div>
+        {!isWait && !!queuedBet && (
+          <button onClick={()=>setQueuedBet(null)}
+            style={{width:'100%',padding:'15px',borderRadius:13,background:'#1e3a8a',border:'1px solid #3b82f6',color:'#93c5fd',fontSize:15,fontWeight:700,textAlign:'center',cursor:'pointer'}}>
+            ⏳ Cancel Next Bet — {queuedBet} Br
+          </button>
         )}
       </div>
     </div>

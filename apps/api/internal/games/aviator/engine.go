@@ -83,6 +83,8 @@ func (e *Engine) runLoop() {
 	for {
 		e.doWaiting()
 		e.doFlying()
+		// Sleep for 2.5 seconds to show the "FLEW AWAY" crash screen
+		time.Sleep(2500 * time.Millisecond)
 	}
 }
 
@@ -103,7 +105,7 @@ func (e *Engine) doWaiting() {
 	e.roundID = roundID
 	e.multiplier = 1.00
 	e.crashPoint = crashPoint
-	e.countdown = 5
+	e.countdown = 6
 	e.stateMu.Unlock()
 
 	// Insert into DB (outside of stateMu lock)
@@ -118,8 +120,8 @@ func (e *Engine) doWaiting() {
 		}
 	}
 
-	// 5-second countdown — broadcast each tick OUTSIDE any stateMu lock
-	for i := 5; i >= 1; i-- {
+	// 6-second countdown — broadcast each tick OUTSIDE any stateMu lock
+	for i := 6; i >= 1; i-- {
 		e.stateMu.Lock()
 		e.countdown = i
 		e.stateMu.Unlock()
