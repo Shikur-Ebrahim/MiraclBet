@@ -185,8 +185,8 @@ export function Sidebar({ isOpen, onClose, onSelectSport, onSelectLeague }: Side
       >
         {/* ── STICKY HEADER ── */}
         <div className="shrink-0 pt-4 px-4 pb-3 z-10" style={{ background: '#072414', borderBottom: '1px solid rgba(25,230,107,0.15)' }}>
-          {/* Header */}
-          <div className="flex items-center justify-between mb-1">
+          {/* Header (Hidden on Desktop) */}
+          <div className="flex items-center justify-between mb-4 md:hidden">
             <div>
               <div className="text-2xl font-black tracking-tight">
                 <span className="text-white">Miracl</span>
