@@ -250,6 +250,15 @@ export default function AviatorPage() {
       ctx.fillText(fmtX(m), W/2, H/2+28);
       ctx.shadowBlur = 0;
 
+      // LIVE CASHOUT BUTTON UPDATE
+      if (betRef.current !== null && cashRef.current === null) {
+        const liveWin = Math.floor((betRef.current * m) * 100) / 100;
+        const btn = document.getElementById('cashout-text');
+        if (btn && !btn.textContent?.includes('Cashing')) {
+          btn.textContent = `💸 CASH OUT — ${fmtBr(liveWin)}`;
+        }
+      }
+
       rafRef.current = requestAnimationFrame(frame);
     }
 
@@ -635,7 +644,7 @@ export default function AviatorPage() {
         {isFlying && betActive && !cashedOut && (
           <button onClick={doCashOut} disabled={loading}
             style={{ width:'100%', padding:'16px', borderRadius:14, border:'none', background:'linear-gradient(135deg,#19e66b,#059669)', color:'#000', fontSize:17, fontWeight:900, cursor:'pointer', boxShadow:'0 4px 24px rgba(25,230,107,.45)', opacity: loading ? .7 : 1 }}>
-            {loading ? '⏳ Cashing out...' : `💸 CASH OUT — ${fmtBr(Math.floor((activeBet! * mult.current)*100)/100)}`}
+            <span id="cashout-text">{loading ? '⏳ Cashing out...' : `💸 CASH OUT — ${fmtBr(Math.floor((activeBet! * mult.current)*100)/100)}`}</span>
           </button>
         )}
 
