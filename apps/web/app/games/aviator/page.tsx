@@ -269,9 +269,16 @@ export default function AviatorPage() {
         switch(d.event) {
           case 'init':
             if (d.history) setHistory(d.history.map((h:{id:string;crash_at:number})=>({id:h.id,m:h.crash_at})));
-            if (d.status==='waiting') goWait(d.countdown??5);
-            else if (d.status==='flying') goFly();
-            else if (d.status==='crashed') { crashed.current=d.crash_at; goCrash(d.crash_at,false); }
+            if (d.status==='waiting') {
+              if (phaseRef.current!=='waiting') goWait(d.countdown??5);
+              else { if (d.countdown !== undefined) cd.current = d.countdown; }
+            }
+            else if (d.status==='flying') {
+              if (phaseRef.current!=='flying') goFly();
+            }
+            else if (d.status==='crashed') {
+              if (phaseRef.current!=='crashed') { crashed.current=d.crash_at; goCrash(d.crash_at,false); }
+            }
             break;
           case 'waiting':
             if (phaseRef.current!=='waiting') goWait(d.countdown??5);

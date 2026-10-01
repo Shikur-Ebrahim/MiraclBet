@@ -152,6 +152,11 @@ func (e *Engine) doFlying() {
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 
+	// Broadcast 'flying' ONCE before the loop starts
+	e.broadcast(map[string]interface{}{
+		"event": "flying",
+	})
+
 	m := 1.00
 	for range ticker.C {
 		m = math.Floor((m+m*0.005)*100) / 100
@@ -160,16 +165,10 @@ func (e *Engine) doFlying() {
 			break
 		}
 
-		// Update state
+		// Update state (no broadcast)
 		e.stateMu.Lock()
 		e.multiplier = m
 		e.stateMu.Unlock()
-
-		// Broadcast OUTSIDE stateMu lock
-		e.broadcast(map[string]interface{}{
-			"event":      "flying",
-			"multiplier": m,
-		})
 	}
 
 	// CRASHED — update state first, then DB, then broadcast
