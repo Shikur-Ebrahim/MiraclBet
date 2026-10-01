@@ -202,8 +202,8 @@ func (e *Engine) broadcast(data interface{}) {
 		return
 	}
 	
-	e.mu.RLock()
-	defer e.mu.RUnlock()
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	for client := range e.clients {
 		select {
 		case client <- b:
