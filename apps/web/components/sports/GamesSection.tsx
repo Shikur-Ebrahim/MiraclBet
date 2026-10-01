@@ -4,15 +4,20 @@ import React from 'react';
 import Image from 'next/image';
 
 const GAMES = [
-  { key: 'keno',         label: 'Keno',         image: '/games/keno.png' },
-  { key: 'burning-board',label: 'Burning Board', image: '/games/burning-board.png' },
-  { key: 'hitslot',      label: 'Hit Slot',      image: '/games/hitslot.png' },
-  { key: 'aviator',      label: 'Aviator',       image: '/games/aviator.png' },
-  { key: 'catchup',      label: 'Catch Up!',     image: '/games/catchup.png' },
-  { key: 'crashx',       label: 'Crash X',       image: '/games/crashx.png' },
-  { key: 'hot-to-burn',  label: 'Hot to Burn',   image: '/games/hot-to-burn.png' },
-  { key: 'jetx',         label: 'JetX',          image: '/games/jetx.png' },
-  { key: 'keno2',        label: 'Keno 80',       image: '/games/keno2.png' },
+  { key: 'keno',           label: 'Keno',           image: '/games/keno.png' },
+  { key: 'burning-board',  label: 'Burning Board',  image: '/games/burning-board.png' },
+  { key: 'hitslot',        label: 'Hit Slot',       image: '/games/hitslot.png' },
+  { key: 'aviator',        label: 'Aviator',        image: '/games/aviator.png' },
+  { key: 'catchup',        label: 'Catch Up!',      image: '/games/catchup.png' },
+  { key: 'crashx',         label: 'Crash X',        image: '/games/crashx.png' },
+  { key: 'hot-to-burn',    label: 'Hot to Burn',    image: '/games/hot-to-burn.png' },
+  { key: 'jetx',           label: 'JetX',           image: '/games/jetx.png' },
+  { key: 'keno2',          label: 'Keno 80',        image: '/games/keno2.png' },
+  { key: 'plinko',         label: 'Plinko',         image: '/games/plinko.png' },
+  { key: 'racing-roulette',label: 'Racing Roulette', image: '/games/racing-roulette.png' },
+  { key: 'ultra-hold-spin',label: 'Ultra Hold & Spin',image: '/games/ultra-hold-spin.png' },
+  { key: 'crazy-rocket',   label: 'Crazy Rocket',   image: '/games/crazy-rocket.png' },
+  { key: 'plinko2',        label: 'Plinko',         image: '/games/plinko2.png' },
 ];
 
 export function GamesSection() {
