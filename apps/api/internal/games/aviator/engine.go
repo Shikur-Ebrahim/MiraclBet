@@ -108,9 +108,11 @@ func (e *Engine) doWaiting() {
 
 	// Insert into DB (outside of stateMu lock)
 	if e.db != nil {
-		_, err := e.db.Exec(context.Background(),
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		_, err := e.db.Exec(ctx,
 			`INSERT INTO aviator_rounds (id, crash_at, hash, status, started_at) VALUES ($1, $2, $3, 'waiting', NOW())`,
 			roundID, crashPoint, hashStr)
+		cancel()
 		if err != nil {
 			log.Printf("[aviator] DB insert round error: %v", err)
 		}
@@ -142,8 +144,9 @@ func (e *Engine) doFlying() {
 
 	// Update DB outside lock
 	if e.db != nil {
-		e.db.Exec(context.Background(),
-			`UPDATE aviator_rounds SET status = 'flying' WHERE id = $1`, roundID)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		e.db.Exec(ctx, `UPDATE aviator_rounds SET status = 'flying' WHERE id = $1`, roundID)
+		cancel()
 	}
 
 	ticker := time.NewTicker(100 * time.Millisecond)
@@ -181,10 +184,10 @@ func (e *Engine) doFlying() {
 
 	// DB update OUTSIDE stateMu lock
 	if e.db != nil {
-		e.db.Exec(context.Background(),
-			`UPDATE aviator_rounds SET status = 'crashed', crashed_at = NOW() WHERE id = $1`, roundID)
-		e.db.Exec(context.Background(),
-			`UPDATE aviator_bets SET profit = -amount WHERE round_id = $1 AND cashed_out_at IS NULL`, roundID)
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		e.db.Exec(ctx, `UPDATE aviator_rounds SET status = 'crashed', crashed_at = NOW() WHERE id = $1`, roundID)
+		e.db.Exec(ctx, `UPDATE aviator_bets SET profit = -amount WHERE round_id = $1 AND cashed_out_at IS NULL`, roundID)
+		cancel()
 	}
 
 	// Broadcast crash OUTSIDE stateMu lock

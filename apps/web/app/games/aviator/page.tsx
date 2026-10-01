@@ -275,7 +275,7 @@ export default function AviatorPage() {
             break;
           case 'waiting':
             if (phaseRef.current!=='waiting') goWait(d.countdown??5);
-            else { cd.current = d.countdown??cd.current; stopTick(); }
+            else { if (d.countdown !== undefined) cd.current = d.countdown; }
             break;
           case 'flying':
             if (phaseRef.current!=='flying') goFly();
