@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
 import BetslipPage from '@/app/betslip/page';
 import CheckPage from '@/app/check/page';
+import DepositPage from '@/app/deposit/page';
 
 type RightTab = 'betslip' | 'check' | 'deposit';
 
@@ -213,28 +214,8 @@ export function RightSidebar() {
 
       {/* ─── DEPOSIT ─── */}
       {tab === 'deposit' && (
-        <div className="flex flex-col flex-1 overflow-y-auto px-4 py-8 items-center justify-center text-center">
-          <div className="text-5xl mb-4">💳</div>
-          <div className="text-white font-bold text-lg mb-2">Deposit Funds</div>
-          <div className="text-white/40 text-sm mb-8">Add money to your account securely</div>
-
-          <button
-            onClick={() => {
-              const userStr = localStorage.getItem('miraclbet_user');
-              if (!userStr || userStr === 'null') {
-                window.location.href = '/login?callback=/deposit';
-              } else {
-                window.location.href = '/deposit';
-              }
-            }}
-            className="w-full py-4 rounded-xl text-sm font-black transition-transform hover:scale-105 active:scale-95"
-            style={{
-              background: 'linear-gradient(135deg, #19E66B, #0DB857)',
-              color: '#000',
-              boxShadow: '0 8px 24px rgba(25, 230, 107, 0.2)'
-            }}>
-            DEPOSIT NOW
-          </button>
+        <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden bg-[#0A0E1A] [&>div>div:first-child]:hidden [&>div]:!min-h-0 [&>div]:!pb-0">
+          <DepositPage />
         </div>
       )}
     </div>
