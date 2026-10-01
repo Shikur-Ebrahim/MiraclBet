@@ -7,6 +7,7 @@ import { BottomNav } from '@/components/layout/BottomNav';
 import { RightSidebar } from '@/components/layout/RightSidebar';
 import { DesktopSidebar } from '@/components/layout/DesktopSidebar';
 import { AiAssistant } from '@/components/layout/AiAssistant';
+import { MainContent } from '@/components/layout/MainContent';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
@@ -73,7 +74,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-screen flex flex-col bg-dark text-white">
         <Header />
-        <main className="flex-1 md:pl-64 md:pr-[350px]">{children}</main>
+        <MainContent>{children}</MainContent>
         <Footer />
         <RightSidebar />
         <DesktopSidebar />

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { usePathname } from 'next/navigation';
 import BetslipPage from '@/app/betslip/page';
 import CheckPage from '@/app/check/page';
 
@@ -61,6 +62,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export function RightSidebar() {
+  const pathname = usePathname();
   const [tab, setTab] = useState<RightTab>('betslip');
   const [betslip, setBetslip] = useState<BetslipItem[]>([]);
   const [stake, setStake] = useState('');
@@ -199,6 +201,10 @@ export function RightSidebar() {
     } catch { setDepositError('Network error. Try again.'); }
     finally { setDepositing(false); }
   };
+
+  // Hide on admin/agent/worker/auth pages — they have their own layouts
+  const hideOn = ['/admin', '/agent', '/worker', '/login', '/register'];
+  if (hideOn.some(p => pathname.startsWith(p))) return null;
 
   return (
     <div
