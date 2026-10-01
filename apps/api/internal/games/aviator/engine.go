@@ -157,9 +157,11 @@ func (e *Engine) doFlying() {
 		"event": "flying",
 	})
 
-	m := 1.00
+	start := time.Now()
 	for range ticker.C {
-		m = math.Floor((m+m*0.005)*100) / 100
+		elapsedMs := float64(time.Since(start).Milliseconds())
+		ticks := elapsedMs / 100.0
+		m := math.Max(1.00, math.Pow(1.005, ticks))
 
 		if m >= crashPoint {
 			break

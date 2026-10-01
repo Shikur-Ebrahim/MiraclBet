@@ -136,9 +136,12 @@ export default function AviatorPage() {
       }
 
       // ── FLYING ───────────────────────────────────────────────────────
-      const elapsed = (Date.now() - startTs.current) / 1000;
-      const t = Math.min(elapsed / 60, 0.97);
-      const m = mult.current;
+      const elapsedMs = Date.now() - startTs.current;
+      const ticks = elapsedMs / 100;
+      const m = Math.max(1.00, Math.pow(1.005, ticks));
+      mult.current = m;
+
+      const t = Math.min(elapsedMs / 60000, 0.97); // max 60s for visual curve
       const sx = pL+8, sy = H-pB-8, ex = W-16, ey = 28;
       const cpx = pL+gW*0.22, cpy = H-pB-gH*0.68;
 
@@ -218,10 +221,6 @@ export default function AviatorPage() {
     stopTick();
     phaseRef.current='flying'; mult.current=1.00; startTs.current=Date.now();
     setPhase('flying');
-    // tick multiplier every 100ms
-    tickRef.current = setInterval(()=>{
-      mult.current = Math.round((mult.current + mult.current*GROWTH)*100)/100;
-    }, TICK);
   }
 
   function goCrash(point: number, lostBet: boolean) {
