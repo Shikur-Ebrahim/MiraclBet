@@ -200,21 +200,21 @@ export function RightSidebar() {
 
       {/* ─── BETSLIP (Renders Mobile Page Component Directly) ─── */}
       {tab === 'betslip' && (
-        <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden bg-[#0A0E1A] [&>div>div:first-child]:hidden [&>div]:!min-h-0 [&>div]:!pb-0">
+        <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden bg-[#0A0E1A] [&>div>div:first-child]:!hidden [&>div]:!min-h-0 [&>div]:!pb-0">
           <BetslipPage />
         </div>
       )}
 
       {/* ─── CHECK (Renders Check Page Directly) ─── */}
       {tab === 'check' && (
-        <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden bg-[#0A0E1A] [&>div>div:first-child]:hidden [&>div]:!min-h-0 [&>div]:!pb-0">
+        <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden bg-[#0A0E1A] [&>div>div:first-child]:!hidden [&>div]:!min-h-0 [&>div]:!pb-0">
           <CheckPage />
         </div>
       )}
 
       {/* ─── DEPOSIT ─── */}
       {tab === 'deposit' && (
-        <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden bg-[#0A0E1A] [&>div>div:first-child]:hidden [&>div]:!min-h-0 [&>div]:!pb-0">
+        <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden bg-[#0A0E1A] [&>div>div:first-child]:!hidden [&>div]:!min-h-0 [&>div]:!pb-0">
           <DepositPage />
         </div>
       )}
