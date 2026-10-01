@@ -306,7 +306,7 @@ export default function AviatorPage() {
     setCashedOut(null);
     setMsg('');
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
     const es = new EventSource(`${apiUrl}/api/v1/games/aviator/stream`);
 
     es.onmessage = (e) => {
@@ -394,7 +394,7 @@ export default function AviatorPage() {
     
     if (mode === 'real') {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/games/aviator/bet`, {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443'}/api/v1/games/aviator/bet`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-User-ID': user?.id || '' },
           body: JSON.stringify({ amount: a })
@@ -428,7 +428,7 @@ export default function AviatorPage() {
     
     if (mode === 'real') {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/games/aviator/cashout`, {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443'}/api/v1/games/aviator/cashout`, {
           method: 'POST',
           headers: { 'X-User-ID': user?.id || '' }
         });
