@@ -256,6 +256,18 @@ export default function CheckBetPage() {
     performCheck(code);
   };
 
+  // Auto-search effect when user stops typing
+  useEffect(() => {
+    if (isQRMode || !code.trim()) return;
+    const timer = setTimeout(() => {
+      if (code.trim().length >= 4) {
+        performCheck(code);
+      }
+    }, 800);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code]);
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
@@ -381,37 +393,11 @@ export default function CheckBetPage() {
                 )}
               </div>
 
-              {error && (
+              {error && !loading && (
                 <div style={{ marginTop: 10, padding: '10px 12px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, color: '#DC2626', fontSize: 13, fontWeight: 600 }}>
                   ⚠ {error}
                 </div>
               )}
-
-              <button type="submit" disabled={loading || !code.trim()}
-                style={{
-                  width: '100%', marginTop: 14, padding: '14px',
-                  background: loading || !code.trim() ? '#E5E7EB' : 'linear-gradient(135deg, #059669, #047857)',
-                  border: 'none', borderRadius: 12, color: loading || !code.trim() ? '#9CA3AF' : '#fff',
-                  fontSize: 15, fontWeight: 900, cursor: loading || !code.trim() ? 'not-allowed' : 'pointer',
-                  boxShadow: loading || !code.trim() ? 'none' : '0 6px 20px rgba(5,150,105,0.3)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'all 0.2s'
-                }}>
-                {loading ? (
-                  <>
-                    <svg style={{ width: 18, height: 18, animation: 'spin 1s linear infinite' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-                    </svg>
-                    Checking...
-                  </>
-                ) : (
-                  <>
-                    <svg viewBox="0 0 24 24" style={{ width: 18, height: 18 }} fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-                    </svg>
-                    Check Ticket
-                  </>
-                )}
-              </button>
             </form>
           </div>
 
