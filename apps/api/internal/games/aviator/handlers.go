@@ -29,6 +29,14 @@ func (h *Handlers) SSEHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Pad the initial connection to bypass Nginx/Vercel proxy buffers (forces immediate flush)
+	padding := make([]byte, 2048)
+	for i := range padding {
+		padding[i] = ' '
+	}
+	fmt.Fprintf(w, ":%s\n\n", string(padding))
+	flusher.Flush()
+
 	ch := make(chan []byte, 10)
 	h.Engine.AddClient(ch)
 	defer h.Engine.RemoveClient(ch)
