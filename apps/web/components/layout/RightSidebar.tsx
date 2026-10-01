@@ -76,12 +76,7 @@ export function RightSidebar() {
   const [checkResult, setCheckResult] = useState<CheckResult | null>(null);
   const [checkError, setCheckError] = useState('');
 
-  // Deposit tab
-  const [depositAmount, setDepositAmount] = useState('');
-  const [depositMethod, setDepositMethod] = useState('telebirr');
-  const [depositing, setDepositing] = useState(false);
-  const [depositMsg, setDepositMsg] = useState('');
-  const [depositError, setDepositError] = useState('');
+  // Deposit tab uses a simple redirect button now
 
   const loadBetslip = useCallback(() => {
     try {
@@ -178,29 +173,7 @@ export function RightSidebar() {
     finally { setChecking(false); }
   };
 
-  const submitDeposit = async () => {
-    setDepositMsg(''); setDepositError('');
-    const user = JSON.parse(localStorage.getItem('miraclbet_user') || 'null');
-    if (!user) { setDepositError('Please log in to deposit'); return; }
-    const amount = parseFloat(depositAmount);
-    if (!amount || amount < 10) { setDepositError('Minimum deposit is 10 Br'); return; }
-    setDepositing(true);
-    try {
-      const res = await fetch(`${API}/api/v1/deposits`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: user.id, amount, method: depositMethod }),
-      });
-      if (!res.ok) {
-        const txt = await res.text();
-        try { setDepositError(JSON.parse(txt).message || 'Failed'); } catch { setDepositError(txt || 'Failed'); }
-        return;
-      }
-      setDepositMsg('✅ Deposit submitted! Awaiting approval.');
-      setDepositAmount('');
-    } catch { setDepositError('Network error. Try again.'); }
-    finally { setDepositing(false); }
-  };
+
 
   // Hide on admin/agent/worker/auth pages — they have their own layouts
   const hideOn = ['/admin', '/agent', '/worker', '/login', '/register'];
@@ -240,77 +213,24 @@ export function RightSidebar() {
 
       {/* ─── DEPOSIT ─── */}
       {tab === 'deposit' && (
-        <div className="flex flex-col flex-1 overflow-y-auto px-4 py-4">
-          <div className="text-center mb-5">
-            <div className="text-3xl mb-2">💳</div>
-            <div className="text-white font-bold text-sm">Deposit Funds</div>
-            <div className="text-white/40 text-xs mt-1">Add money to your account</div>
-          </div>
+        <div className="flex flex-col flex-1 overflow-y-auto px-4 py-8 items-center justify-center text-center">
+          <div className="text-5xl mb-4">💳</div>
+          <div className="text-white font-bold text-lg mb-2">Deposit Funds</div>
+          <div className="text-white/40 text-sm mb-8">Add money to your account securely</div>
 
-          {/* Method selector */}
-          <label className="text-[10px] text-white/40 font-bold uppercase tracking-wide mb-2 block">Payment Method</label>
-          <div className="grid grid-cols-2 gap-2 mb-4">
-            {[
-              { key: 'telebirr', label: 'TeleBirr', icon: '📱' },
-              { key: 'cbe', label: 'CBE Birr', icon: '🏦' },
-              { key: 'mpesa', label: 'M-Pesa', icon: '📲' },
-              { key: 'bank', label: 'Bank Transfer', icon: '🏛️' },
-            ].map(m => (
-              <button key={m.key} onClick={() => setDepositMethod(m.key)}
-                className="flex flex-col items-center gap-1 py-3 rounded-xl text-xs font-bold transition-all"
-                style={{
-                  background: depositMethod === m.key ? '#19E66B22' : '#111F35',
-                  border: depositMethod === m.key ? '1.5px solid #19E66B' : '1.5px solid rgba(255,255,255,0.08)',
-                  color: depositMethod === m.key ? '#19E66B' : '#9CA3AF',
-                }}>
-                <span className="text-xl">{m.icon}</span>
-                {m.label}
-              </button>
-            ))}
-          </div>
-
-          <label className="text-[10px] text-white/40 font-bold uppercase tracking-wide mb-2 block">Amount (Br)</label>
-          <div className="relative mb-2">
-            <input
-              type="number" value={depositAmount} onChange={e => setDepositAmount(e.target.value)}
-              placeholder="Min. 10 Br"
-              className="w-full rounded-xl px-4 py-3 text-white text-sm font-bold outline-none"
-              style={{ background: '#111F35', border: '1.5px solid rgba(255,255,255,0.1)' }}
-            />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-white/30">Br</span>
-          </div>
-
-          {/* Quick amount buttons */}
-          <div className="grid grid-cols-4 gap-1.5 mb-4">
-            {[50, 100, 200, 500].map(a => (
-              <button key={a} onClick={() => setDepositAmount(String(a))}
-                className="py-1.5 rounded-lg text-xs font-bold transition-colors"
-                style={{ background: depositAmount === String(a) ? '#19E66B' : '#111F35', color: depositAmount === String(a) ? '#000' : '#9CA3AF', border: '1px solid rgba(255,255,255,0.06)' }}>
-                +{a}
-              </button>
-            ))}
-          </div>
-
-          {depositError && (
-            <div className="rounded-xl px-4 py-3 text-xs font-bold mb-3" style={{ background: '#1A0506', color: '#EF4444', border: '1px solid #EF444430' }}>⚠️ {depositError}</div>
-          )}
-          {depositMsg && (
-            <div className="rounded-xl px-4 py-3 text-xs font-bold mb-3" style={{ background: '#052E16', color: '#19E66B', border: '1px solid #19E66B30' }}>{depositMsg}</div>
-          )}
-
-          <button onClick={submitDeposit} disabled={depositing || !depositAmount}
-            className="w-full py-3 rounded-xl text-sm font-black"
+          <button
+            onClick={() => window.location.href = '/account'}
+            className="w-full py-4 rounded-xl text-sm font-black transition-transform hover:scale-105 active:scale-95"
             style={{
-              background: depositing || !depositAmount ? '#1A2535' : 'linear-gradient(135deg, #19E66B, #0DB857)',
-              color: depositing || !depositAmount ? '#4B5563' : '#000',
-              cursor: depositing || !depositAmount ? 'not-allowed' : 'pointer',
+              background: 'linear-gradient(135deg, #19E66B, #0DB857)',
+              color: '#000',
+              boxShadow: '0 8px 24px rgba(25, 230, 107, 0.2)'
             }}>
-            {depositing ? '⏳ Processing...' : `DEPOSIT${depositAmount ? ` · ${depositAmount} Br` : ''}`}
+            DEPOSIT NOW
           </button>
-
-          <p className="text-center text-white/20 text-[10px] mt-4">Deposits are reviewed within 5–30 minutes</p>
         </div>
       )}
     </div>
   );
 }
+
