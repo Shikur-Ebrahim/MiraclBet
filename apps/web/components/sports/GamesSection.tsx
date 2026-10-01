@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 
 const GAMES = [
   { key: 'keno',           label: 'Keno',           image: '/games/keno.png' },
@@ -40,8 +41,9 @@ export function GamesSection() {
         style={{ scrollbarWidth: 'none' }}
       >
         {GAMES.map((game) => (
-          <button
+          <Link
             key={game.key}
+            href={`/games/${game.key}`}
             className="shrink-0 flex flex-col items-center gap-1 transition-transform hover:scale-105 active:scale-95"
           >
             <div
@@ -59,7 +61,7 @@ export function GamesSection() {
             <span className="text-[11px] font-semibold text-white/60 whitespace-nowrap">
               {game.label}
             </span>
-          </button>
+          </Link>
         ))}
       </div>
     </div>
