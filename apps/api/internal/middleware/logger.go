@@ -28,3 +28,10 @@ func (rw *responseWriter) WriteHeader(code int) {
         rw.ResponseWriter.WriteHeader(code)
     }
 }
+
+// Implement http.Flusher so SSE streams can bypass the logger wrapper
+func (rw *responseWriter) Flush() {
+    if flusher, ok := rw.ResponseWriter.(http.Flusher); ok {
+        flusher.Flush()
+    }
+}
