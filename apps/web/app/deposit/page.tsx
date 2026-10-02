@@ -68,7 +68,7 @@ export default function DepositPage() {
 
     // Fetch both payment methods and pending deposit check in parallel
     Promise.all([
-      fetch(`${API}/api/v1/admin/payment-methods`).then(r => r.json()),
+      fetch(`${API}/api/v1/payment-methods`).then(r => r.json()),
       fetch(`${API}/api/v1/deposits/pending?user_id=${user.id}`).then(r => r.json()).catch(() => null),
     ]).then(([methodsData, pendingData]) => {
       const active = (Array.isArray(methodsData) ? methodsData : []).filter((m: PaymentMethod) => m.is_active);
