@@ -120,11 +120,12 @@ export default function WithdrawalMethodsAdmin() {
       if (res.ok) {
         setMethods(methods.filter(m => m.id !== id));
       } else {
-        alert('Failed to delete');
+        const errText = await res.text().catch(() => 'Failed to delete');
+        alert(errText || 'Failed to delete');
       }
     } catch (err) {
       console.error(err);
-      alert('Network error');
+      alert('Network error — could not reach server');
     }
   };
 

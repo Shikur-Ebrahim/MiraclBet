@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -66,21 +67,21 @@ func (h *WithdrawalMethodsHandler) Create(w http.ResponseWriter, r *http.Request
 	}
 
 	var logoURL *string
-	file, header, err := r.FormFile("logo")
-	if err == nil {
+	file, header, fileErr := r.FormFile("logo")
+	if fileErr == nil {
 		defer file.Close()
 		if h.r2 != nil {
-			url, err := h.r2.UploadFile(r.Context(), file, header)
-			if err != nil {
-				http.Error(w, "Failed to upload image: "+err.Error(), http.StatusInternalServerError)
-				return
+			url, uploadErr := h.r2.UploadFile(r.Context(), file, header)
+			if uploadErr != nil {
+				_ = uploadErr // Ignore upload failure, save without logo
+			} else {
+				logoURL = &url
 			}
-			logoURL = &url
 		}
 	}
 
 	var newMethod WithdrawalMethod
-	err = h.db.Pool.QueryRow(r.Context(), `
+	err := h.db.Pool.QueryRow(r.Context(), `
 		INSERT INTO withdrawal_methods (provider_name, logo_url) 
 		VALUES ($1, $2) 
 		RETURNING id, provider_name, logo_url, is_active, created_at
@@ -106,7 +107,12 @@ func (h *WithdrawalMethodsHandler) Delete(w http.ResponseWriter, r *http.Request
 
 	_, err := h.db.Pool.Exec(r.Context(), "DELETE FROM withdrawal_methods WHERE id = $1", id)
 	if err != nil {
-		http.Error(w, "Failed to delete", http.StatusInternalServerError)
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "foreign key") || strings.Contains(errMsg, "violates") {
+			http.Error(w, "Cannot delete: this method has existing withdrawal requests. Deactivate it instead.", http.StatusConflict)
+		} else {
+			http.Error(w, "Failed to delete: "+errMsg, http.StatusInternalServerError)
+		}
 		return
 	}
 
