@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -107,12 +106,7 @@ func (h *WithdrawalMethodsHandler) Delete(w http.ResponseWriter, r *http.Request
 
 	_, err := h.db.Pool.Exec(r.Context(), "DELETE FROM withdrawal_methods WHERE id = $1", id)
 	if err != nil {
-		errMsg := err.Error()
-		if strings.Contains(errMsg, "foreign key") || strings.Contains(errMsg, "violates") {
-			http.Error(w, "Cannot delete: this method has existing withdrawal requests. Deactivate it instead.", http.StatusConflict)
-		} else {
-			http.Error(w, "Failed to delete: "+errMsg, http.StatusInternalServerError)
-		}
+		http.Error(w, "Failed to delete: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
