@@ -96,7 +96,10 @@ export default function DepositMethodsAdmin() {
         body: formData,
       });
 
-      if (!res.ok) throw new Error('Failed to save deposit method');
+      if (!res.ok) {
+        const errText = await res.text().catch(() => 'Failed to save deposit method');
+        throw new Error(errText || 'Failed to save deposit method');
+      }
 
       setIsModalOpen(false);
       setProviderName(providers[0]);

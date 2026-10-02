@@ -80,16 +80,18 @@ func (h *PaymentMethodsHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var logoURL *string
-	file, header, err := r.FormFile("logo")
-	if err == nil {
+	file, header, fileErr := r.FormFile("logo")
+	if fileErr == nil {
 		defer file.Close()
 		if h.r2 != nil {
-			url, err := h.r2.UploadFile(r.Context(), file, header)
-			if err != nil {
-				http.Error(w, "Failed to upload image: "+err.Error(), http.StatusInternalServerError)
-				return
+			url, uploadErr := h.r2.UploadFile(r.Context(), file, header)
+			if uploadErr != nil {
+				// Log but don't fail — logo upload is optional
+				// The deposit method will still be saved without a logo
+				_ = uploadErr
+			} else {
+				logoURL = &url
 			}
-			logoURL = &url
 		}
 	}
 
