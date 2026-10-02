@@ -1,7 +1,6 @@
 import React from 'react';
-import Link from 'next/link';
 import { Container } from '../ui/Container';
-import { Facebook, Twitter, Instagram } from 'lucide-react';
+import { Facebook, Twitter, Instagram, Phone } from 'lucide-react';
 
 export function Footer() {
   return (
@@ -16,13 +15,17 @@ export function Footer() {
                 <span style={{ color: '#F5F7F6' }}>Miracl</span><span style={{ color: '#19E66B' }}>Bet</span>
               </span>
             </div>
-            <p className="text-[13px] text-gray-400 mb-5 max-w-sm">
+            <p className="text-[13px] text-gray-400 mb-3 max-w-sm">
               The premium sports betting experience. Live odds, fast payouts, and trusted by thousands.
             </p>
+            <div className="flex items-center gap-2 text-[13px] text-[#19E66B] mb-5 font-semibold">
+              <Phone className="w-4 h-4" />
+              <span>+1 (438) 905-1590</span>
+            </div>
             <div className="flex gap-4 justify-center md:justify-start">
-              <a href="#" className="text-gray-400 hover:text-white p-2 bg-[#1A2235] rounded-full"><Twitter className="w-4 h-4" /></a>
-              <a href="#" className="text-gray-400 hover:text-white p-2 bg-[#1A2235] rounded-full"><Facebook className="w-4 h-4" /></a>
-              <a href="#" className="text-gray-400 hover:text-white p-2 bg-[#1A2235] rounded-full"><Instagram className="w-4 h-4" /></a>
+              <span className="text-gray-400 hover:text-white p-2 bg-[#1A2235] rounded-full cursor-pointer"><Twitter className="w-4 h-4" /></span>
+              <span className="text-gray-400 hover:text-white p-2 bg-[#1A2235] rounded-full cursor-pointer"><Facebook className="w-4 h-4" /></span>
+              <span className="text-gray-400 hover:text-white p-2 bg-[#1A2235] rounded-full cursor-pointer"><Instagram className="w-4 h-4" /></span>
             </div>
           </div>
           
@@ -30,10 +33,10 @@ export function Footer() {
           <div>
             <h4 className="font-semibold text-white mb-3 text-sm">Sports</h4>
             <ul className="space-y-2 text-[13px] text-gray-400">
-              <li><Link href="/sports/football" className="hover:text-[#19E66B] transition-colors">Football</Link></li>
-              <li><Link href="/sports/basketball" className="hover:text-[#19E66B] transition-colors">Basketball</Link></li>
-              <li><Link href="/sports/tennis" className="hover:text-[#19E66B] transition-colors">Tennis</Link></li>
-              <li><Link href="/sports/cricket" className="hover:text-[#19E66B] transition-colors">Cricket</Link></li>
+              <li><span className="hover:text-[#19E66B] transition-colors cursor-pointer">Football</span></li>
+              <li><span className="hover:text-[#19E66B] transition-colors cursor-pointer">Basketball</span></li>
+              <li><span className="hover:text-[#19E66B] transition-colors cursor-pointer">Tennis</span></li>
+              <li><span className="hover:text-[#19E66B] transition-colors cursor-pointer">Cricket</span></li>
             </ul>
           </div>
           
@@ -41,10 +44,10 @@ export function Footer() {
           <div>
             <h4 className="font-semibold text-white mb-3 text-sm">Help</h4>
             <ul className="space-y-2 text-[13px] text-gray-400">
-              <li><Link href="/faq" className="hover:text-[#19E66B] transition-colors">FAQ</Link></li>
-              <li><Link href="/support" className="hover:text-[#19E66B] transition-colors">Support Center</Link></li>
-              <li><Link href="/betting-rules" className="hover:text-[#19E66B] transition-colors">Betting Rules</Link></li>
-              <li><Link href="/responsible-gaming" className="hover:text-[#19E66B] transition-colors">Responsible Gaming</Link></li>
+              <li><span className="hover:text-[#19E66B] transition-colors cursor-pointer">FAQ</span></li>
+              <li><span className="hover:text-[#19E66B] transition-colors cursor-pointer">Support Center</span></li>
+              <li><span className="hover:text-[#19E66B] transition-colors cursor-pointer">Betting Rules</span></li>
+              <li><span className="hover:text-[#19E66B] transition-colors cursor-pointer">Responsible Gaming</span></li>
             </ul>
           </div>
           
@@ -52,9 +55,9 @@ export function Footer() {
           <div className="col-span-2 md:col-span-1">
             <h4 className="font-semibold text-white mb-3 text-sm">Legal</h4>
             <ul className="flex flex-wrap gap-x-6 gap-y-2 text-[13px] text-gray-400 md:block md:space-y-2">
-              <li><Link href="/terms" className="hover:text-[#19E66B] transition-colors">Terms of Service</Link></li>
-              <li><Link href="/privacy" className="hover:text-[#19E66B] transition-colors">Privacy Policy</Link></li>
-              <li><Link href="/cookies" className="hover:text-[#19E66B] transition-colors">Cookie Policy</Link></li>
+              <li><span className="hover:text-[#19E66B] transition-colors cursor-pointer">Terms of Service</span></li>
+              <li><span className="hover:text-[#19E66B] transition-colors cursor-pointer">Privacy Policy</span></li>
+              <li><span className="hover:text-[#19E66B] transition-colors cursor-pointer">Cookie Policy</span></li>
             </ul>
           </div>
 
