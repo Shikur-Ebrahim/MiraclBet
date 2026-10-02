@@ -96,7 +96,7 @@ func (h *PaymentMethodsHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var newMethod PaymentMethod
-	err = h.db.Pool.QueryRow(r.Context(), `
+	err := h.db.Pool.QueryRow(r.Context(), `
 		INSERT INTO payment_methods (provider_name, account_name, account_number, logo_url, min_deposit) 
 		VALUES ($1, $2, $3, $4, $5) 
 		RETURNING id, provider_name, account_name, account_number, logo_url, is_active, COALESCE(min_deposit, 450), created_at
