@@ -13,6 +13,7 @@ import (
 	"github.com/miraclbet/api/internal/config"
 	"github.com/miraclbet/api/internal/database"
 	"github.com/miraclbet/api/internal/games/aviator"
+	"github.com/miraclbet/api/internal/handlers"
 	"github.com/miraclbet/api/internal/router"
 	"github.com/miraclbet/api/internal/storage"
 )
@@ -82,17 +83,14 @@ func main() {
 		}
 	}()
 
-	// Start auto-settler: every 60s settle auto-win bets whose matches have ended
-	go func() {
-		ticker := time.NewTicker(60 * time.Second)
-		defer ticker.Stop()
-		settleAutoWinBets(db)
-		settleNormalBets(db)
-		for range ticker.C {
-			settleAutoWinBets(db)
-		settleNormalBets(db)
-		}
-	}()
+	// Start the auto-settlement loop — settles is_auto_win bet slips automatically
+	// when fixture results come in from the DB. Runs every 60s.
+	if db != nil {
+		settlementHandler := handlers.NewSettlementHandler(db)
+		appCtx, appCancel := context.WithCancel(context.Background())
+		defer appCancel()
+		go settlementHandler.StartAutoSettleLoop(appCtx)
+	}
 
 	<-quit
 	log.Println("[api] shutting down...")

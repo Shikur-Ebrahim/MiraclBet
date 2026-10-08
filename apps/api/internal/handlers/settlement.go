@@ -23,6 +23,195 @@ func NewSettlementHandler(db *database.DB) *SettlementHandler {
 	return &SettlementHandler{db: db}
 }
 
+// StartAutoSettleLoop runs in the background every 60 seconds.
+// It finds all PENDING bet slips that are auto-win (manual/admin tickets),
+// checks each leg against the fixture result, settles the leg,
+// and when all legs are done — marks the slip WON and credits the user's balance.
+func (h *SettlementHandler) StartAutoSettleLoop(ctx context.Context) {
+	log.Println("[auto-settle] background settlement loop started")
+	ticker := time.NewTicker(60 * time.Second)
+	defer ticker.Stop()
+
+	// Run once immediately on startup, then every 60s
+	h.runAutoSettle(ctx)
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Println("[auto-settle] stopping")
+			return
+		case <-ticker.C:
+			h.runAutoSettle(ctx)
+		}
+	}
+}
+
+func (h *SettlementHandler) runAutoSettle(ctx context.Context) {
+	// Find all PENDING auto-win slip IDs
+	rows, err := h.db.Pool.Query(ctx, `
+		SELECT id FROM bet_slips
+		WHERE status = 'PENDING' AND is_auto_win = true
+	`)
+	if err != nil {
+		log.Printf("[auto-settle] query error: %v", err)
+		return
+	}
+	var slipIDs []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err == nil {
+			slipIDs = append(slipIDs, id)
+		}
+	}
+	rows.Close()
+
+	for _, slipID := range slipIDs {
+		h.autoSettleSlip(ctx, slipID)
+	}
+}
+
+func (h *SettlementHandler) autoSettleSlip(ctx context.Context, slipID string) {
+	// Get all PENDING legs for this slip that have a finished fixture
+	legRows, err := h.db.Pool.Query(ctx, `
+		SELECT
+			bl.id,
+			bl.market_name,
+			bl.selection_name,
+			bl.odds,
+			COALESCE(f.score_home, -1),
+			COALESCE(f.score_away, -1),
+			COALESCE(f.status_short, '')
+		FROM bet_legs bl
+		LEFT JOIN fixtures f ON f.external_id = bl.fixture_id
+		WHERE bl.bet_slip_id = $1
+		  AND bl.status = 'PENDING'
+		  AND f.status_short IN ('FT','AET','PEN','CANC','PSTP','ABD')
+	`, slipID)
+	if err != nil {
+		log.Printf("[auto-settle] leg query error for slip %s: %v", slipID, err)
+		return
+	}
+	type legResult struct {
+		id            string
+		marketName    string
+		selectionName string
+		odds          float64
+		scoreHome     int
+		scoreAway     int
+		statusShort   string
+	}
+	var legs []legResult
+	for legRows.Next() {
+		var l legResult
+		legRows.Scan(&l.id, &l.marketName, &l.selectionName, &l.odds, &l.scoreHome, &l.scoreAway, &l.statusShort)
+		legs = append(legs, l)
+	}
+	legRows.Close()
+
+	// Settle each finished leg
+	for _, l := range legs {
+		status := h.determineLegStatus(l.marketName, l.selectionName, l.scoreHome, l.scoreAway, l.statusShort)
+		_, err := h.db.Pool.Exec(ctx,
+			`UPDATE bet_legs SET status = $1 WHERE id = $2`, status, l.id,
+		)
+		if err != nil {
+			log.Printf("[auto-settle] failed to update leg %s: %v", l.id, err)
+			continue
+		}
+		log.Printf("[auto-settle] slip %s leg %s -> %s (%s %d-%d)", slipID, l.id, status, l.marketName, l.scoreHome, l.scoreAway)
+	}
+
+	// Now try to settle the whole slip
+	if err := h.trySettleSlip(ctx, slipID); err != nil {
+		log.Printf("[auto-settle] trySettleSlip error for %s: %v", slipID, err)
+	}
+}
+
+// determineLegStatus evaluates a finished match against the selection and returns WON/LOST/VOID
+func (h *SettlementHandler) determineLegStatus(marketName, selectionName string, scoreHome, scoreAway int, statusShort string) string {
+	// Cancelled/postponed/abandoned = VOID
+	if statusShort == "CANC" || statusShort == "PSTP" || statusShort == "ABD" {
+		return "VOID"
+	}
+
+	totalGoals := scoreHome + scoreAway
+
+	switch marketName {
+	case "Match Winner":
+		switch selectionName {
+		case "Home Win":
+			if scoreHome > scoreAway { return "WON" }
+		case "Away Win":
+			if scoreAway > scoreHome { return "WON" }
+		case "Draw":
+			if scoreHome == scoreAway { return "WON" }
+		}
+		return "LOST"
+
+	case "Both Teams to Score":
+		switch selectionName {
+		case "Yes":
+			if scoreHome > 0 && scoreAway > 0 { return "WON" }
+		case "No":
+			if scoreHome == 0 || scoreAway == 0 { return "WON" }
+		}
+		return "LOST"
+
+	case "Over 2.5 Goals", "Over/Under 2.5 Goals":
+		if selectionName == "Over 2.5" || selectionName == "Over 2.5 Goals" {
+			if totalGoals > 2 { return "WON" }
+		} else {
+			if totalGoals <= 2 { return "WON" }
+		}
+		return "LOST"
+
+	case "Over 1.5 Goals":
+		if selectionName == "Over 1.5" { if totalGoals > 1 { return "WON" } }
+		if selectionName == "Under 1.5" { if totalGoals <= 1 { return "WON" } }
+		return "LOST"
+
+	case "Over 3.5 Goals":
+		if selectionName == "Over 3.5" { if totalGoals > 3 { return "WON" } }
+		if selectionName == "Under 3.5" { if totalGoals <= 3 { return "WON" } }
+		return "LOST"
+
+	case "Double Chance":
+		switch selectionName {
+		case "Home or Draw":
+			if scoreHome >= scoreAway { return "WON" }
+		case "Away or Draw":
+			if scoreAway >= scoreHome { return "WON" }
+		case "Home or Away":
+			if scoreHome != scoreAway { return "WON" }
+		}
+		return "LOST"
+
+	case "Draw No Bet":
+		if scoreHome == scoreAway { return "VOID" }
+		switch selectionName {
+		case "Home":
+			if scoreHome > scoreAway { return "WON" }
+		case "Away":
+			if scoreAway > scoreHome { return "WON" }
+		}
+		return "LOST"
+
+	case "Correct Score":
+		// selectionName like "2-0" or "2-1"
+		expected := fmt.Sprintf("%d-%d", scoreHome, scoreAway)
+		if selectionName == expected { return "WON" }
+		return "LOST"
+
+	case "Half-Time Result":
+		// Requires HT score — not available, treat as VOID for now
+		return "VOID"
+	}
+
+	// Unknown market — treat as LOST so we don't block settlement forever
+	log.Printf("[auto-settle] unknown market '%s', defaulting to LOST", marketName)
+	return "LOST"
+}
+
 type SettleLegRequest struct {
 	Status string `json:"status"` // WON or LOST or VOID
 }
