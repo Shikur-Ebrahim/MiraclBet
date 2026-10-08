@@ -46,28 +46,74 @@ func (h *SettlementHandler) StartAutoSettleLoop(ctx context.Context) {
 	}
 }
 
+// runAutoSettle finds every PENDING is_auto_win slip and instantly marks it WON,
+// credits the full potential_payout to the user's balance, and marks all legs WON.
 func (h *SettlementHandler) runAutoSettle(ctx context.Context) {
-	// Find all PENDING auto-win slip IDs
+	// Fetch all PENDING auto-win slips with user + payout info
 	rows, err := h.db.Pool.Query(ctx, `
-		SELECT id FROM bet_slips
+		SELECT id, user_id, potential_payout
+		FROM bet_slips
 		WHERE status = 'PENDING' AND is_auto_win = true
 	`)
 	if err != nil {
 		log.Printf("[auto-settle] query error: %v", err)
 		return
 	}
-	var slipIDs []string
+	type slipRow struct {
+		id             string
+		userID         string
+		potentialPayout float64
+	}
+	var slips []slipRow
 	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err == nil {
-			slipIDs = append(slipIDs, id)
+		var s slipRow
+		if err := rows.Scan(&s.id, &s.userID, &s.potentialPayout); err == nil {
+			slips = append(slips, s)
 		}
 	}
 	rows.Close()
 
-	for _, slipID := range slipIDs {
-		h.autoSettleSlip(ctx, slipID)
+	for _, s := range slips {
+		h.instantWinSlip(ctx, s.id, s.userID, s.potentialPayout)
 	}
+}
+
+// instantWinSlip atomically:
+//  1. Marks all legs of the slip as WON
+//  2. Marks the slip itself as WON
+//  3. Credits the full potential_payout to the user's balance
+func (h *SettlementHandler) instantWinSlip(ctx context.Context, slipID, userID string, payout float64) {
+	tx, err := h.db.Pool.Begin(ctx)
+	if err != nil {
+		log.Printf("[auto-settle] begin tx error for slip %s: %v", slipID, err)
+		return
+	}
+	defer tx.Rollback(ctx)
+
+	// Mark all legs WON
+	if _, err := tx.Exec(ctx, `UPDATE bet_legs SET status = 'WON' WHERE bet_slip_id = $1`, slipID); err != nil {
+		log.Printf("[auto-settle] update legs error for slip %s: %v", slipID, err)
+		return
+	}
+
+	// Mark slip WON
+	if _, err := tx.Exec(ctx, `UPDATE bet_slips SET status = 'WON' WHERE id = $1`, slipID); err != nil {
+		log.Printf("[auto-settle] update slip error %s: %v", slipID, err)
+		return
+	}
+
+	// Credit user balance
+	if _, err := tx.Exec(ctx, `UPDATE users SET balance = balance + $1 WHERE id = $2`, payout, userID); err != nil {
+		log.Printf("[auto-settle] credit balance error user %s: %v", userID, err)
+		return
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		log.Printf("[auto-settle] commit error for slip %s: %v", slipID, err)
+		return
+	}
+
+	log.Printf("[auto-settle] ✅ slip %s WON — credited %.2f to user %s", slipID, payout, userID)
 }
 
 func (h *SettlementHandler) autoSettleSlip(ctx context.Context, slipID string) {
