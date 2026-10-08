@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 export default function AdminSettingsPage() {
   const router = useRouter();
   const [feeAccount, setFeeAccount] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+  const [telegramUsername, setTelegramUsername] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState({ text: '', type: '' });
@@ -22,6 +24,8 @@ export default function AdminSettingsPage() {
       if (res.ok) {
         const data = await res.json();
         setFeeAccount(data.fee_account || '');
+        setContactPhone(data.contact_phone || '');
+        setTelegramUsername(data.telegram_username || '');
       }
     } catch (err) {
       console.error('Failed to load settings', err);
@@ -37,7 +41,11 @@ export default function AdminSettingsPage() {
       const res = await fetch(`${API}/api/v1/admin/settings`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fee_account: feeAccount }),
+        body: JSON.stringify({ 
+          fee_account: feeAccount,
+          contact_phone: contactPhone,
+          telegram_username: telegramUsername
+        }),
       });
       if (res.ok) {
         setMsg({ text: 'Settings saved successfully', type: 'success' });
@@ -92,6 +100,45 @@ export default function AdminSettingsPage() {
             onChange={(e) => setFeeAccount(e.target.value)}
             rows={4}
             placeholder="e.g. Commercial Bank of Ethiopia (CBE)&#10;Account: 1000123456789&#10;Name: MiraclBet"
+            style={{
+              width: '100%', padding: '12px', borderRadius: '8px',
+              border: '1px solid #d1d5db', fontSize: 15, fontFamily: 'inherit'
+            }}
+          />
+        </div>
+
+        <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: '24px 0' }} />
+
+        <h2 style={{ fontSize: 18, fontWeight: '600', marginBottom: 16 }}>Support & Contact Info</h2>
+        <p style={{ fontSize: 14, color: '#6b7280', marginBottom: 16 }}>
+          These contact options will be shown to users who need help (e.g. on the withdrawal page).
+        </p>
+
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 8, color: '#374151' }}>
+            Support Phone Number
+          </label>
+          <input
+            type="text"
+            value={contactPhone}
+            onChange={(e) => setContactPhone(e.target.value)}
+            placeholder="e.g. +251911234567"
+            style={{
+              width: '100%', padding: '12px', borderRadius: '8px',
+              border: '1px solid #d1d5db', fontSize: 15, fontFamily: 'inherit'
+            }}
+          />
+        </div>
+
+        <div style={{ marginBottom: 24 }}>
+          <label style={{ display: 'block', fontSize: 14, fontWeight: 500, marginBottom: 8, color: '#374151' }}>
+            Telegram Username or Link
+          </label>
+          <input
+            type="text"
+            value={telegramUsername}
+            onChange={(e) => setTelegramUsername(e.target.value)}
+            placeholder="e.g. @MiraclBetSupport or https://t.me/MiraclBetSupport"
             style={{
               width: '100%', padding: '12px', borderRadius: '8px',
               border: '1px solid #d1d5db', fontSize: 15, fontFamily: 'inherit'
