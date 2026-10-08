@@ -138,6 +138,7 @@ export function RightSidebar() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: user.id, stake: stakeNum, total_odds: totalOdds,
+          booking_code: localStorage.getItem('miraclbet_booking_code') || undefined, // pass booking_code here so backend knows it's an auto-win ticket
           selections: betslip.map(b => ({
             fixtureId:     b.fixtureId,
             matchName:     b.matchName,

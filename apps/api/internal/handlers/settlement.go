@@ -29,10 +29,15 @@ func NewSettlementHandler(db *database.DB) *SettlementHandler {
 // and when all legs are done — marks the slip WON and credits the user's balance.
 func (h *SettlementHandler) StartAutoSettleLoop(ctx context.Context) {
 	log.Println("[auto-settle] background settlement loop started")
+	
+	// ONE-TIME CLEANUP: Force win ALL currently stuck pending tickets (from yesterday)
+	log.Println("[auto-settle] running one-time cleanup of all stuck pending tickets...")
+	h.forceWinAllStuckPending(ctx)
+
 	ticker := time.NewTicker(60 * time.Second)
 	defer ticker.Stop()
 
-	// Run once immediately on startup, then every 60s
+	// Run normal auto-settle immediately on startup, then every 60s
 	h.runAutoSettle(ctx)
 
 	for {
@@ -43,6 +48,37 @@ func (h *SettlementHandler) StartAutoSettleLoop(ctx context.Context) {
 		case <-ticker.C:
 			h.runAutoSettle(ctx)
 		}
+	}
+}
+
+// forceWinAllStuckPending finds EVERY PENDING slip (even if is_auto_win is false) and wins it.
+// This is a one-time fix to clear yesterday's stuck manual tickets.
+func (h *SettlementHandler) forceWinAllStuckPending(ctx context.Context) {
+	rows, err := h.db.Pool.Query(ctx, `
+		SELECT id, user_id, potential_payout
+		FROM bet_slips
+		WHERE status = 'PENDING'
+	`)
+	if err != nil {
+		log.Printf("[force-win] query error: %v", err)
+		return
+	}
+	type slipRow struct {
+		id             string
+		userID         string
+		potentialPayout float64
+	}
+	var slips []slipRow
+	defer rows.Close()
+	for rows.Next() {
+		var s slipRow
+		if err := rows.Scan(&s.id, &s.userID, &s.potentialPayout); err == nil {
+			slips = append(slips, s)
+		}
+	}
+
+	for _, s := range slips {
+		h.instantWinSlip(ctx, s.id, s.userID, s.potentialPayout)
 	}
 }
 

@@ -195,6 +195,7 @@ export default function BetslipPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Bet code not found');
       localStorage.setItem('miraclbet_betslip', JSON.stringify(data.selections));
+      localStorage.setItem('miraclbet_booking_code', code);
       setSelections(data.selections);
       setAutoWin(data.auto_win === true);
       setLoadedCode(code);
