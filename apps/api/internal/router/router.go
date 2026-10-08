@@ -68,6 +68,8 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service, aviatorEngi
 		}
 		
 		settlementHandler := handlers.NewSettlementHandler(db)
+		settingsHandler := handlers.NewSettingsHandler(db)
+		r.Get("/settings", settingsHandler.GetSettings)
 
 		// Debug endpoints â€” shows raw API response to diagnose odds issues
 		debugHandler := handlers.NewDebugHandler(cfg)
@@ -130,6 +132,8 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service, aviatorEngi
 			r.Put("/users/{id}/role", usersAdminHandler.UpdateRole)
 			r.Put("/users/{id}/privileges", usersAdminHandler.UpdatePrivileges)
 			r.Put("/users/{id}/balance", usersAdminHandler.AdjustBalance)
+
+			r.Put("/settings", settingsHandler.UpdateSettings)
 		})
 	})
 

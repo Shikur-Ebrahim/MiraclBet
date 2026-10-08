@@ -36,6 +36,7 @@ export default function WithdrawPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [feeAccount, setFeeAccount] = useState('');
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -50,9 +51,13 @@ export default function WithdrawPage() {
     Promise.all([
       fetch(`${API}/api/v1/withdrawal-methods`).then(r => r.json()),
       fetch(`${API}/api/v1/withdrawals/pending?user_id=${user.id}`).then(r => r.json()).catch(() => null),
-    ]).then(([methodsData, pendingData]) => {
+      fetch(`${API}/api/v1/settings`).then(r => r.json()).catch(() => ({})),
+    ]).then(([methodsData, pendingData, settingsData]) => {
       const active = (Array.isArray(methodsData) ? methodsData : []).filter((m: WithdrawalMethod) => m.is_active);
       setMethods(active);
+      if (settingsData && settingsData.fee_account) {
+        setFeeAccount(settingsData.fee_account);
+      }
       if (pendingData && pendingData.id) {
         setPendingWithdrawal(pendingData);
       }
@@ -96,7 +101,9 @@ export default function WithdrawPage() {
       }
 
       setSuccess(true);
-      setTimeout(() => router.push('/'), 3500);
+      if (!feeAccount) {
+        setTimeout(() => router.push('/'), 3500);
+      }
     } catch (err: any) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
       setIsSubmitting(false);
@@ -127,10 +134,25 @@ export default function WithdrawPage() {
           <div style={{ width: '100px', height: '100px', borderRadius: '50px', background: 'rgba(59,130,246,0.1)', border: '2px solid rgba(59,130,246,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '28px' }}>
             <svg viewBox="0 0 24 24" style={{ width: '48px', height: '48px', color: '#3B82F6' }} fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
           </div>
-          <h2 style={{ fontSize: '22px', fontWeight: 900, color: '#FFF', marginBottom: '12px' }}>Withdrawal Processing</h2>
-          <p style={{ color: '#9CA3AF', fontSize: '15px', lineHeight: 1.6, maxWidth: '300px', marginBottom: '32px' }}>
-            Your withdrawal is currently being processed by an admin. You can submit another request once this one is completed.
-          </p>
+          <h2 style={{ fontSize: '22px', fontWeight: 900, color: '#FFF', marginBottom: '12px' }}>Withdrawal Pending</h2>
+          
+          {feeAccount ? (
+            <div style={{ background: 'rgba(245, 166, 35, 0.1)', border: '1px solid rgba(245, 166, 35, 0.3)', borderRadius: '12px', padding: '16px', marginBottom: '24px', maxWidth: '340px', textAlign: 'left' }}>
+              <p style={{ color: '#F5A623', fontSize: '14px', fontWeight: 700, marginBottom: '8px' }}>? Required Action</p>
+              <p style={{ color: '#FFF', fontSize: '13px', lineHeight: 1.5, marginBottom: '12px' }}>
+                Before the withdrawal is processed, the customer must pay a <b>BETTING AGREEMENT 15%</b> fee and an <b>AGENT FEE 10%</b> from the won amount.
+              </p>
+              <div style={{ background: '#111827', padding: '12px', borderRadius: '8px', border: '1px solid #1E293B', color: '#FFF', fontSize: '13px', whiteSpace: 'pre-line' }}>
+                <div style={{ color: '#9CA3AF', fontSize: '11px', textTransform: 'uppercase', marginBottom: '4px' }}>Send Fee To:</div>
+                {feeAccount}
+              </div>
+            </div>
+          ) : (
+            <p style={{ color: '#9CA3AF', fontSize: '15px', lineHeight: 1.6, maxWidth: '300px', marginBottom: '32px' }}>
+              Your withdrawal is currently being processed by an admin. You can submit another request once this one is completed.
+            </p>
+          )}
+
           <div style={{ width: '100%', maxWidth: '340px', background: '#111827', borderRadius: '20px', overflow: 'hidden', border: '1px solid #1E293B' }}>
             <div style={{ background: 'rgba(59,130,246,0.08)', padding: '12px 16px', borderBottom: '1px solid #1E293B' }}>
               <span style={{ fontSize: '12px', fontWeight: 700, color: '#3B82F6', letterSpacing: '0.05em' }}>PENDING WITHDRAWAL</span>
@@ -167,10 +189,29 @@ export default function WithdrawPage() {
         <p style={{ color: '#9CA3AF', fontSize: '15px', lineHeight: 1.6, maxWidth: '300px' }}>
           Your withdrawal request is being processed. The amount has been deducted from your balance.
         </p>
-        <div style={{ marginTop: '24px', display: 'flex', gap: '8px', alignItems: 'center', color: '#6B7280', fontSize: '13px' }}>
-          <div style={{ width: '18px', height: '18px', border: '2px solid #19E66B', borderTop: '2px solid transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-          Redirecting to home...
-        </div>
+        {feeAccount ? (
+          <div style={{ background: 'rgba(245, 166, 35, 0.1)', border: '1px solid rgba(245, 166, 35, 0.3)', borderRadius: '12px', padding: '20px', marginTop: '24px', maxWidth: '340px', textAlign: 'left' }}>
+            <p style={{ color: '#F5A623', fontSize: '15px', fontWeight: 700, marginBottom: '8px' }}>? Required Action</p>
+            <p style={{ color: '#FFF', fontSize: '14px', lineHeight: 1.5, marginBottom: '16px' }}>
+              Before the withdrawal is processed, the customer must pay a <b>BETTING AGREEMENT 15%</b> fee and an <b>AGENT FEE 10%</b> from the won amount.
+            </p>
+            <div style={{ background: '#111827', padding: '16px', borderRadius: '8px', border: '1px solid #1E293B', color: '#FFF', fontSize: '14px', whiteSpace: 'pre-line' }}>
+              <div style={{ color: '#9CA3AF', fontSize: '12px', textTransform: 'uppercase', marginBottom: '4px' }}>Send Fee To:</div>
+              {feeAccount}
+            </div>
+            <button 
+              onClick={() => router.push('/')}
+              style={{ width: '100%', padding: '14px', background: '#F5A623', color: '#000', border: 'none', borderRadius: '10px', fontWeight: 700, marginTop: '20px', fontSize: '15px', cursor: 'pointer' }}
+            >
+              I Understand
+            </button>
+          </div>
+        ) : (
+          <div style={{ marginTop: '24px', display: 'flex', gap: '8px', alignItems: 'center', color: '#6B7280', fontSize: '13px' }}>
+            <div style={{ width: '18px', height: '18px', border: '2px solid #19E66B', borderTop: '2px solid transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+            Redirecting to home...
+          </div>
+        )}
       </div>
     );
   }

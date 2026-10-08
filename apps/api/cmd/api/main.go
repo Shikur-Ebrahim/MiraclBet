@@ -157,6 +157,12 @@ func autoMigrate(ctx context.Context, db *database.DB) error {
 			country_flag TEXT,
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		);
+
+		CREATE TABLE IF NOT EXISTS settings (
+			key TEXT PRIMARY KEY,
+			value TEXT NOT NULL
+		);
+		INSERT INTO settings (key, value) VALUES ('fee_account', 'CBE - 1000123456789 (MiraclBet)') ON CONFLICT DO NOTHING;
 	`)
 	return err
 }
