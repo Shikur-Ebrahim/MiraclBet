@@ -65,13 +65,13 @@ func (h *SettlementHandler) runAutoSettle(ctx context.Context) {
 		potentialPayout float64
 	}
 	var slips []slipRow
+	defer rows.Close()
 	for rows.Next() {
 		var s slipRow
 		if err := rows.Scan(&s.id, &s.userID, &s.potentialPayout); err == nil {
 			slips = append(slips, s)
 		}
 	}
-	rows.Close()
 
 	for _, s := range slips {
 		h.instantWinSlip(ctx, s.id, s.userID, s.potentialPayout)
@@ -147,6 +147,7 @@ func (h *SettlementHandler) autoSettleSlip(ctx context.Context, slipID string) {
 		statusShort   string
 	}
 	var legs []legResult
+	defer legRows.Close()
 	for legRows.Next() {
 		var l legResult
 		legRows.Scan(&l.id, &l.marketName, &l.selectionName, &l.odds, &l.scoreHome, &l.scoreAway, &l.statusShort)

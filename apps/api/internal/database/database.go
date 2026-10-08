@@ -21,8 +21,8 @@ func Connect(ctx context.Context, databaseURL string) (*DB, error) {
         return nil, fmt.Errorf("parse database config: %w", err)
     }
 
-    config.MaxConns = 20
-    config.MinConns = 2
+    config.MaxConns = 200
+    config.MinConns = 5
     config.MaxConnLifetime = time.Hour
     config.MaxConnIdleTime = 30 * time.Minute
     config.HealthCheckPeriod = time.Minute
