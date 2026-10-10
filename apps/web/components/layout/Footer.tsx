@@ -1,6 +1,6 @@
 import React from 'react';
 import { Container } from '../ui/Container';
-import { Facebook, Twitter, Instagram, Phone } from 'lucide-react';
+import { Facebook, Twitter, Instagram } from 'lucide-react';
 
 export function Footer() {
   return (
@@ -15,13 +15,9 @@ export function Footer() {
                 <span style={{ color: '#F5F7F6' }}>Miracl</span><span style={{ color: '#19E66B' }}>Bet</span>
               </span>
             </div>
-            <p className="text-[13px] text-gray-400 mb-3 max-w-sm">
+            <p className="text-[13px] text-gray-400 mb-5 max-w-sm">
               The premium sports betting experience. Live odds, fast payouts, and trusted by thousands.
             </p>
-            <a href="tel:+14389051590" className="flex items-center gap-2 text-[13px] text-[#19E66B] hover:text-white transition-colors mb-5 font-semibold w-fit">
-              <Phone className="w-4 h-4" />
-              <span>+1 (438) 905-1590</span>
-            </a>
             <div className="flex gap-4 justify-center md:justify-start">
               <span className="text-gray-400 hover:text-white p-2 bg-[#1A2235] rounded-full cursor-pointer"><Twitter className="w-4 h-4" /></span>
               <span className="text-gray-400 hover:text-white p-2 bg-[#1A2235] rounded-full cursor-pointer"><Facebook className="w-4 h-4" /></span>
