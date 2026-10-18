@@ -22,16 +22,16 @@ type PendingDeposit = {
 
 function CopyIcon() {
   return (
-    <svg viewBox="0 0 24 24" style={{ width: '16px', height: '16px' }} fill="none" stroke="currentColor" strokeWidth="2">
+    <svg viewBox="0 0 24 24" style={{ width: '15px', height: '15px' }} fill="none" stroke="currentColor" strokeWidth="2">
       <rect x="9" y="9" width="13" height="13" rx="2" />
       <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
     </svg>
   );
 }
 
-function CheckIcon({ color = '#16A34A' }: { color?: string }) {
+function CheckIcon() {
   return (
-    <svg viewBox="0 0 24 24" style={{ width: '16px', height: '16px' }} fill="none" stroke={color} strokeWidth="3">
+    <svg viewBox="0 0 24 24" style={{ width: '15px', height: '15px' }} fill="none" stroke="#16A34A" strokeWidth="3">
       <path d="M5 13l4 4L19 7" />
     </svg>
   );
@@ -63,19 +63,14 @@ export default function DepositPage() {
     const userStr = localStorage.getItem('miraclbet_user');
     if (!userStr) { router.push('/login?redirect=/deposit'); return; }
     const user = JSON.parse(userStr);
-
     const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-
-    // Fetch both payment methods and pending deposit check in parallel
     Promise.all([
       fetch(`${API}/api/v1/payment-methods`).then(r => r.json()),
       fetch(`${API}/api/v1/deposits/pending?user_id=${user.id}`).then(r => r.json()).catch(() => null),
     ]).then(([methodsData, pendingData]) => {
       const active = (Array.isArray(methodsData) ? methodsData : []).filter((m: PaymentMethod) => m.is_active);
       setMethods(active);
-      if (pendingData && pendingData.id) {
-        setPendingDeposit(pendingData);
-      }
+      if (pendingData && pendingData.id) setPendingDeposit(pendingData);
     }).catch(console.error).finally(() => setLoading(false));
   }, [mounted, router]);
 
@@ -114,7 +109,6 @@ export default function DepositPage() {
     formData.append('payment_method_id', selectedMethod.id);
     formData.append('amount', amount);
     formData.append('screenshot', screenshotFile);
-
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/deposits`, {
         method: 'POST', body: formData,
@@ -128,72 +122,63 @@ export default function DepositPage() {
     }
   };
 
-  // Loading
+  const spinStyle = `@keyframes spin{to{transform:rotate(360deg)}} @keyframes shimmer{0%{background-position:0%}100%{background-position:200%}}`;
+
+  // ── LOADING ──
   if (!mounted || loading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
-        <div style={{ width: '40px', height: '40px', border: '3px solid #1E293B', borderTop: '3px solid #19E66B', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        <div style={{ color: '#6B7280', fontSize: '14px' }}>Loading...</div>
+      <div style={{ minHeight: '100vh', background: '#F8FAFC', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
+        <style>{spinStyle}</style>
+        <div style={{ width: '40px', height: '40px', border: '3px solid #E2E8F0', borderTop: '3px solid #10B981', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <div style={{ color: '#94A3B8', fontSize: '14px', fontWeight: 500 }}>Loading...</div>
       </div>
     );
   }
 
-  // ── PENDING STATE — user has a deposit being reviewed ──
+  // ── PENDING STATE ──
   if (pendingDeposit) {
     return (
-      <div style={{ minHeight: '100vh', paddingBottom: '80px' }}>
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', borderBottom: '1px solid #1E293B', background: '#0A0E1A', position: 'sticky', top: '56px', zIndex: 10 }}>
-          <button onClick={() => router.push('/')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', padding: '4px' }}>
-            <svg viewBox="0 0 24 24" style={{ width: '22px', height: '22px' }} fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M15 18l-6-6 6-6" />
-            </svg>
+      <div style={{ minHeight: '100vh', background: '#F8FAFC', paddingBottom: '80px' }}>
+        <style>{spinStyle}</style>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 20px', background: '#FFFFFF', borderBottom: '1px solid #E2E8F0', position: 'sticky', top: '56px', zIndex: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+          <button onClick={() => router.push('/')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', padding: '4px', display: 'flex' }}>
+            <svg viewBox="0 0 24 24" style={{ width: '22px', height: '22px' }} fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M15 18l-6-6 6-6" /></svg>
           </button>
-          <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#FFF' }}>Deposit</h1>
+          <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0F172A' }}>Deposit</h1>
         </div>
 
-        <div style={{ padding: '32px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-          {/* Animated clock icon */}
-          <div style={{ width: '100px', height: '100px', borderRadius: '50px', background: 'rgba(245,166,35,0.1)', border: '2px solid rgba(245,166,35,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '28px' }}>
-            <svg viewBox="0 0 24 24" style={{ width: '48px', height: '48px', color: '#F5A623' }} fill="none" stroke="currentColor" strokeWidth="1.8">
-              <circle cx="12" cy="12" r="10" />
-              <polyline points="12 6 12 12 16 14" />
+        <div style={{ padding: '40px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+          <div style={{ width: '96px', height: '96px', borderRadius: '48px', background: 'linear-gradient(135deg, #FEF3C7, #FDE68A)', border: '3px solid #F59E0B', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px', boxShadow: '0 4px 20px rgba(245,158,11,0.2)' }}>
+            <svg viewBox="0 0 24 24" style={{ width: '44px', height: '44px', color: '#D97706' }} fill="none" stroke="currentColor" strokeWidth="1.8">
+              <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
             </svg>
           </div>
-
-          <h2 style={{ fontSize: '22px', fontWeight: 900, color: '#FFF', marginBottom: '12px' }}>Deposit Processing</h2>
-          <p style={{ color: '#9CA3AF', fontSize: '15px', lineHeight: 1.6, maxWidth: '300px', marginBottom: '32px' }}>
+          <h2 style={{ fontSize: '22px', fontWeight: 900, color: '#0F172A', marginBottom: '10px' }}>Deposit Processing</h2>
+          <p style={{ color: '#64748B', fontSize: '15px', lineHeight: 1.6, maxWidth: '300px', marginBottom: '32px' }}>
             Your deposit is being reviewed by an admin. You cannot submit another deposit until this one is verified.
           </p>
-
-          {/* Deposit details card */}
-          <div style={{ width: '100%', maxWidth: '340px', background: '#111827', borderRadius: '20px', overflow: 'hidden', border: '1px solid #1E293B' }}>
-            <div style={{ background: 'rgba(245,166,35,0.08)', padding: '12px 16px', borderBottom: '1px solid #1E293B' }}>
-              <span style={{ fontSize: '12px', fontWeight: 700, color: '#F5A623', letterSpacing: '0.05em' }}>PENDING DEPOSIT</span>
+          <div style={{ width: '100%', maxWidth: '360px', background: '#FFFFFF', borderRadius: '20px', overflow: 'hidden', border: '1px solid #E2E8F0', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}>
+            <div style={{ background: 'linear-gradient(135deg, #FFFBEB, #FEF3C7)', padding: '14px 20px', borderBottom: '1px solid #FDE68A' }}>
+              <span style={{ fontSize: '12px', fontWeight: 800, color: '#92400E', letterSpacing: '0.08em' }}>⏳ PENDING DEPOSIT</span>
             </div>
-            <div style={{ padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: '#6B7280', fontSize: '14px' }}>Amount</span>
-                <span style={{ color: '#FFF', fontSize: '20px', fontWeight: 900 }}>{Number(pendingDeposit.amount).toFixed(2)} <span style={{ color: '#F5A623' }}>Br</span></span>
+                <span style={{ color: '#64748B', fontSize: '14px' }}>Amount</span>
+                <span style={{ color: '#0F172A', fontSize: '22px', fontWeight: 900 }}>{Number(pendingDeposit.amount).toFixed(2)} <span style={{ color: '#F59E0B', fontSize: '16px' }}>Br</span></span>
+              </div>
+              <div style={{ height: '1px', background: '#F1F5F9' }} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: '#64748B', fontSize: '14px' }}>Method</span>
+                <span style={{ color: '#0F172A', fontSize: '14px', fontWeight: 700 }}>{pendingDeposit.provider_name}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: '#6B7280', fontSize: '14px' }}>Method</span>
-                <span style={{ color: '#FFF', fontSize: '14px', fontWeight: 700 }}>{pendingDeposit.provider_name}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: '#6B7280', fontSize: '14px' }}>Submitted</span>
-                <span style={{ color: '#9CA3AF', fontSize: '13px' }}>{new Date(pendingDeposit.created_at).toLocaleString()}</span>
+                <span style={{ color: '#64748B', fontSize: '14px' }}>Submitted</span>
+                <span style={{ color: '#94A3B8', fontSize: '13px' }}>{new Date(pendingDeposit.created_at).toLocaleString()}</span>
               </div>
             </div>
-            {/* Pulse bar at bottom */}
-            <div style={{ height: '4px', background: 'linear-gradient(90deg, #F5A623, #FF8C00, #F5A623)', backgroundSize: '200% 100%', animation: 'pulse 2s ease infinite' }} />
-            <style>{`@keyframes pulse { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }`}</style>
+            <div style={{ height: '4px', background: 'linear-gradient(90deg, #F59E0B, #FBBF24, #F59E0B)', backgroundSize: '200%', animation: 'shimmer 2s linear infinite' }} />
           </div>
-
-          <p style={{ color: '#4B5563', fontSize: '13px', marginTop: '24px' }}>
-            Your balance will be updated automatically once approved.
-          </p>
+          <p style={{ color: '#94A3B8', fontSize: '13px', marginTop: '20px' }}>Your balance will update automatically once approved.</p>
         </div>
       </div>
     );
@@ -202,19 +187,17 @@ export default function DepositPage() {
   // ── SUCCESS ──
   if (success) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px', textAlign: 'center' }}>
-        <div style={{ width: '90px', height: '90px', borderRadius: '45px', background: 'rgba(25, 230, 107, 0.12)', border: '2px solid rgba(25,230,107,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
-          <svg viewBox="0 0 24 24" style={{ width: '44px', height: '44px', color: '#19E66B' }} fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M5 13l4 4L19 7" />
-          </svg>
+      <div style={{ minHeight: '100vh', background: '#F8FAFC', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px', textAlign: 'center' }}>
+        <style>{spinStyle}</style>
+        <div style={{ width: '90px', height: '90px', borderRadius: '45px', background: 'linear-gradient(135deg, #D1FAE5, #A7F3D0)', border: '3px solid #10B981', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px', boxShadow: '0 4px 20px rgba(16,185,129,0.2)' }}>
+          <svg viewBox="0 0 24 24" style={{ width: '44px', height: '44px', color: '#059669' }} fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 13l4 4L19 7" /></svg>
         </div>
-        <h1 style={{ fontSize: '26px', fontWeight: 900, marginBottom: '12px', color: '#FFF' }}>Deposit Submitted!</h1>
-        <p style={{ color: '#9CA3AF', fontSize: '15px', lineHeight: 1.6, maxWidth: '300px' }}>
+        <h1 style={{ fontSize: '26px', fontWeight: 900, marginBottom: '12px', color: '#0F172A' }}>Deposit Submitted!</h1>
+        <p style={{ color: '#64748B', fontSize: '15px', lineHeight: 1.6, maxWidth: '300px' }}>
           Your deposit request has been sent. An admin will verify it shortly and your balance will be updated automatically.
         </p>
-        <div style={{ marginTop: '24px', display: 'flex', gap: '8px', alignItems: 'center', color: '#6B7280', fontSize: '13px' }}>
-          <div style={{ width: '18px', height: '18px', border: '2px solid #19E66B', borderTop: '2px solid transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        <div style={{ marginTop: '24px', display: 'flex', gap: '8px', alignItems: 'center', color: '#94A3B8', fontSize: '13px' }}>
+          <div style={{ width: '18px', height: '18px', border: '2px solid #10B981', borderTop: '2px solid transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
           Redirecting to home...
         </div>
       </div>
@@ -224,45 +207,47 @@ export default function DepositPage() {
   // ── STEP 1: Select Method ──
   if (step === 1) {
     return (
-      <div style={{ minHeight: '100vh', paddingBottom: '80px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', borderBottom: '1px solid #1E293B', position: 'sticky', top: '56px', zIndex: 10, background: '#0A0E1A' }}>
-          <button onClick={() => router.push('/')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', padding: '4px' }}>
-            <svg viewBox="0 0 24 24" style={{ width: '22px', height: '22px' }} fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M15 18l-6-6 6-6" />
-            </svg>
+      <div style={{ minHeight: '100vh', background: '#F8FAFC', paddingBottom: '80px' }}>
+        <style>{spinStyle}</style>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 20px', background: '#FFFFFF', borderBottom: '1px solid #E2E8F0', position: 'sticky', top: '56px', zIndex: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+          <button onClick={() => router.push('/')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', padding: '4px', display: 'flex' }}>
+            <svg viewBox="0 0 24 24" style={{ width: '22px', height: '22px' }} fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M15 18l-6-6 6-6" /></svg>
           </button>
-          <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#FFF' }}>Deposit Funds</h1>
+          <div>
+            <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0F172A' }}>Deposit Funds</h1>
+            <p style={{ margin: 0, fontSize: '12px', color: '#94A3B8', fontWeight: 500 }}>Step 1 of 2 — Select payment method</p>
+          </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', padding: '20px 20px 8px' }}>
-          <div style={{ flex: 1, height: '3px', borderRadius: '2px', background: '#19E66B' }} />
-          <div style={{ width: '8px', height: '8px', borderRadius: '4px', background: '#19E66B', margin: '0 4px' }} />
-          <div style={{ flex: 1, height: '3px', borderRadius: '2px', background: '#1E293B' }} />
-          <div style={{ fontSize: '11px', color: '#6B7280', marginLeft: '8px', fontWeight: 600 }}>STEP 1/2</div>
+        {/* Progress */}
+        <div style={{ height: '4px', background: '#E2E8F0' }}>
+          <div style={{ width: '50%', height: '100%', background: 'linear-gradient(90deg, #10B981, #34D399)', borderRadius: '0 4px 4px 0' }} />
         </div>
 
-        <div style={{ padding: '12px 16px 24px' }}>
-          <p style={{ color: '#9CA3AF', fontSize: '14px', marginBottom: '20px' }}>Choose where to send your money:</p>
+        <div style={{ padding: '24px 16px' }}>
+          <p style={{ color: '#64748B', fontSize: '14px', marginBottom: '20px', fontWeight: 500 }}>Choose where to send your money:</p>
           {methods.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '48px 24px', color: '#6B7280', background: '#111827', borderRadius: '16px', border: '1px dashed #1E293B' }}>
-              <div style={{ fontSize: '32px', marginBottom: '12px' }}>🏦</div>
-              <div style={{ fontSize: '15px' }}>No payment methods available</div>
+            <div style={{ textAlign: 'center', padding: '56px 24px', background: '#FFFFFF', borderRadius: '20px', border: '2px dashed #E2E8F0', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+              <div style={{ fontSize: '40px', marginBottom: '16px' }}>🏦</div>
+              <div style={{ fontSize: '15px', fontWeight: 600, color: '#64748B' }}>No payment methods available</div>
+              <div style={{ fontSize: '13px', color: '#94A3B8', marginTop: '6px' }}>Please contact support</div>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {methods.map(method => (
                 <button key={method.id} onClick={() => { setSelectedMethod(method); setStep(2); }}
-                  style={{ width: '100%', textAlign: 'left', cursor: 'pointer', padding: '16px', borderRadius: '16px', border: '1.5px solid #1E293B', background: '#111827', display: 'flex', alignItems: 'center', gap: '14px' }}>
-                  <div style={{ width: '52px', height: '52px', borderRadius: '14px', background: '#1A2235', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid #1E293B' }}>
-                    {method.logo_url ? <img src={method.logo_url} alt={method.provider_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: '22px' }}>🏦</span>}
+                  style={{ width: '100%', textAlign: 'left', cursor: 'pointer', padding: '16px 18px', borderRadius: '18px', border: '1.5px solid #E2E8F0', background: '#FFFFFF', display: 'flex', alignItems: 'center', gap: '14px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+                  <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: '#F1F5F9', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid #E2E8F0' }}>
+                    {method.logo_url ? <img src={method.logo_url} alt={method.provider_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: '24px' }}>🏦</span>}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '16px', fontWeight: 800, color: '#FFF', marginBottom: '4px' }}>{method.provider_name}</div>
-                    <div style={{ fontSize: '13px', color: '#6B7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{method.account_name}</div>
+                    <div style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A', marginBottom: '3px' }}>{method.provider_name}</div>
+                    <div style={{ fontSize: '13px', color: '#94A3B8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{method.account_name}</div>
+                    <div style={{ fontSize: '12px', color: '#10B981', fontWeight: 700, marginTop: '2px' }}>Min: {method.min_deposit || 450} Br</div>
                   </div>
-                  <svg viewBox="0 0 24 24" style={{ width: '20px', height: '20px', color: '#374151', flexShrink: 0 }} fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <path d="M9 18l6-6-6-6" />
-                  </svg>
+                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <svg viewBox="0 0 24 24" style={{ width: '18px', height: '18px', color: '#94A3B8' }} fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 18l6-6-6-6" /></svg>
+                  </div>
                 </button>
               ))}
             </div>
@@ -274,115 +259,132 @@ export default function DepositPage() {
 
   // ── STEP 2: Enter Amount + Upload ──
   return (
-    <div style={{ minHeight: '100vh', paddingBottom: '80px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', borderBottom: '1px solid #1E293B', position: 'sticky', top: '56px', zIndex: 10, background: '#0A0E1A' }}>
-        <button onClick={() => { setStep(1); setError(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', padding: '4px' }}>
-          <svg viewBox="0 0 24 24" style={{ width: '22px', height: '22px' }} fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M15 18l-6-6 6-6" />
-          </svg>
+    <div style={{ minHeight: '100vh', background: '#F8FAFC', paddingBottom: '80px' }}>
+      <style>{spinStyle}</style>
+
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 20px', background: '#FFFFFF', borderBottom: '1px solid #E2E8F0', position: 'sticky', top: '56px', zIndex: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+        <button onClick={() => { setStep(1); setError(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', padding: '4px', display: 'flex' }}>
+          <svg viewBox="0 0 24 24" style={{ width: '22px', height: '22px' }} fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M15 18l-6-6 6-6" /></svg>
         </button>
-        <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#FFF' }}>Send Payment</h1>
+        <div>
+          <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0F172A' }}>Send Payment</h1>
+          <p style={{ margin: 0, fontSize: '12px', color: '#94A3B8', fontWeight: 500 }}>Step 2 of 2 — Transfer & confirm</p>
+        </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', padding: '20px 20px 8px' }}>
-        <div style={{ flex: 1, height: '3px', borderRadius: '2px', background: '#19E66B' }} />
-        <div style={{ width: '8px', height: '8px', borderRadius: '4px', background: '#19E66B', margin: '0 4px' }} />
-        <div style={{ flex: 1, height: '3px', borderRadius: '2px', background: '#19E66B' }} />
-        <div style={{ fontSize: '11px', color: '#19E66B', marginLeft: '8px', fontWeight: 600 }}>STEP 2/2</div>
+      {/* Progress full */}
+      <div style={{ height: '4px', background: '#E2E8F0' }}>
+        <div style={{ width: '100%', height: '100%', background: 'linear-gradient(90deg, #10B981, #34D399)' }} />
       </div>
 
-      <div style={{ padding: '12px 16px' }}>
+      <div style={{ padding: '20px 16px' }}>
+        {/* Account card */}
         {selectedMethod && (
-          <div style={{ background: '#111827', borderRadius: '20px', overflow: 'hidden', border: '1px solid #1E293B', marginBottom: '20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', borderBottom: '1px solid #1E293B' }}>
-              <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: '#1A2235', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #1E293B' }}>
+          <div style={{ background: '#FFFFFF', borderRadius: '20px', overflow: 'hidden', border: '1px solid #E2E8F0', marginBottom: '16px', boxShadow: '0 4px 16px rgba(0,0,0,0.06)' }}>
+            <div style={{ background: 'linear-gradient(135deg, #0F172A, #1E293B)', padding: '16px 18px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '46px', height: '46px', borderRadius: '12px', background: 'rgba(255,255,255,0.12)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255,255,255,0.15)' }}>
                 {selectedMethod.logo_url ? <img src={selectedMethod.logo_url} alt={selectedMethod.provider_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: '20px' }}>🏦</span>}
               </div>
               <div>
-                <div style={{ fontSize: '15px', fontWeight: 800, color: '#FFF' }}>{selectedMethod.provider_name}</div>
-                <div style={{ fontSize: '12px', color: '#6B7280' }}>Transfer to this account</div>
+                <div style={{ fontSize: '15px', fontWeight: 800, color: '#FFFFFF' }}>{selectedMethod.provider_name}</div>
+                <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>Transfer to this account</div>
               </div>
             </div>
 
-            <div style={{ padding: '14px 16px', borderBottom: '1px solid #1E293B' }}>
-              <div style={{ fontSize: '11px', color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Account Name</div>
+            <div style={{ padding: '14px 18px', borderBottom: '1px solid #F1F5F9' }}>
+              <div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Account Name</div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '15px', fontWeight: 700, color: '#FFF' }}>{selectedMethod.account_name}</span>
+                <span style={{ fontSize: '16px', fontWeight: 700, color: '#0F172A' }}>{selectedMethod.account_name}</span>
                 <button onClick={() => handleCopy(selectedMethod.account_name, 'name')}
-                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid #1E293B', borderRadius: '8px', padding: '7px 12px', cursor: 'pointer', color: copiedField === 'name' ? '#16A34A' : '#9CA3AF', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', fontWeight: 600 }}>
+                  style={{ background: copiedField === 'name' ? '#D1FAE5' : '#F1F5F9', border: `1px solid ${copiedField === 'name' ? '#10B981' : '#E2E8F0'}`, borderRadius: '8px', padding: '6px 12px', cursor: 'pointer', color: copiedField === 'name' ? '#059669' : '#64748B', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', fontWeight: 700 }}>
                   {copiedField === 'name' ? <><CheckIcon /> Copied!</> : <><CopyIcon /> Copy</>}
                 </button>
               </div>
             </div>
 
-            <div style={{ padding: '14px 16px' }}>
-              <div style={{ fontSize: '11px', color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Account Number / Phone</div>
+            <div style={{ padding: '14px 18px' }}>
+              <div style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Account Number / Phone</div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '20px', fontWeight: 900, color: '#19E66B', letterSpacing: '1px' }}>{selectedMethod.account_number}</span>
+                <span style={{ fontSize: '22px', fontWeight: 900, color: '#0EA5E9', letterSpacing: '1px' }}>{selectedMethod.account_number}</span>
                 <button onClick={() => handleCopy(selectedMethod.account_number, 'number')}
-                  style={{ background: copiedField === 'number' ? 'rgba(22,163,74,0.15)' : 'rgba(25,230,107,0.08)', border: `1px solid ${copiedField === 'number' ? '#16A34A' : 'rgba(25,230,107,0.3)'}`, borderRadius: '8px', padding: '7px 12px', cursor: 'pointer', color: copiedField === 'number' ? '#16A34A' : '#19E66B', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', fontWeight: 700 }}>
-                  {copiedField === 'number' ? <><CheckIcon color="#16A34A" /> Copied!</> : <><CopyIcon /> Copy</>}
+                  style={{ background: copiedField === 'number' ? '#D1FAE5' : '#EFF6FF', border: `1px solid ${copiedField === 'number' ? '#10B981' : '#BFDBFE'}`, borderRadius: '8px', padding: '6px 12px', cursor: 'pointer', color: copiedField === 'number' ? '#059669' : '#2563EB', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', fontWeight: 700 }}>
+                  {copiedField === 'number' ? <><CheckIcon /> Copied!</> : <><CopyIcon /> Copy</>}
                 </button>
               </div>
             </div>
           </div>
         )}
 
-        <div style={{ background: 'rgba(245,166,35,0.06)', border: '1px solid rgba(245,166,35,0.2)', borderRadius: '12px', padding: '14px', marginBottom: '20px', display: 'flex', gap: '10px' }}>
+        {/* Info tip */}
+        <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '12px', padding: '14px 16px', marginBottom: '20px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
           <span style={{ fontSize: '18px', flexShrink: 0 }}>💡</span>
-          <p style={{ margin: 0, fontSize: '13px', color: '#D1D5DB', lineHeight: 1.6 }}>
+          <p style={{ margin: 0, fontSize: '13px', color: '#92400E', lineHeight: 1.6 }}>
             Send your money to the account above, then enter the exact amount and upload a screenshot of the payment confirmation.
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {error && (
-            <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '10px', padding: '12px 14px', fontSize: '14px', color: '#F87171' }}>{error}</div>
+            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '10px', padding: '12px 14px', fontSize: '14px', color: '#DC2626', fontWeight: 600 }}>{error}</div>
           )}
 
-          <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#D1D5DB', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Amount (Br)</label>
+          {/* Amount */}
+          <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#64748B', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Amount (Br)</label>
             <div style={{ position: 'relative' }}>
-              <input type="number" min={selectedMethod?.min_deposit || 450} step="any" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)} required placeholder={String(selectedMethod?.min_deposit || 450)}
-                style={{ width: '100%', padding: '16px 50px 16px 16px', borderRadius: '14px', background: '#111827', border: '1.5px solid #1E293B', color: '#FFF', fontSize: '20px', fontWeight: 800, outline: 'none', boxSizing: 'border-box' }} />
-              <span style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', fontSize: '16px', fontWeight: 700, color: '#F5A623' }}>Br</span>
+              <input
+                type="number"
+                min={selectedMethod?.min_deposit || 450}
+                step="any"
+                inputMode="decimal"
+                value={amount}
+                onChange={e => setAmount(e.target.value)}
+                required
+                placeholder={String(selectedMethod?.min_deposit || 450)}
+                style={{ width: '100%', padding: '14px 56px 14px 16px', borderRadius: '12px', background: '#F8FAFC', border: '1.5px solid #E2E8F0', color: '#0F172A', fontSize: '22px', fontWeight: 900, outline: 'none', boxSizing: 'border-box' }}
+              />
+              <span style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', fontSize: '16px', fontWeight: 800, color: '#F59E0B' }}>Br</span>
             </div>
-            <p style={{ margin: '8px 0 0', fontSize: '12px', color: '#6B7280', fontWeight: 600 }}>Minimum deposit: <span style={{ color: '#F5A623' }}>{selectedMethod?.min_deposit || 450} Br</span></p>
+            <p style={{ margin: '8px 0 0', fontSize: '12px', color: '#94A3B8', fontWeight: 600 }}>
+              Minimum: <span style={{ color: '#10B981', fontWeight: 700 }}>{selectedMethod?.min_deposit || 450} Br</span>
+            </p>
           </div>
 
-          <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#D1D5DB', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Payment Screenshot</label>
+          {/* Screenshot upload */}
+          <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#64748B', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Payment Screenshot</label>
             <div onClick={() => fileInputRef.current?.click()}
-              style={{ border: `2px dashed ${screenshotPreview ? '#19E66B' : '#1E293B'}`, borderRadius: '16px', padding: screenshotPreview ? '0' : '32px 24px', textAlign: 'center', cursor: 'pointer', background: '#111827', overflow: 'hidden', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+              style={{ border: `2px dashed ${screenshotPreview ? '#10B981' : '#CBD5E1'}`, borderRadius: '14px', padding: screenshotPreview ? '0' : '32px 24px', textAlign: 'center', cursor: 'pointer', background: screenshotPreview ? '#F0FDF4' : '#F8FAFC', overflow: 'hidden', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
               {screenshotPreview ? (
                 <div style={{ width: '100%', position: 'relative' }}>
-                  <img src={screenshotPreview} alt="Receipt" style={{ width: '100%', maxHeight: '240px', objectFit: 'cover', display: 'block' }} />
-                  <div style={{ position: 'absolute', bottom: '10px', right: '10px', background: 'rgba(0,0,0,0.7)', borderRadius: '8px', padding: '6px 10px', fontSize: '12px', color: '#FFF', fontWeight: 600 }}>Tap to change</div>
+                  <img src={screenshotPreview} alt="Receipt" style={{ width: '100%', maxHeight: '220px', objectFit: 'cover', display: 'block', borderRadius: '12px' }} />
+                  <div style={{ position: 'absolute', bottom: '10px', right: '10px', background: 'rgba(0,0,0,0.6)', borderRadius: '8px', padding: '6px 10px', fontSize: '12px', color: '#FFF', fontWeight: 600 }}>Tap to change</div>
                 </div>
               ) : (
                 <>
-                  <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: '#1A2235', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <svg viewBox="0 0 24 24" style={{ width: '28px', height: '28px', color: '#6B7280' }} fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg viewBox="0 0 24 24" style={{ width: '28px', height: '28px', color: '#93C5FD' }} fill="none" stroke="currentColor" strokeWidth="1.8">
                       <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
                   </div>
-                  <div style={{ fontSize: '15px', fontWeight: 700, color: '#D1D5DB' }}>Tap to upload screenshot</div>
-                  <div style={{ fontSize: '13px', color: '#4B5563' }}>JPG or PNG from your gallery</div>
+                  <div style={{ fontSize: '15px', fontWeight: 700, color: '#334155' }}>Tap to upload screenshot</div>
+                  <div style={{ fontSize: '12px', color: '#94A3B8' }}>JPG or PNG from your gallery</div>
                 </>
               )}
             </div>
             <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" style={{ display: 'none' }} />
           </div>
 
+          {/* Submit */}
           <button type="submit" disabled={isSubmitting || !amount || !screenshotPreview}
-            style={{ width: '100%', padding: '18px', background: isSubmitting || !amount || !screenshotPreview ? '#1E293B' : '#19E66B', color: isSubmitting || !amount || !screenshotPreview ? '#4B5563' : '#000', border: 'none', borderRadius: '14px', fontSize: '16px', fontWeight: 900, cursor: isSubmitting || !amount || !screenshotPreview ? 'not-allowed' : 'pointer', transition: 'all 0.2s' }}>
+            style={{ width: '100%', padding: '18px', background: isSubmitting || !amount || !screenshotPreview ? '#E2E8F0' : 'linear-gradient(135deg, #10B981, #059669)', color: isSubmitting || !amount || !screenshotPreview ? '#94A3B8' : '#FFFFFF', border: 'none', borderRadius: '16px', fontSize: '16px', fontWeight: 900, cursor: isSubmitting || !amount || !screenshotPreview ? 'not-allowed' : 'pointer', boxShadow: isSubmitting || !amount || !screenshotPreview ? 'none' : '0 4px 16px rgba(16,185,129,0.35)' }}>
             {isSubmitting ? (
               <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-                <div style={{ width: '18px', height: '18px', border: '2.5px solid rgba(0,0,0,0.3)', borderTop: '2.5px solid #000', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                <div style={{ width: '18px', height: '18px', border: '2.5px solid rgba(255,255,255,0.3)', borderTop: '2.5px solid #FFF', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
                 Submitting...
               </span>
-            ) : 'Submit Deposit'}
+            ) : '✓ Submit Deposit'}
           </button>
         </form>
       </div>
