@@ -348,13 +348,6 @@ export default function DepositPage() {
               <span style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', fontSize: '16px', fontWeight: 700, color: '#F5A623' }}>Br</span>
             </div>
             <p style={{ margin: '8px 0 0', fontSize: '12px', color: '#6B7280', fontWeight: 600 }}>Minimum deposit: <span style={{ color: '#F5A623' }}>{selectedMethod?.min_deposit || 450} Br</span></p>
-            <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
-              {[(selectedMethod?.min_deposit || 450), 1000, 2000, 5000].map(q => (
-                <button key={q} type="button" onClick={() => setAmount(String(q))} style={{ flex: 1, padding: '8px 0', borderRadius: '8px', fontSize: '13px', fontWeight: 700, background: amount === String(q) ? 'rgba(245,166,35,0.15)' : '#111827', border: `1px solid ${amount === String(q) ? '#F5A623' : '#1E293B'}`, color: amount === String(q) ? '#F5A623' : '#6B7280', cursor: 'pointer' }}>
-                  {q}
-                </button>
-              ))}
-            </div>
           </div>
 
           <div>

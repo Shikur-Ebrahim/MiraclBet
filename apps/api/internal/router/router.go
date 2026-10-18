@@ -104,9 +104,10 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service, aviatorEngi
 
 			r.Get("/payment-methods", paymentMethodsHandler.List)
 			r.Post("/payment-methods", paymentMethodsHandler.Create)
+			r.Put("/payment-methods/{id}", paymentMethodsHandler.Update)
 			r.Delete("/payment-methods/{id}", paymentMethodsHandler.Delete)
 			r.Put("/payment-methods/{id}/status", paymentMethodsHandler.UpdateStatus)
-					r.Patch("/payment-methods/{id}/min-deposit", paymentMethodsHandler.UpdateMinDeposit)
+			r.Patch("/payment-methods/{id}/min-deposit", paymentMethodsHandler.UpdateMinDeposit)
 
 			r.Get("/withdrawal-methods", withdrawalMethodsHandler.List)
 			r.Post("/withdrawal-methods", withdrawalMethodsHandler.Create)

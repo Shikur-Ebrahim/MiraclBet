@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -111,6 +112,96 @@ func (h *PaymentMethodsHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(newMethod)
+}
+
+// Update - PUT /api/v1/admin/payment-methods/{id}
+func (h *PaymentMethodsHandler) Update(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		http.Error(w, "Missing ID", http.StatusBadRequest)
+		return
+	}
+
+	contentType := r.Header.Get("Content-Type")
+	var providerName, accountName, accountNumber string
+	var minDeposit float64 = 450.0
+	var logoURL *string
+
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		if err := r.ParseMultipartForm(10 << 20); err != nil {
+			http.Error(w, "Unable to parse form", http.StatusBadRequest)
+			return
+		}
+		providerName = r.FormValue("provider_name")
+		accountName = r.FormValue("account_name")
+		accountNumber = r.FormValue("account_number")
+		if v, err := strconv.ParseFloat(r.FormValue("min_deposit"), 64); err == nil && v > 0 {
+			minDeposit = v
+		}
+		file, header, fileErr := r.FormFile("logo")
+		if fileErr == nil {
+			defer file.Close()
+			if h.r2 != nil {
+				if url, uploadErr := h.r2.UploadFile(r.Context(), file, header); uploadErr == nil {
+					logoURL = &url
+				}
+			}
+		}
+	} else {
+		var req struct {
+			ProviderName  string  `json:"provider_name"`
+			AccountName   string  `json:"account_name"`
+			AccountNumber string  `json:"account_number"`
+			MinDeposit    float64 `json:"min_deposit"`
+			LogoURL       *string `json:"logo_url,omitempty"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+			return
+		}
+		providerName = req.ProviderName
+		accountName = req.AccountName
+		accountNumber = req.AccountNumber
+		if req.MinDeposit > 0 {
+			minDeposit = req.MinDeposit
+		}
+		logoURL = req.LogoURL
+	}
+
+	if providerName == "" || accountName == "" || accountNumber == "" {
+		http.Error(w, "Missing required fields", http.StatusBadRequest)
+		return
+	}
+
+	var updated PaymentMethod
+	var err error
+	if logoURL != nil {
+		err = h.db.Pool.QueryRow(r.Context(), `
+			UPDATE payment_methods 
+			SET provider_name = $1, account_name = $2, account_number = $3, min_deposit = $4, logo_url = $5
+			WHERE id = $6
+			RETURNING id, provider_name, account_name, account_number, logo_url, is_active, min_deposit, created_at
+		`, providerName, accountName, accountNumber, minDeposit, logoURL, id).Scan(
+			&updated.ID, &updated.ProviderName, &updated.AccountName, &updated.AccountNumber, &updated.LogoURL, &updated.IsActive, &updated.MinDeposit, &updated.CreatedAt,
+		)
+	} else {
+		err = h.db.Pool.QueryRow(r.Context(), `
+			UPDATE payment_methods 
+			SET provider_name = $1, account_name = $2, account_number = $3, min_deposit = $4
+			WHERE id = $5
+			RETURNING id, provider_name, account_name, account_number, logo_url, is_active, min_deposit, created_at
+		`, providerName, accountName, accountNumber, minDeposit, id).Scan(
+			&updated.ID, &updated.ProviderName, &updated.AccountName, &updated.AccountNumber, &updated.LogoURL, &updated.IsActive, &updated.MinDeposit, &updated.CreatedAt,
+		)
+	}
+
+	if err != nil {
+		http.Error(w, "Failed to update payment method: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(updated)
 }
 
 // UpdateMinDeposit — PATCH /api/v1/admin/payment-methods/{id}/min-deposit
