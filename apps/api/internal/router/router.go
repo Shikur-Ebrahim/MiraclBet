@@ -89,6 +89,7 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service, aviatorEngi
 		withdrawalsHandler := handlers.NewWithdrawalsHandler(db)
 		r.Post("/withdrawals", withdrawalsHandler.Create)
 		r.Get("/withdrawals/pending", withdrawalsHandler.CheckPending)
+		r.Get("/withdrawals/rule-check", withdrawalsHandler.CheckWithdrawalRule)
 
 		transactionsHandler := handlers.NewTransactionsHandler(db)
 		r.Get("/transactions", transactionsHandler.List)

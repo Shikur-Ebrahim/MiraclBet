@@ -16,7 +16,8 @@ const adminMenus = [
   { label: 'Withdrawal Methods', icon: '??', href: '/admin/withdrawal-methods', color: '#EC4899', bg: '#FDF2F8' },
   { label: 'Bets', icon: '??', href: '/admin/bets', color: '#EF4444', bg: '#FEF2F2' },
   { label: 'Manual Bet', icon: '?', href: '/admin/manual-bet', color: '#19E66B', bg: '#0D2219' },
-  { label: 'Settings', icon: '??', href: '/admin/settings', color: '#6B7280', bg: '#F9FAFB' },
+  { label: 'Withdrawal Rules', icon: '📜', href: '/admin/withdrawal-rules', color: '#D97706', bg: '#FEF3C7' },
+  { label: 'Settings', icon: '⚙️', href: '/admin/settings', color: '#6B7280', bg: '#F9FAFB' },
 ];
 
 export default function AdminDashboard() {

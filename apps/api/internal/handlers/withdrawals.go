@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -49,6 +51,34 @@ func (h *WithdrawalsHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if req.Amount <= 0 {
 		http.Error(w, "Amount must be greater than 0", http.StatusBadRequest)
 		return
+	}
+
+	// 0. Enforce Withdrawal Rule Requirement (Total deposit history check)
+	var ruleEnabledStr, ruleAmountStr string
+	_ = h.db.Pool.QueryRow(r.Context(), "SELECT COALESCE((SELECT value FROM settings WHERE key = 'withdrawal_rule_enabled'), 'true')").Scan(&ruleEnabledStr)
+	_ = h.db.Pool.QueryRow(r.Context(), "SELECT COALESCE((SELECT value FROM settings WHERE key = 'withdrawal_rule_amount'), '7500')").Scan(&ruleAmountStr)
+
+	ruleEnabled := (ruleEnabledStr != "false")
+	requiredDeposit := 7500.0
+	if parsed, err := strconv.ParseFloat(ruleAmountStr, 64); err == nil && parsed > 0 {
+		requiredDeposit = parsed
+	}
+
+	if ruleEnabled {
+		var totalDeposited float64
+		_ = h.db.Pool.QueryRow(r.Context(), "SELECT COALESCE(SUM(amount), 0) FROM deposits WHERE user_id = $1 AND status = 'accepted'", req.UserID).Scan(&totalDeposited)
+		if totalDeposited < requiredDeposit {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"error":            fmt.Sprintf("Withdrawal Rule Requirement: Your account must reach a total deposit history of at least %.2f Br before making a withdrawal. (Current: %.2f Br)", requiredDeposit, totalDeposited),
+				"rule_unfulfilled": true,
+				"required_deposit": requiredDeposit,
+				"total_deposited":  totalDeposited,
+				"remaining":        requiredDeposit - totalDeposited,
+			})
+			return
+		}
 	}
 
 	tx, err := h.db.Pool.Begin(r.Context())
@@ -250,4 +280,70 @@ func (h *WithdrawalsHandler) CheckPending(w http.ResponseWriter, r *http.Request
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(wd)
+}
+
+// CheckWithdrawalRule - returns rule requirements, user's total deposit progress, and fulfilled status
+func (h *WithdrawalsHandler) CheckWithdrawalRule(w http.ResponseWriter, r *http.Request) {
+	userID := r.URL.Query().Get("user_id")
+	if userID == "" {
+		http.Error(w, "user_id required", http.StatusBadRequest)
+		return
+	}
+
+	ruleEnabled := true
+	requiredAmount := 7500.0
+	ruleTitle := "Withdrawal Rule Requirement"
+	ruleMessage := "Before making a withdrawal, your account must reach a total deposit history of at least 7,500 Br. Please make a deposit to fulfill the requirement and activate withdrawals."
+
+	// Load rule settings
+	rows, err := h.db.Pool.Query(r.Context(), "SELECT key, value FROM settings WHERE key IN ('withdrawal_rule_enabled', 'withdrawal_rule_amount', 'withdrawal_rule_title', 'withdrawal_rule_message')")
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var k, v string
+			if scanErr := rows.Scan(&k, &v); scanErr == nil {
+				switch k {
+				case "withdrawal_rule_enabled":
+					ruleEnabled = (v != "false")
+				case "withdrawal_rule_amount":
+					if parsed, pErr := strconv.ParseFloat(v, 64); pErr == nil && parsed > 0 {
+						requiredAmount = parsed
+					}
+				case "withdrawal_rule_title":
+					if v != "" {
+						ruleTitle = v
+					}
+				case "withdrawal_rule_message":
+					if v != "" {
+						ruleMessage = v
+					}
+				}
+			}
+		}
+	}
+
+	// Query user's total accepted deposit history
+	var totalDeposited float64
+	_ = h.db.Pool.QueryRow(r.Context(), `
+		SELECT COALESCE(SUM(amount), 0)
+		FROM deposits
+		WHERE user_id = $1 AND status = 'accepted'
+	`, userID).Scan(&totalDeposited)
+
+	fulfilled := !ruleEnabled || (totalDeposited >= requiredAmount)
+	remaining := 0.0
+	if requiredAmount > totalDeposited {
+		remaining = requiredAmount - totalDeposited
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"rule_enabled":     ruleEnabled,
+		"required_deposit": requiredAmount,
+		"total_deposited":  totalDeposited,
+		"remaining":        remaining,
+		"fulfilled":        fulfilled,
+		"rule_title":       ruleTitle,
+		"rule_message":     ruleMessage,
+	})
 }
