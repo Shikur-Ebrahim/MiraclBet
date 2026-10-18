@@ -85,8 +85,34 @@ const SLIP_STATUS: Record<string, { bg: string; text: string; label: string; ico
 
 function BetTicket({ slip }: { slip: BetSlip }) {
   const [open, setOpen] = useState(false);
-  const st = SLIP_STATUS[slip.status] || SLIP_STATUS.PENDING;
   const isAccumulator = slip.legs.length > 1;
+  const totalCount = slip.legs.length;
+  const wonCount = slip.legs.filter(l => l.status === 'WON').length;
+  const isWon = slip.status === 'WON';
+  const isLost = slip.status === 'LOST';
+
+  // Dynamic progress-aware badge
+  let badgeLabel = 'Open';
+  let badgeBg = '#FEF3C7';
+  let badgeText = '#D97706';
+  let badgeIcon = '⏳';
+
+  if (isWon) {
+    badgeLabel = 'Won';
+    badgeBg = '#D1FAE5';
+    badgeText = '#059669';
+    badgeIcon = '✅';
+  } else if (isLost) {
+    badgeLabel = 'Lost';
+    badgeBg = '#FEE2E2';
+    badgeText = '#DC2626';
+    badgeIcon = '❌';
+  } else if (wonCount > 0) {
+    badgeLabel = `${wonCount}/${totalCount} Done`;
+    badgeBg = '#FEF3C7';
+    badgeText = '#D97706';
+    badgeIcon = '⏳';
+  }
 
   return (
     <div style={{
@@ -106,8 +132,8 @@ function BetTicket({ slip }: { slip: BetSlip }) {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ background: st.bg, color: st.text, padding: '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 4 }}>
-            {st.label}
+          <div style={{ background: badgeBg, color: badgeText, padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 5, border: `1px solid ${isWon ? '#A7F3D0' : isLost ? '#FECACA' : '#FDE68A'}` }}>
+            {badgeIcon} {badgeLabel}
           </div>
           <div>
             <div style={{ color: '#111827', fontWeight: 800, fontSize: 14 }}>
@@ -185,11 +211,30 @@ function BetTicket({ slip }: { slip: BetSlip }) {
                       <div style={{ color: '#111827', fontWeight: 800, fontSize: 14, marginBottom: 4 }}>
                         {leg.market_name}. {leg.selection_name}
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span style={{ color: '#4B5563', fontSize: 12 }}>Status:</span>
-                        {legWon && <span style={{ color: '#19E66B', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}><svg viewBox="0 0 24 24" style={{ width: 14, height: 14 }} fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg> Win</span>}
-                        {legLost && <span style={{ color: '#EF4444', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}><svg viewBox="0 0 24 24" style={{ width: 14, height: 14 }} fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z"/></svg> Loss</span>}
-                        {!legWon && !legLost && <span style={{ color: '#F5A623', fontSize: 12, fontWeight: 700 }}>⏳ Pending</span>}
+                        {(() => {
+                          if (legWon) {
+                            return <span style={{ color: '#059669', fontSize: 12, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 4 }}>✅ Won</span>;
+                          }
+                          if (legLost) {
+                            return <span style={{ color: '#EF4444', fontSize: 12, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 4 }}>❌ Loss</span>;
+                          }
+                          if (leg.kickoffAt) {
+                            const ko = new Date(leg.kickoffAt).getTime();
+                            const ends = ko + 105 * 60 * 1000;
+                            const now = Date.now();
+                            if (now >= ko && now < ends) {
+                              const endsStr = new Date(ends).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                              return <span style={{ color: '#DC2626', fontSize: 12, fontWeight: 800 }}>⚡ LIVE (ends ~{endsStr})</span>;
+                            }
+                            if (now < ko) {
+                              const koStr = new Date(ko).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                              return <span style={{ color: '#6B7280', fontSize: 12, fontWeight: 700 }}>⏳ Starts ~{koStr}</span>;
+                            }
+                          }
+                          return <span style={{ color: '#D97706', fontSize: 12, fontWeight: 700 }}>⏳ Pending</span>;
+                        })()}
                       </div>
                     </div>
                     <div style={{ color: '#111827', fontWeight: 900, fontSize: 18 }}>
@@ -259,6 +304,15 @@ export default function MyBetsPage() {
         const u = JSON.parse(rawUser);
         setUser(u);
         fetchBets(u.id);
+
+        // Auto-refresh every 10 seconds to update match progress live
+        const interval = setInterval(() => {
+          fetch(`${API}/api/v1/bets?user_id=${u.id}`, { cache: 'no-store' })
+            .then(r => r.ok ? r.json() : null)
+            .then(data => { if (Array.isArray(data)) setBets(data); })
+            .catch(() => {});
+        }, 10000);
+        return () => clearInterval(interval);
       } catch { setLoading(false); }
     } else { setLoading(false); }
   }, [fetchBets]);
@@ -272,7 +326,7 @@ export default function MyBetsPage() {
   if (!mounted) return null;
 
   return (
-    <div style={{ background: '#0A0E1A', minHeight: '100vh', paddingBottom: 90 }}>
+    <div style={{ background: '#F8FAFC', minHeight: '100vh', paddingBottom: 90 }}>
       {/* Header */}
       <div style={{ background: '#ffffff', padding: '16px 16px 0', borderBottom: '1px solid #1E293B', position: 'sticky', top: 0, zIndex: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>

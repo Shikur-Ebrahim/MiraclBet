@@ -7,6 +7,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -23,22 +24,177 @@ func NewSettlementHandler(db *database.DB) *SettlementHandler {
 	return &SettlementHandler{db: db}
 }
 
-// StartAutoSettleLoop runs in the background every 60 seconds.
-// It finds all PENDING bet slips that are auto-win (manual/admin tickets),
-// checks each leg against the fixture result, settles the leg,
-// and when all legs are done — marks the slip WON and credits the user's balance.
-func (h *SettlementHandler) StartAutoSettleLoop(ctx context.Context) {
-	log.Println("[auto-settle] background settlement loop started")
-	
-	// ONE-TIME CLEANUP: Force win ALL currently stuck pending tickets (from yesterday)
-	log.Println("[auto-settle] running one-time cleanup of all stuck pending tickets...")
-	h.forceWinAllStuckPending(ctx)
+// MatchDuration is the duration of a match from kickoff (105 min including extra time)
+const MatchDuration = 105 * time.Minute
 
-	ticker := time.NewTicker(60 * time.Second)
+// parseKickoff parses timestamp strings into UTC
+func parseKickoff(s string) (time.Time, error) {
+	s = strings.TrimSpace(s)
+	formats := []string{
+		time.RFC3339Nano,
+		time.RFC3339,
+		"2006-01-02T15:04:05",
+		"2006-01-02T15:04",
+		"2006-01-02 15:04:05",
+		"2006-01-02 15:04",
+	}
+	for _, f := range formats {
+		if t, err := time.Parse(f, s); err == nil {
+			return t.UTC(), nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("unable to parse time: %s", s)
+}
+
+// SettleDueAutoWinSlips checks all auto-win tickets:
+// 1. For each match whose end time (kickoff + 105 min) has passed: marks that match as WON.
+// 2. Only when ALL matches of a ticket are WON: marks the ticket as WON and credits user balance!
+func SettleDueAutoWinSlips(ctx context.Context, db *database.DB) {
+	if db == nil {
+		return
+	}
+	now := time.Now().UTC()
+
+	// 1. Settle individual legs of auto-win slips whose match end time has passed
+	legRows, err := db.Pool.Query(ctx, `
+		SELECT bl.id, bl.bet_slip_id, bl.match_name, COALESCE(bl.kickoff_at, '')
+		FROM bet_legs bl
+		JOIN bet_slips bs ON bl.bet_slip_id = bs.id
+		WHERE bs.status = 'PENDING'
+		  AND bs.is_auto_win = true
+		  AND bl.status = 'PENDING'
+	`)
+	if err == nil {
+		type pendingLeg struct {
+			id, slipID, matchName, kickoffAt string
+		}
+		var pendingLegs []pendingLeg
+		for legRows.Next() {
+			var pl pendingLeg
+			if err := legRows.Scan(&pl.id, &pl.slipID, &pl.matchName, &pl.kickoffAt); err == nil {
+				pendingLegs = append(pendingLegs, pl)
+			}
+		}
+		legRows.Close()
+
+		for _, leg := range pendingLegs {
+			if leg.kickoffAt == "" {
+				continue
+			}
+			ko, err := parseKickoff(leg.kickoffAt)
+			if err != nil {
+				continue
+			}
+			endTime := ko.Add(MatchDuration)
+			if now.After(endTime) || now.Equal(endTime) {
+				_, err := db.Pool.Exec(ctx, `UPDATE bet_legs SET status = 'WON' WHERE id = $1`, leg.id)
+				if err == nil {
+					log.Printf("[auto-settle] Leg %s (%s) reached end time %s -> marked WON", leg.id, leg.matchName, endTime.Format("15:04:05"))
+				}
+			}
+		}
+	}
+
+	// 2. Check all PENDING is_auto_win slips — win ticket ONLY IF ALL legs are WON
+	slipRows, err := db.Pool.Query(ctx, `
+		SELECT bs.id, bs.user_id, bs.potential_payout,
+		       COUNT(bl.id) as total_legs,
+		       COUNT(bl.id) FILTER (WHERE bl.status = 'WON') as won_legs,
+		       COUNT(bl.id) FILTER (WHERE bl.status = 'PENDING') as pending_legs
+		FROM bet_slips bs
+		JOIN bet_legs bl ON bl.bet_slip_id = bs.id
+		WHERE bs.status = 'PENDING'
+		  AND bs.is_auto_win = true
+		GROUP BY bs.id, bs.user_id, bs.potential_payout
+	`)
+	if err == nil {
+		type slipCheck struct {
+			id, userID                    string
+			payout                        float64
+			totalLegs, wonLegs, pendingLegs int
+		}
+		var slipsToCheck []slipCheck
+		for slipRows.Next() {
+			var sc slipCheck
+			if err := slipRows.Scan(&sc.id, &sc.userID, &sc.payout, &sc.totalLegs, &sc.wonLegs, &sc.pendingLegs); err == nil {
+				slipsToCheck = append(slipsToCheck, sc)
+			}
+		}
+		slipRows.Close()
+
+		for _, s := range slipsToCheck {
+			// ONLY win and credit balance if ALL legs are completed and WON!
+			if s.totalLegs > 0 && s.pendingLegs == 0 && s.wonLegs == s.totalLegs {
+				tx, err := db.Pool.Begin(ctx)
+				if err != nil {
+					continue
+				}
+				// Verify still PENDING under lock to prevent race conditions
+				var curStatus string
+				err = tx.QueryRow(ctx, `SELECT status FROM bet_slips WHERE id = $1 FOR UPDATE`, s.id).Scan(&curStatus)
+				if err != nil || curStatus != "PENDING" {
+					tx.Rollback(ctx)
+					continue
+				}
+
+				if _, err := tx.Exec(ctx, `UPDATE bet_slips SET status = 'WON' WHERE id = $1`, s.id); err != nil {
+					tx.Rollback(ctx)
+					continue
+				}
+				if _, err := tx.Exec(ctx, `UPDATE users SET balance = balance + $1 WHERE id = $2`, s.payout, s.userID); err != nil {
+					tx.Rollback(ctx)
+					continue
+				}
+				if err := tx.Commit(ctx); err == nil {
+					log.Printf("[auto-settle] 🎉 ALL %d matches completed! Slip %s WON — credited %.2f Br to user %s", s.totalLegs, s.id, s.payout, s.userID)
+				}
+			}
+		}
+	}
+}
+
+func (h *SettlementHandler) settleNormalSlips(ctx context.Context) {
+	rows, err := h.db.Pool.Query(ctx, `
+		SELECT DISTINCT bs.id
+		FROM bet_slips bs
+		JOIN bet_legs bl ON bl.bet_slip_id = bs.id
+		JOIN fixtures f ON f.external_id = bl.fixture_id
+		WHERE bs.status = 'PENDING'
+		  AND bs.is_auto_win = false
+		  AND bl.status = 'PENDING'
+		  AND f.status_short IN ('FT','AET','PEN','CANC','PSTP','ABD')
+	`)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+
+	var slipIDs []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err == nil {
+			slipIDs = append(slipIDs, id)
+		}
+	}
+	rows.Close()
+
+	for _, id := range slipIDs {
+		h.autoSettleSlip(ctx, id)
+	}
+}
+
+// StartAutoSettleLoop runs in the background every 10 seconds.
+// For manual/auto-win tickets: settles each match when its end time arrives, and wins the ticket when all are done.
+// For normal fixture bets: checks finished fixtures from DB and settles.
+func (h *SettlementHandler) StartAutoSettleLoop(ctx context.Context) {
+	log.Println("[auto-settle] background settlement loop started (10s interval)")
+
+	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
-	// Run normal auto-settle immediately on startup, then every 60s
-	h.runAutoSettle(ctx)
+	// Run initial settlement on startup
+	SettleDueAutoWinSlips(ctx, h.db)
+	h.settleNormalSlips(ctx)
 
 	for {
 		select {
@@ -46,110 +202,10 @@ func (h *SettlementHandler) StartAutoSettleLoop(ctx context.Context) {
 			log.Println("[auto-settle] stopping")
 			return
 		case <-ticker.C:
-			h.runAutoSettle(ctx)
+			SettleDueAutoWinSlips(ctx, h.db)
+			h.settleNormalSlips(ctx)
 		}
 	}
-}
-
-// forceWinAllStuckPending finds EVERY PENDING slip (even if is_auto_win is false) and wins it.
-// This is a one-time fix to clear yesterday's stuck manual tickets.
-func (h *SettlementHandler) forceWinAllStuckPending(ctx context.Context) {
-	rows, err := h.db.Pool.Query(ctx, `
-		SELECT id, user_id, potential_payout
-		FROM bet_slips
-		WHERE status = 'PENDING'
-	`)
-	if err != nil {
-		log.Printf("[force-win] query error: %v", err)
-		return
-	}
-	type slipRow struct {
-		id             string
-		userID         string
-		potentialPayout float64
-	}
-	var slips []slipRow
-	defer rows.Close()
-	for rows.Next() {
-		var s slipRow
-		if err := rows.Scan(&s.id, &s.userID, &s.potentialPayout); err == nil {
-			slips = append(slips, s)
-		}
-	}
-
-	for _, s := range slips {
-		h.instantWinSlip(ctx, s.id, s.userID, s.potentialPayout)
-	}
-}
-
-// runAutoSettle finds every PENDING is_auto_win slip and instantly marks it WON,
-// credits the full potential_payout to the user's balance, and marks all legs WON.
-func (h *SettlementHandler) runAutoSettle(ctx context.Context) {
-	// Fetch all PENDING auto-win slips with user + payout info
-	rows, err := h.db.Pool.Query(ctx, `
-		SELECT id, user_id, potential_payout
-		FROM bet_slips
-		WHERE status = 'PENDING' AND is_auto_win = true
-	`)
-	if err != nil {
-		log.Printf("[auto-settle] query error: %v", err)
-		return
-	}
-	type slipRow struct {
-		id             string
-		userID         string
-		potentialPayout float64
-	}
-	var slips []slipRow
-	defer rows.Close()
-	for rows.Next() {
-		var s slipRow
-		if err := rows.Scan(&s.id, &s.userID, &s.potentialPayout); err == nil {
-			slips = append(slips, s)
-		}
-	}
-
-	for _, s := range slips {
-		h.instantWinSlip(ctx, s.id, s.userID, s.potentialPayout)
-	}
-}
-
-// instantWinSlip atomically:
-//  1. Marks all legs of the slip as WON
-//  2. Marks the slip itself as WON
-//  3. Credits the full potential_payout to the user's balance
-func (h *SettlementHandler) instantWinSlip(ctx context.Context, slipID, userID string, payout float64) {
-	tx, err := h.db.Pool.Begin(ctx)
-	if err != nil {
-		log.Printf("[auto-settle] begin tx error for slip %s: %v", slipID, err)
-		return
-	}
-	defer tx.Rollback(ctx)
-
-	// Mark all legs WON
-	if _, err := tx.Exec(ctx, `UPDATE bet_legs SET status = 'WON' WHERE bet_slip_id = $1`, slipID); err != nil {
-		log.Printf("[auto-settle] update legs error for slip %s: %v", slipID, err)
-		return
-	}
-
-	// Mark slip WON
-	if _, err := tx.Exec(ctx, `UPDATE bet_slips SET status = 'WON' WHERE id = $1`, slipID); err != nil {
-		log.Printf("[auto-settle] update slip error %s: %v", slipID, err)
-		return
-	}
-
-	// Credit user balance
-	if _, err := tx.Exec(ctx, `UPDATE users SET balance = balance + $1 WHERE id = $2`, payout, userID); err != nil {
-		log.Printf("[auto-settle] credit balance error user %s: %v", userID, err)
-		return
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		log.Printf("[auto-settle] commit error for slip %s: %v", slipID, err)
-		return
-	}
-
-	log.Printf("[auto-settle] ✅ slip %s WON — credited %.2f to user %s", slipID, payout, userID)
 }
 
 func (h *SettlementHandler) autoSettleSlip(ctx context.Context, slipID string) {

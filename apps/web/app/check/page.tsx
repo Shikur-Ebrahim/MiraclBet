@@ -172,8 +172,24 @@ function TicketDisplay({ slip }: { slip: BetSlip }) {
                       <span style={{ fontSize: 12, color: '#6B7280' }}>Status:</span>
                       {legWon && <span style={{ color: '#059669', fontSize: 12, fontWeight: 700 }}>✅ Win</span>}
                       {legLost && <span style={{ color: '#EF4444', fontSize: 12, fontWeight: 700 }}>❌ Loss</span>}
-                      {!legWon && !legLost && legData.status === 'VOID' && <span style={{ color: '#6B7280', fontSize: 12, fontWeight: 700 }}>↩ Void</span>}
-                      {!legWon && !legLost && legData.status === 'PENDING' && <span style={{ color: '#D97706', fontSize: 12, fontWeight: 700 }}>⏳ Pending</span>}
+                      {!legWon && !legLost && legData.status === 'PENDING' && (
+                        (() => {
+                          if (legData.kickoffAt) {
+                            const ko = new Date(legData.kickoffAt).getTime();
+                            const ends = ko + 105 * 60 * 1000;
+                            const now = Date.now();
+                            if (now >= ko && now < ends) {
+                              const endsStr = new Date(ends).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                              return <span style={{ color: '#DC2626', fontSize: 12, fontWeight: 800 }}>⚡ LIVE (ends ~{endsStr})</span>;
+                            }
+                            if (now < ko) {
+                              const koStr = new Date(ko).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                              return <span style={{ color: '#6B7280', fontSize: 12, fontWeight: 700 }}>⏳ Starts ~{koStr}</span>;
+                            }
+                          }
+                          return <span style={{ color: '#D97706', fontSize: 12, fontWeight: 700 }}>⏳ Pending</span>;
+                        })()
+                      )}
                     </div>
                   </div>
                   <div style={{ fontSize: 20, fontWeight: 900, color: '#111827' }}>{legData.odds.toFixed(2)}</div>

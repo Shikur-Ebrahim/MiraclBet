@@ -134,45 +134,30 @@ func (h *BetsHandler) PlaceBet(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// 3. Create Bet Slip
+	// 3. Create Bet Slip — always starts as PENDING!
 	var slipID string
 	potentialPayout := req.Stake * req.TotalOdds
-	
-	initialStatus := "PENDING"
-	if isAutoWin {
-		initialStatus = "WON"
-	}
 
 	err = tx.QueryRow(ctx, `
-		INSERT INTO bet_slips (user_id, stake, total_odds, potential_payout, status, is_auto_win)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO bet_slips (user_id, stake, total_odds, potential_payout, status, is_auto_win, booking_code)
+		VALUES ($1, $2, $3, $4, 'PENDING', $5, $6)
 		RETURNING id
-	`, req.UserID, req.Stake, req.TotalOdds, potentialPayout, initialStatus, isAutoWin).Scan(&slipID)
+	`, req.UserID, req.Stake, req.TotalOdds, potentialPayout, isAutoWin, req.BookingCode).Scan(&slipID)
 	if err != nil {
 		log.Printf("ERROR: Failed to create bet slip: %v", err); h.respondError(w, http.StatusInternalServerError, "Failed to create bet slip: " + err.Error())
 		return
 	}
 
-	// 4. Create Bet Legs
+	// 4. Create Bet Legs — all start as PENDING
 	for _, sel := range req.Selections {
 		_, err = tx.Exec(ctx, `
 			INSERT INTO bet_legs (bet_slip_id, fixture_id, match_name, market_name, selection_id, selection_name, odds, home_logo, away_logo, kickoff_at, status)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-		`, slipID, sel.FixtureID, sel.MatchName, sel.MarketName, sel.SelectionID, sel.SelectionName, sel.Odds, sel.HomeLogo, sel.AwayLogo, sel.KickoffAt, initialStatus)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'PENDING')
+		`, slipID, sel.FixtureID, sel.MatchName, sel.MarketName, sel.SelectionID, sel.SelectionName, sel.Odds, sel.HomeLogo, sel.AwayLogo, sel.KickoffAt)
 		if err != nil {
 			log.Printf("ERROR: Failed to save selections: %v", err); h.respondError(w, http.StatusInternalServerError, "Failed to save selections: " + err.Error())
 			return
 		}
-	}
-
-	// 5. If it's an instant auto-win, immediately credit the payout to the user
-	if isAutoWin {
-		if _, execErr := tx.Exec(ctx, "UPDATE users SET balance = balance + $1 WHERE id = $2", potentialPayout, req.UserID); execErr != nil {
-			log.Printf("ERROR: Failed to credit auto-win payout: %v", execErr)
-			h.respondError(w, http.StatusInternalServerError, "Failed to credit winnings")
-			return
-		}
-		log.Printf("[auto-settle] INSTANT WIN: slip %s placed by %s won %.2f immediately", slipID, req.UserID, potentialPayout)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -198,6 +183,7 @@ func (h *BetsHandler) ListMyBets(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
+	SettleDueAutoWinSlips(ctx, h.db)
 	rows, err := h.db.Pool.Query(ctx, `
 		SELECT id, stake, total_odds, potential_payout, status, created_at
 		FROM bet_slips
@@ -296,6 +282,7 @@ func (h *BetsHandler) GetBet(w http.ResponseWriter, r *http.Request) {
 	userID := r.URL.Query().Get("user_id")
 
 	ctx := r.Context()
+	SettleDueAutoWinSlips(ctx, h.db)
 	var s BetSlipResult
 	err := h.db.Pool.QueryRow(ctx, `
 		SELECT id, stake, total_odds, potential_payout, status, created_at
@@ -351,6 +338,7 @@ func (h *BetsHandler) CheckBet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
+	SettleDueAutoWinSlips(ctx, h.db)
 
 	// Normalise: strip "TICKET-" prefix (shown in bet history barcode)
 	code := raw
