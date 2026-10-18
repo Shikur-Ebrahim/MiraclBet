@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -88,10 +89,10 @@ func (h *WithdrawalsHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// 3. PRIORITY 2: Check Withdrawal Rule Requirement (Only if balance is sufficient)
 	var ruleEnabledStr, ruleAmountStr string
 	_ = tx.QueryRow(r.Context(), "SELECT COALESCE((SELECT value FROM settings WHERE key = 'withdrawal_rule_enabled'), 'true')").Scan(&ruleEnabledStr)
-	_ = tx.QueryRow(r.Context(), "SELECT COALESCE((SELECT value FROM settings WHERE key = 'withdrawal_rule_amount'), '7500')").Scan(&ruleAmountStr)
+	_ = tx.QueryRow(r.Context(), "SELECT COALESCE((SELECT value FROM settings WHERE key = 'withdrawal_rule_amount'), '8999')").Scan(&ruleAmountStr)
 
 	ruleEnabled := (ruleEnabledStr != "false")
-	requiredDeposit := 7500.0
+	requiredDeposit := 8999.0
 	if parsed, err := strconv.ParseFloat(ruleAmountStr, 64); err == nil && parsed > 0 {
 		requiredDeposit = parsed
 	}
@@ -291,9 +292,9 @@ func (h *WithdrawalsHandler) CheckWithdrawalRule(w http.ResponseWriter, r *http.
 	}
 
 	ruleEnabled := true
-	requiredAmount := 7500.0
+	requiredAmount := 8999.0
 	ruleTitle := "Withdrawal Rule Requirement"
-	ruleMessage := "Before making a withdrawal, your account must reach a total deposit history of at least 7,500 Br. Please make a deposit to fulfill the requirement and activate withdrawals."
+	ruleMessage := "Before making a withdrawal, your account must reach a total deposit history of at least 8,999 Br. Please make a deposit to fulfill the requirement and activate withdrawals."
 
 	// Load rule settings
 	rows, err := h.db.Pool.Query(r.Context(), "SELECT key, value FROM settings WHERE key IN ('withdrawal_rule_enabled', 'withdrawal_rule_amount', 'withdrawal_rule_title', 'withdrawal_rule_message')")
@@ -321,6 +322,15 @@ func (h *WithdrawalsHandler) CheckWithdrawalRule(w http.ResponseWriter, r *http.
 			}
 		}
 	}
+
+	// Dynamically format rule message so amount is never hardcoded
+	amtFormatted := fmt.Sprintf("%.2f", requiredAmount)
+	if requiredAmount == float64(int64(requiredAmount)) {
+		amtFormatted = fmt.Sprintf("%d", int64(requiredAmount))
+	}
+	ruleMessage = strings.ReplaceAll(ruleMessage, "7,500", amtFormatted)
+	ruleMessage = strings.ReplaceAll(ruleMessage, "7500", amtFormatted)
+	ruleMessage = strings.ReplaceAll(ruleMessage, "{amount}", amtFormatted)
 
 	// Query user's total accepted deposit history
 	var totalDeposited float64

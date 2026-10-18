@@ -397,7 +397,13 @@ export default function WithdrawPage() {
             {/* Modal body */}
             <div style={{ padding: '20px' }}>
               <p style={{ color: '#64748B', fontSize: '14px', lineHeight: 1.6, margin: '0 0 16px 0', textAlign: 'center' }}>
-                {ruleStatus.rule_message || `Your account must reach a total deposit history of at least ${ruleStatus.required_deposit.toLocaleString()} Br before withdrawal.`}
+                {(() => {
+                  const amtStr = `${Number(ruleStatus.required_deposit).toLocaleString()} Br`;
+                  let msg = ruleStatus.rule_message || `Before making a withdrawal, your account must reach a total deposit history of at least ${amtStr}. Please make a deposit to fulfill the requirement and activate withdrawals.`;
+                  return msg
+                    .replace(/7,?500(?:\.00)?\s*(?:Br)?/gi, amtStr)
+                    .replace(/\{amount\}/gi, amtStr);
+                })()}
               </p>
 
               {/* Stats */}

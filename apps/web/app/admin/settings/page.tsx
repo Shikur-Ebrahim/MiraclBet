@@ -6,10 +6,10 @@ import { useRouter } from 'next/navigation';
 export default function AdminSettingsPage() {
   const router = useRouter();
   const [withdrawalRuleEnabled, setWithdrawalRuleEnabled] = useState(true);
-  const [withdrawalRuleAmount, setWithdrawalRuleAmount] = useState('7500');
+  const [withdrawalRuleAmount, setWithdrawalRuleAmount] = useState('8999');
   const [withdrawalRuleTitle, setWithdrawalRuleTitle] = useState('Withdrawal Rule Requirement');
   const [withdrawalRuleMessage, setWithdrawalRuleMessage] = useState(
-    'Before making a withdrawal, your account must reach a total deposit history of at least 7,500 Br. Please make a deposit to fulfill the requirement and activate withdrawals.'
+    'Before making a withdrawal, your account must reach a total deposit history of at least 8,999 Br. Please make a deposit to fulfill the requirement and activate withdrawals.'
   );
 
   const [contactPhone, setContactPhone] = useState('');
@@ -39,7 +39,13 @@ export default function AdminSettingsPage() {
           setWithdrawalRuleTitle(data.withdrawal_rule_title);
         }
         if (data.withdrawal_rule_message) {
-          setWithdrawalRuleMessage(data.withdrawal_rule_message);
+          const amt = data.withdrawal_rule_amount || '8999';
+          const formatted = Number(amt).toLocaleString();
+          setWithdrawalRuleMessage(
+            data.withdrawal_rule_message
+              .replace(/7,?500(?:\.00)?\s*(?:Br)?/gi, `${formatted} Br`)
+              .replace(/\{amount\}/gi, `${formatted} Br`)
+          );
         }
         setContactPhone(data.contact_phone || '');
         setTelegramUsername(data.telegram_username || '');
@@ -48,6 +54,17 @@ export default function AdminSettingsPage() {
       console.error('Failed to load settings', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAmountChange = (newAmt: string) => {
+    setWithdrawalRuleAmount(newAmt);
+    const num = parseFloat(newAmt);
+    if (!isNaN(num) && num > 0) {
+      const formatted = num.toLocaleString();
+      setWithdrawalRuleMessage(prev =>
+        prev.replace(/\b(?:7,?500|8,?999|\d[\d,]*)\s*(?:Br)?/gi, `${formatted} Br`)
+      );
     }
   };
 
@@ -60,7 +77,7 @@ export default function AdminSettingsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           withdrawal_rule_enabled: String(withdrawalRuleEnabled),
-          withdrawal_rule_amount: withdrawalRuleAmount || '7500',
+          withdrawal_rule_amount: withdrawalRuleAmount || '8999',
           withdrawal_rule_title: withdrawalRuleTitle,
           withdrawal_rule_message: withdrawalRuleMessage,
           contact_phone: contactPhone,
@@ -141,15 +158,15 @@ export default function AdminSettingsPage() {
               min="0"
               step="any"
               value={withdrawalRuleAmount}
-              onChange={(e) => setWithdrawalRuleAmount(e.target.value)}
-              placeholder="7500"
+              onChange={(e) => handleAmountChange(e.target.value)}
+              placeholder="8999"
               style={{
                 width: '100%', padding: '12px 14px', borderRadius: 10,
                 border: '1.5px solid #D1D5DB', fontSize: 16, fontWeight: 700, color: '#111827', outline: 'none'
               }}
             />
             <div style={{ fontSize: 12, color: '#9CA3AF', marginTop: 4 }}>
-              Default is <b>7,500 Br</b>. If the user's total approved deposits are below this amount, withdrawal requests are blocked.
+              Default is <b>8,999 Br</b>. If the user's total approved deposits are below this amount, withdrawal requests are blocked.
             </div>
           </div>
 

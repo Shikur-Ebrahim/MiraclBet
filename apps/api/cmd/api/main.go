@@ -165,10 +165,13 @@ func autoMigrate(ctx context.Context, db *database.DB) error {
 		);
 		INSERT INTO settings (key, value) VALUES 
 			('withdrawal_rule_enabled', 'true'),
-			('withdrawal_rule_amount', '7500'),
+			('withdrawal_rule_amount', '8999'),
 			('withdrawal_rule_title', 'Withdrawal Rule Requirement'),
-			('withdrawal_rule_message', 'Before making a withdrawal, your account must reach a total deposit history of at least 7,500 Br. Please make a deposit to fulfill the requirement and activate withdrawals.')
+			('withdrawal_rule_message', 'Before making a withdrawal, your account must reach a total deposit history of at least 8,999 Br. Please make a deposit to fulfill the requirement and activate withdrawals.')
 		ON CONFLICT (key) DO NOTHING;
+
+		UPDATE settings SET value = '8999' WHERE key = 'withdrawal_rule_amount' AND value = '7500';
+		UPDATE settings SET value = REPLACE(REPLACE(value, '7,500', '8,999'), '7500', '8,999') WHERE key = 'withdrawal_rule_message';
 	`)
 	return err
 }
