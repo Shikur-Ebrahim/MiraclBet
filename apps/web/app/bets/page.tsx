@@ -225,8 +225,7 @@ function BetTicket({ slip }: { slip: BetSlip }) {
                             const ends = ko + 105 * 60 * 1000;
                             const now = Date.now();
                             if (now >= ko && now < ends) {
-                              const endsStr = new Date(ends).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                              return <span style={{ color: '#DC2626', fontSize: 12, fontWeight: 800 }}>⚡ LIVE (ends ~{endsStr})</span>;
+                              return <span style={{ color: '#F5A623', fontSize: 12, fontWeight: 800 }}>⏳ Pending</span>;
                             }
                             if (now < ko) {
                               const koStr = new Date(ko).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
