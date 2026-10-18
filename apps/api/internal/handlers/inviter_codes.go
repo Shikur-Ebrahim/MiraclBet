@@ -32,7 +32,9 @@ type InviterCodeRow struct {
 	CreatedAt time.Time  `json:"created_at"`
 }
 
-// normalizePhone extracts the key digits (e.g. last 9 digits for Ethiopian numbers)
+// normalizePhone extracts the last 9 digits from any Ethiopian phone format.
+// DB stores phones as plain 9 digits (e.g. "977958603").
+// Admin may enter: "0977958603", "+251977958603", "977958603" — all normalise to "977958603".
 func normalizePhone(p string) string {
 	digits := ""
 	for _, ch := range p {
@@ -71,26 +73,27 @@ func (h *InviterCodesHandler) AdminCreateInviterCode(w http.ResponseWriter, r *h
 		return
 	}
 
-	phone := strings.TrimSpace(req.Phone)
-	if phone == "" {
+	rawPhone := strings.TrimSpace(req.Phone)
+	if rawPhone == "" {
 		http.Error(w, "Phone number is required", http.StatusBadRequest)
 		return
 	}
 
-	norm := normalizePhone(phone)
-	if norm == "" {
-		http.Error(w, "Valid phone number is required", http.StatusBadRequest)
+	// Always work with the normalised 9-digit phone so it matches DB values like "977958603"
+	normPhone := normalizePhone(rawPhone)
+	if len(normPhone) < 7 {
+		http.Error(w, "Valid phone number is required (at least 7 digits)", http.StatusBadRequest)
 		return
 	}
 
-	// Try to link existing user by phone if found
+	// Try to link existing user — DB phones are stored as plain 9 digits (no "0" prefix)
 	var matchedUserID *string
 	var matchedUserName *string
 	row := h.db.Pool.QueryRow(r.Context(), `
 		SELECT id, full_name FROM users
-		WHERE RIGHT(phone, 9) = $1 OR phone = $2
+		WHERE RIGHT(phone, 9) = $1
 		LIMIT 1
-	`, norm, phone)
+	`, normPhone)
 	var uid, uname string
 	if err := row.Scan(&uid, &uname); err == nil {
 		matchedUserID = &uid
@@ -118,13 +121,14 @@ func (h *InviterCodesHandler) AdminCreateInviterCode(w http.ResponseWriter, r *h
 		return
 	}
 
+	// Store the NORMALISED phone (9 digits) so lookups are consistent
 	var insertedID string
 	var createdAt time.Time
 	err := h.db.Pool.QueryRow(r.Context(), `
 		INSERT INTO inviter_codes (phone, code, user_id)
 		VALUES ($1, $2, $3)
 		RETURNING id, created_at
-	`, phone, code, matchedUserID).Scan(&insertedID, &createdAt)
+	`, normPhone, code, matchedUserID).Scan(&insertedID, &createdAt)
 	if err != nil {
 		http.Error(w, "Failed to save inviter code: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -134,7 +138,7 @@ func (h *InviterCodesHandler) AdminCreateInviterCode(w http.ResponseWriter, r *h
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(InviterCodeRow{
 		ID:        insertedID,
-		Phone:     phone,
+		Phone:     normPhone, // return normalised phone so UI shows consistent value
 		Code:      code,
 		UserID:    matchedUserID,
 		UserName:  matchedUserName,
@@ -220,7 +224,7 @@ func (h *InviterCodesHandler) VerifyInviterCode(w http.ResponseWriter, r *http.R
 
 	ctx := r.Context()
 
-	// 1. Fetch user phone and current verified status
+	// 1. Fetch user phone (stored as plain 9 digits in DB) and verified status
 	var userPhone string
 	var alreadyVerified bool
 	err := h.db.Pool.QueryRow(ctx, `
@@ -246,32 +250,50 @@ func (h *InviterCodesHandler) VerifyInviterCode(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	// Normalise user's phone (DB may store "977958603" as plain 9 digits already,
+	// but normalise to be safe regardless of format)
 	normUserPhone := normalizePhone(userPhone)
 
-	// 2. Check if code exists and belongs to this user or their phone number
+	// 2. Find the inviter code matching this user.
+	// inviter_codes.phone is stored as 9-digit normalised string (e.g. "977958603").
+	// Match on: user_id link OR normalised phone == stored phone OR RIGHT match as fallback.
 	var codeID string
-	var codePhone string
 	var isUsed bool
 	err = h.db.Pool.QueryRow(ctx, `
-		SELECT id, phone, is_used
+		SELECT id, is_used
 		FROM inviter_codes
 		WHERE UPPER(code) = $1
 		  AND (
-		      (user_id = $2)
-		      OR ($3 <> '' AND RIGHT(phone, 9) = $3)
-		      OR ($4 <> '' AND phone = $4)
+		      user_id = $2
+		      OR (normphone IS NOT NULL AND normphone = $3)
+		      OR RIGHT(phone, 9) = $3
 		  )
 		ORDER BY created_at DESC
 		LIMIT 1
-	`, req.Code, req.UserID, normUserPhone, userPhone).Scan(&codeID, &codePhone, &isUsed)
+	`, req.Code, req.UserID, normUserPhone).Scan(&codeID, &isUsed)
 
 	if err != nil {
-		// Code not found for this user
+		// Simpler fallback query without the normphone column
+		err = h.db.Pool.QueryRow(ctx, `
+			SELECT id, is_used
+			FROM inviter_codes
+			WHERE UPPER(code) = $1
+			  AND (
+			      user_id = $2
+			      OR RIGHT(phone, 9) = $3
+			      OR phone = $4
+			  )
+			ORDER BY created_at DESC
+			LIMIT 1
+		`, req.Code, req.UserID, normUserPhone, userPhone).Scan(&codeID, &isUsed)
+	}
+
+	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"success": false,
-			"error":   fmt.Sprintf("Invalid Inviter Code for phone %s. Please enter the exact code provided by your inviter/agent.", userPhone),
+			"error":   fmt.Sprintf("Invalid Inviter Code. Please enter the exact code provided for your phone number (%s).", userPhone),
 		})
 		return
 	}
