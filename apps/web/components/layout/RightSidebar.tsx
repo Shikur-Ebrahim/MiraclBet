@@ -119,13 +119,14 @@ export function RightSidebar() {
     const stakeNum = parseFloat(stake);
     if (!stakeNum || stakeNum < 1) { setPlaceError('Enter a valid stake (min 1 Br)'); return; }
 
-    // Frontend kickoff guard — block before even hitting the server
+    // Frontend finish guard — only block if match has already finished (105 min after kickoff)
     const now = Date.now();
     for (const b of betslip) {
       if (b.kickoffAt) {
         const ko = new Date(b.kickoffAt).getTime();
-        if (now >= ko) {
-          setPlaceError(`"${b.matchName}" has already started. Remove it to continue.`);
+        const ends = ko + 105 * 60 * 1000;
+        if (now >= ends) {
+          setPlaceError(`"${b.matchName}" has already finished. Remove it to continue.`);
           return;
         }
       }

@@ -86,14 +86,25 @@ func (h *BetsHandler) PlaceBet(w http.ResponseWriter, r *http.Request) {
 		h.db.Pool.QueryRow(r.Context(), `SELECT COALESCE(auto_win, false) FROM bet_bookings WHERE code = $1`, req.BookingCode).Scan(&isAutoWin)
 	}
 
+	// Validate matches haven't already finished (allow live / in-play betting until match ends)
 	if !isAutoWin && !isAgent {
 		for _, sel := range req.Selections {
 			if sel.KickoffAt != "" {
-				if kickoff, err := time.Parse(time.RFC3339, sel.KickoffAt); err == nil {
-					if time.Now().After(kickoff) {
-						h.respondError(w, http.StatusBadRequest, "Match '"+sel.MatchName+"' has already started")
+				if kickoff, err := parseKickoff(sel.KickoffAt); err == nil {
+					// A match is finished ~105 minutes after kickoff
+					if time.Now().UTC().After(kickoff.Add(MatchDuration)) {
+						h.respondError(w, http.StatusBadRequest, "Match '"+sel.MatchName+"' has already finished")
 						return
 					}
+				}
+			}
+			// Also check if fixture is marked as finished in DB
+			if sel.FixtureID != "" {
+				var statusShort string
+				_ = h.db.Pool.QueryRow(r.Context(), "SELECT COALESCE(status_short, '') FROM fixtures WHERE external_id = $1", sel.FixtureID).Scan(&statusShort)
+				if statusShort == "FT" || statusShort == "AET" || statusShort == "PEN" || statusShort == "FINISHED" {
+					h.respondError(w, http.StatusBadRequest, "Match '"+sel.MatchName+"' has already finished")
+					return
 				}
 			}
 		}
