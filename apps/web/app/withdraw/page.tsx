@@ -84,22 +84,37 @@ export default function WithdrawPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+
     if (!selectedMethod || !amount || !accountName || !accountNumber) {
       setError('Please fill all fields.');
       return;
     }
 
-    // BLOCK WITHDRAWAL IF RULE IS NOT FULFILLED
+    const withdrawNum = parseFloat(amount);
+    if (isNaN(withdrawNum) || withdrawNum <= 0) {
+      setError('Please enter a valid amount.');
+      return;
+    }
+
+    const userStr = localStorage.getItem('miraclbet_user');
+    const user = userStr ? JSON.parse(userStr) : null;
+
+    // PRIORITY 1: Check user balance FIRST!
+    // If user has 0 or less balance than withdrawal amount, show Insufficient balance
+    const currentBalance = Number(user?.balance ?? 0);
+    if (!user || currentBalance < withdrawNum) {
+      setError('Insufficient balance');
+      return;
+    }
+
+    // PRIORITY 2: If user has enough balance, THEN check the withdrawal rule!
     if (ruleStatus && !ruleStatus.fulfilled) {
       setShowRuleModal(true);
       return;
     }
 
-    setError('');
     setIsSubmitting(true);
-    
-    const userStr = localStorage.getItem('miraclbet_user');
-    const user = userStr ? JSON.parse(userStr) : null;
 
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/withdrawals`, {
@@ -110,7 +125,7 @@ export default function WithdrawPage() {
           withdrawal_method_id: selectedMethod.id,
           account_name: accountName,
           account_number: accountNumber,
-          amount: parseFloat(amount)
+          amount: withdrawNum
         })
       });
       
@@ -125,7 +140,7 @@ export default function WithdrawPage() {
       
       // Update local storage balance preemptively
       if (user && user.balance !== undefined) {
-        user.balance -= parseFloat(amount);
+        user.balance -= withdrawNum;
         localStorage.setItem('miraclbet_user', JSON.stringify(user));
         window.dispatchEvent(new Event('miraclbet_auth_change'));
       }
@@ -136,88 +151,6 @@ export default function WithdrawPage() {
       setError(err instanceof Error ? err.message : 'Something went wrong');
       setIsSubmitting(false);
     }
-  };
-
-  const renderRuleCard = () => {
-    if (!ruleStatus || ruleStatus.fulfilled) return null;
-    const percent = Math.min(100, Math.max(0, Math.round((ruleStatus.total_deposited / (ruleStatus.required_deposit || 1)) * 100)));
-
-    return (
-      <div style={{
-        background: 'linear-gradient(135deg, rgba(245, 166, 35, 0.12) 0%, rgba(26, 34, 53, 0.95) 100%)',
-        border: '1.5px solid rgba(245, 166, 35, 0.4)',
-        borderRadius: '16px',
-        padding: '18px',
-        marginBottom: '20px',
-        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
-        position: 'relative',
-        overflow: 'hidden'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '18px' }}>🔒</span>
-            <span style={{ fontSize: '12px', fontWeight: 800, color: '#F5A623', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-              {ruleStatus.rule_title || 'Withdrawal Rule'}
-            </span>
-          </div>
-          <span style={{ fontSize: '11px', fontWeight: 800, padding: '3px 8px', borderRadius: '12px', background: 'rgba(239, 68, 68, 0.15)', color: '#F87171', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
-            Deposit Needed
-          </span>
-        </div>
-
-        <p style={{ fontSize: '13px', color: '#D1D5DB', margin: '0 0 14px 0', lineHeight: 1.5 }}>
-          {ruleStatus.rule_message || `Before making a withdrawal, your account must reach a total deposit history of at least ${ruleStatus.required_deposit.toLocaleString()} Br.`}
-        </p>
-
-        {/* Progress Container */}
-        <div style={{ background: '#0A0E1A', padding: '12px 14px', borderRadius: '12px', border: '1px solid #1E293B', marginBottom: '14px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', fontSize: '12px' }}>
-            <span style={{ color: '#9CA3AF' }}>Deposit Progress</span>
-            <span style={{ color: '#F5A623', fontWeight: 800 }}>{percent}% Fulfilled</span>
-          </div>
-          <div style={{ width: '100%', height: '8px', background: '#1E293B', borderRadius: '4px', overflow: 'hidden' }}>
-            <div style={{ width: `${percent}%`, height: '100%', background: 'linear-gradient(90deg, #F5A623, #10B981)', borderRadius: '4px', transition: 'width 0.4s ease' }} />
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px', fontSize: '12px' }}>
-            <span style={{ color: '#9CA3AF' }}>
-              Deposited: <b style={{ color: '#10B981' }}>{ruleStatus.total_deposited.toFixed(2)} Br</b>
-            </span>
-            <span style={{ color: '#9CA3AF' }}>
-              Required: <b style={{ color: '#F5A623' }}>{ruleStatus.required_deposit.toFixed(2)} Br</b>
-            </span>
-          </div>
-          {ruleStatus.remaining > 0 && (
-            <div style={{ marginTop: '6px', fontSize: '11px', color: '#F87171', textAlign: 'right', fontWeight: 600 }}>
-              Need {ruleStatus.remaining.toFixed(2)} Br more to unlock withdrawals
-            </div>
-          )}
-        </div>
-
-        {/* Action Button */}
-        <button
-          type="button"
-          onClick={() => router.push('/deposit')}
-          style={{
-            width: '100%',
-            padding: '12px',
-            background: 'linear-gradient(90deg, #F5A623 0%, #E69516 100%)',
-            color: '#000000',
-            border: 'none',
-            borderRadius: '10px',
-            fontSize: '14px',
-            fontWeight: 800,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            boxShadow: '0 2px 10px rgba(245, 166, 35, 0.3)'
-          }}
-        >
-          <span>💳</span> Make a Deposit Now
-        </button>
-      </div>
-    );
   };
 
   if (!mounted || loading) {
@@ -279,7 +212,7 @@ export default function WithdrawPage() {
               )}
               {telegramUsername && (
                 <a href={telegramUsername.startsWith('http') ? telegramUsername : `https://t.me/${telegramUsername.replace('@', '')}`} target="_blank" rel="noopener noreferrer" style={{ flex: 1, textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', background: '#0088cc', color: '#FFF', padding: '12px', borderRadius: '10px', fontSize: '14px', fontWeight: 700 }}>
-                  Telegram
+                  Telegram Support
                 </a>
               )}
             </div>
@@ -329,9 +262,6 @@ export default function WithdrawPage() {
         </div>
 
         <div style={{ padding: '12px 16px 24px' }}>
-          {/* RENDER WITHDRAWAL RULE BANNER */}
-          {renderRuleCard()}
-
           <p style={{ color: '#9CA3AF', fontSize: '14px', marginBottom: '20px' }}>Choose where to receive your money:</p>
           {methods.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '48px 24px', color: '#6B7280', background: '#111827', borderRadius: '16px', border: '1px dashed #1E293B' }}>
@@ -377,9 +307,6 @@ export default function WithdrawPage() {
       </div>
 
       <div style={{ padding: '12px 16px' }}>
-        {/* RENDER WITHDRAWAL RULE BANNER */}
-        {renderRuleCard()}
-
         {selectedMethod && (
           <div style={{ background: '#111827', borderRadius: '16px', overflow: 'hidden', border: '1px solid #1E293B', marginBottom: '20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px' }}>
@@ -429,12 +356,12 @@ export default function WithdrawPage() {
 
           <button type="submit" disabled={isSubmitting || !amount || !accountName || !accountNumber}
             style={{ width: '100%', padding: '18px', background: isSubmitting || !amount || !accountName || !accountNumber ? '#1E293B' : '#F5A623', color: isSubmitting || !amount || !accountName || !accountNumber ? '#4B5563' : '#000', border: 'none', borderRadius: '14px', fontSize: '16px', fontWeight: 900, cursor: isSubmitting || !amount || !accountName || !accountNumber ? 'not-allowed' : 'pointer', transition: 'all 0.2s', marginTop: '10px' }}>
-            {isSubmitting ? 'Processing...' : (ruleStatus && !ruleStatus.fulfilled ? 'Check & Withdraw' : 'Withdraw')}
+            {isSubmitting ? 'Processing...' : 'Withdraw'}
           </button>
         </form>
       </div>
 
-      {/* ATTRACTIVE RULE UNFULFILLED MODAL */}
+      {/* ATTRACTIVE RULE POPUP MODAL - ONLY APPEARS WHEN USER HAS BALANCE AND CLICKS WITHDRAW */}
       {showRuleModal && ruleStatus && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 9999,

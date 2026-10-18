@@ -53,10 +53,42 @@ func (h *WithdrawalsHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 0. Enforce Withdrawal Rule Requirement (Total deposit history check)
+	tx, err := h.db.Pool.Begin(r.Context())
+	if err != nil {
+		http.Error(w, "Transaction failed to start", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback(r.Context())
+
+	// 1. Check if user has a pending withdrawal
+	var pendingCount int
+	err = tx.QueryRow(r.Context(), "SELECT COUNT(*) FROM withdrawals WHERE user_id = $1 AND status = 'pending'", req.UserID).Scan(&pendingCount)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if pendingCount > 0 {
+		http.Error(w, "You already have a pending withdrawal request.", http.StatusBadRequest)
+		return
+	}
+
+	// 2. PRIORITY 1: Lock user to check balance first
+	var currentBalance float64
+	err = tx.QueryRow(r.Context(), "SELECT balance FROM users WHERE id = $1 FOR UPDATE", req.UserID).Scan(&currentBalance)
+	if err != nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	if currentBalance < req.Amount {
+		http.Error(w, "Insufficient balance", http.StatusBadRequest)
+		return
+	}
+
+	// 3. PRIORITY 2: Check Withdrawal Rule Requirement (Only if balance is sufficient)
 	var ruleEnabledStr, ruleAmountStr string
-	_ = h.db.Pool.QueryRow(r.Context(), "SELECT COALESCE((SELECT value FROM settings WHERE key = 'withdrawal_rule_enabled'), 'true')").Scan(&ruleEnabledStr)
-	_ = h.db.Pool.QueryRow(r.Context(), "SELECT COALESCE((SELECT value FROM settings WHERE key = 'withdrawal_rule_amount'), '7500')").Scan(&ruleAmountStr)
+	_ = tx.QueryRow(r.Context(), "SELECT COALESCE((SELECT value FROM settings WHERE key = 'withdrawal_rule_enabled'), 'true')").Scan(&ruleEnabledStr)
+	_ = tx.QueryRow(r.Context(), "SELECT COALESCE((SELECT value FROM settings WHERE key = 'withdrawal_rule_amount'), '7500')").Scan(&ruleAmountStr)
 
 	ruleEnabled := (ruleEnabledStr != "false")
 	requiredDeposit := 7500.0
@@ -66,7 +98,7 @@ func (h *WithdrawalsHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	if ruleEnabled {
 		var totalDeposited float64
-		_ = h.db.Pool.QueryRow(r.Context(), "SELECT COALESCE(SUM(amount), 0) FROM deposits WHERE user_id = $1 AND status = 'accepted'", req.UserID).Scan(&totalDeposited)
+		_ = tx.QueryRow(r.Context(), "SELECT COALESCE(SUM(amount), 0) FROM deposits WHERE user_id = $1 AND status = 'accepted'", req.UserID).Scan(&totalDeposited)
 		if totalDeposited < requiredDeposit {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
@@ -79,38 +111,6 @@ func (h *WithdrawalsHandler) Create(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-	}
-
-	tx, err := h.db.Pool.Begin(r.Context())
-	if err != nil {
-		http.Error(w, "Transaction failed to start", http.StatusInternalServerError)
-		return
-	}
-	defer tx.Rollback(r.Context())
-
-	// Check if user has a pending withdrawal
-	var pendingCount int
-	err = tx.QueryRow(r.Context(), "SELECT COUNT(*) FROM withdrawals WHERE user_id = $1 AND status = 'pending'", req.UserID).Scan(&pendingCount)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if pendingCount > 0 {
-		http.Error(w, "You already have a pending withdrawal request.", http.StatusBadRequest)
-		return
-	}
-
-	// Lock user to check balance safely
-	var currentBalance float64
-	err = tx.QueryRow(r.Context(), "SELECT balance FROM users WHERE id = $1 FOR UPDATE", req.UserID).Scan(&currentBalance)
-	if err != nil {
-		http.Error(w, "User not found", http.StatusNotFound)
-		return
-	}
-
-	if currentBalance < req.Amount {
-		http.Error(w, "Insufficient balance", http.StatusBadRequest)
-		return
 	}
 
 	// Deduct balance immediately
