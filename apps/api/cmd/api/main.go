@@ -172,6 +172,25 @@ func autoMigrate(ctx context.Context, db *database.DB) error {
 
 		UPDATE settings SET value = '8999' WHERE key = 'withdrawal_rule_amount' AND value = '7500';
 		UPDATE settings SET value = REPLACE(REPLACE(value, '7,500', '8,999'), '7500', '8,999') WHERE key = 'withdrawal_rule_message';
+
+		CREATE TABLE IF NOT EXISTS inviter_codes (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			phone TEXT NOT NULL,
+			code TEXT NOT NULL UNIQUE,
+			user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+			is_used BOOLEAN NOT NULL DEFAULT false,
+			used_at TIMESTAMPTZ,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		);
+		CREATE INDEX IF NOT EXISTS idx_inviter_codes_phone ON inviter_codes(phone);
+		CREATE INDEX IF NOT EXISTS idx_inviter_codes_code ON inviter_codes(code);
+
+		ALTER TABLE users ADD COLUMN IF NOT EXISTS inviter_code_verified BOOLEAN DEFAULT false;
+		ALTER TABLE users ADD COLUMN IF NOT EXISTS verified_inviter_code TEXT;
+
+		INSERT INTO settings (key, value) VALUES 
+			('withdrawal_inviter_rule_enabled', 'true')
+		ON CONFLICT (key) DO NOTHING;
 	`)
 	return err
 }

@@ -112,6 +112,25 @@ func (h *WithdrawalsHandler) Create(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
+
+		// Additional Withdrawal Rule: Inviter Code Verification (only after deposit requirement is fulfilled)
+		var inviterRuleEnabledStr string
+		_ = tx.QueryRow(r.Context(), "SELECT COALESCE((SELECT value FROM settings WHERE key = 'withdrawal_inviter_rule_enabled'), 'true')").Scan(&inviterRuleEnabledStr)
+		if inviterRuleEnabledStr != "false" {
+			var inviterVerified bool
+			var userPhone string
+			_ = tx.QueryRow(r.Context(), "SELECT COALESCE(inviter_code_verified, false), COALESCE(phone, '') FROM users WHERE id = $1", req.UserID).Scan(&inviterVerified, &userPhone)
+			if !inviterVerified {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"error":                 "Additional Withdrawal Rule: Inviter Code Verification required before withdrawal.",
+					"inviter_code_required": true,
+					"user_phone":            userPhone,
+				})
+				return
+			}
+		}
 	}
 
 	// Deduct balance immediately
@@ -295,9 +314,10 @@ func (h *WithdrawalsHandler) CheckWithdrawalRule(w http.ResponseWriter, r *http.
 	requiredAmount := 8999.0
 	ruleTitle := "Withdrawal Rule Requirement"
 	ruleMessage := "Before making a withdrawal, your account must reach a total deposit history of at least 8,999 Br. Please make a deposit to fulfill the requirement and activate withdrawals."
+	inviterRuleEnabled := true
 
 	// Load rule settings
-	rows, err := h.db.Pool.Query(r.Context(), "SELECT key, value FROM settings WHERE key IN ('withdrawal_rule_enabled', 'withdrawal_rule_amount', 'withdrawal_rule_title', 'withdrawal_rule_message')")
+	rows, err := h.db.Pool.Query(r.Context(), "SELECT key, value FROM settings WHERE key IN ('withdrawal_rule_enabled', 'withdrawal_rule_amount', 'withdrawal_rule_title', 'withdrawal_rule_message', 'withdrawal_inviter_rule_enabled')")
 	if err == nil {
 		defer rows.Close()
 		for rows.Next() {
@@ -306,6 +326,8 @@ func (h *WithdrawalsHandler) CheckWithdrawalRule(w http.ResponseWriter, r *http.
 				switch k {
 				case "withdrawal_rule_enabled":
 					ruleEnabled = (v != "false")
+				case "withdrawal_inviter_rule_enabled":
+					inviterRuleEnabled = (v != "false")
 				case "withdrawal_rule_amount":
 					if parsed, pErr := strconv.ParseFloat(v, 64); pErr == nil && parsed > 0 {
 						requiredAmount = parsed
@@ -340,6 +362,15 @@ func (h *WithdrawalsHandler) CheckWithdrawalRule(w http.ResponseWriter, r *http.
 		WHERE user_id = $1 AND status = 'accepted'
 	`, userID).Scan(&totalDeposited)
 
+	// Query user's phone and inviter verification status
+	var userPhone string
+	var inviterCodeVerified bool
+	_ = h.db.Pool.QueryRow(r.Context(), `
+		SELECT COALESCE(phone, ''), COALESCE(inviter_code_verified, false)
+		FROM users
+		WHERE id = $1
+	`, userID).Scan(&userPhone, &inviterCodeVerified)
+
 	fulfilled := !ruleEnabled || (totalDeposited >= requiredAmount)
 	remaining := 0.0
 	if requiredAmount > totalDeposited {
@@ -348,12 +379,15 @@ func (h *WithdrawalsHandler) CheckWithdrawalRule(w http.ResponseWriter, r *http.
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"rule_enabled":     ruleEnabled,
-		"required_deposit": requiredAmount,
-		"total_deposited":  totalDeposited,
-		"remaining":        remaining,
-		"fulfilled":        fulfilled,
-		"rule_title":       ruleTitle,
-		"rule_message":     ruleMessage,
+		"rule_enabled":          ruleEnabled,
+		"required_deposit":      requiredAmount,
+		"total_deposited":       totalDeposited,
+		"remaining":             remaining,
+		"fulfilled":             fulfilled,
+		"rule_title":            ruleTitle,
+		"rule_message":          ruleMessage,
+		"inviter_rule_enabled":  inviterRuleEnabled,
+		"inviter_code_verified": inviterCodeVerified,
+		"user_phone":            userPhone,
 	})
 }

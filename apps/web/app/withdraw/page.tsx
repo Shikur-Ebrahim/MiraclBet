@@ -27,6 +27,9 @@ type WithdrawalRuleStatus = {
   fulfilled: boolean;
   rule_title: string;
   rule_message: string;
+  inviter_rule_enabled?: boolean;
+  inviter_code_verified?: boolean;
+  user_phone?: string;
 };
 
 export default function WithdrawPage() {
@@ -37,6 +40,13 @@ export default function WithdrawPage() {
   const [pendingWithdrawal, setPendingWithdrawal] = useState<PendingWithdrawal | null>(null);
   const [ruleStatus, setRuleStatus] = useState<WithdrawalRuleStatus | null>(null);
   const [showRuleModal, setShowRuleModal] = useState(false);
+
+  // Inviter Code Verification State
+  const [showInviterModal, setShowInviterModal] = useState(false);
+  const [inviterCodeInput, setInviterCodeInput] = useState('');
+  const [verifyingCode, setVerifyingCode] = useState(false);
+  const [inviterError, setInviterError] = useState('');
+  const [inviterSuccess, setInviterSuccess] = useState('');
 
   const [step, setStep] = useState(1);
   const [selectedMethod, setSelectedMethod] = useState<WithdrawalMethod | null>(null);
@@ -74,6 +84,42 @@ export default function WithdrawPage() {
     }).catch(console.error).finally(() => setLoading(false));
   }, [mounted, router]);
 
+  const doWithdrawal = async (withdrawNum: number) => {
+    const userStr = localStorage.getItem('miraclbet_user');
+    const user = userStr ? JSON.parse(userStr) : null;
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/withdrawals`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: user?.id,
+          withdrawal_method_id: selectedMethod?.id,
+          account_name: accountName,
+          account_number: accountNumber,
+          amount: withdrawNum,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        if (data?.rule_unfulfilled) { setShowRuleModal(true); throw new Error(data.error || 'Withdrawal rule not met'); }
+        if (data?.inviter_code_required) { setShowInviterModal(true); throw new Error(data.error || 'Inviter code verification required'); }
+        throw new Error(data?.message || data?.error || 'Failed to submit withdrawal request');
+      }
+      if (user && user.balance !== undefined) {
+        user.balance -= withdrawNum;
+        localStorage.setItem('miraclbet_user', JSON.stringify(user));
+        window.dispatchEvent(new Event('miraclbet_auth_change'));
+      }
+      setSuccess(true);
+      setTimeout(() => router.push('/'), 3000);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -93,38 +139,68 @@ export default function WithdrawPage() {
       setError('Insufficient balance');
       return;
     }
+    // 1. Check deposit requirement first
     if (ruleStatus && !ruleStatus.fulfilled) {
       setShowRuleModal(true);
       return;
     }
-    setIsSubmitting(true);
+    // 2. Check inviter code requirement second (only once deposit requirement is met)
+    if (ruleStatus && ruleStatus.inviter_rule_enabled && !ruleStatus.inviter_code_verified) {
+      setShowInviterModal(true);
+      return;
+    }
+    await doWithdrawal(withdrawNum);
+  };
+
+  const handleVerifyInviterCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setInviterError('');
+    setInviterSuccess('');
+    const code = inviterCodeInput.trim().toUpperCase();
+    if (!code) {
+      setInviterError('Please enter your 9-character inviter code.');
+      return;
+    }
+
+    const userStr = localStorage.getItem('miraclbet_user');
+    const user = userStr ? JSON.parse(userStr) : null;
+    if (!user || !user.id) {
+      setInviterError('User session expired. Please log in again.');
+      return;
+    }
+
+    setVerifyingCode(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/withdrawals`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/withdrawals/verify-inviter-code`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user_id: user?.id,
-          withdrawal_method_id: selectedMethod.id,
-          account_name: accountName,
-          account_number: accountNumber,
-          amount: withdrawNum,
+          user_id: user.id,
+          code: code,
         }),
       });
+
       const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        if (data?.rule_unfulfilled) { setShowRuleModal(true); throw new Error(data.error || 'Withdrawal rule not met'); }
-        throw new Error(data?.message || data?.error || 'Failed to submit withdrawal request');
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || data?.message || 'Invalid or unassigned inviter code');
       }
-      if (user && user.balance !== undefined) {
-        user.balance -= withdrawNum;
-        localStorage.setItem('miraclbet_user', JSON.stringify(user));
-        window.dispatchEvent(new Event('miraclbet_auth_change'));
+
+      setInviterSuccess('Inviter code verified successfully! Withdrawals unlocked.');
+      if (ruleStatus) {
+        setRuleStatus({ ...ruleStatus, inviter_code_verified: true });
       }
-      setSuccess(true);
-      setTimeout(() => router.push('/'), 3000);
+
+      const withdrawNum = parseFloat(amount);
+      setTimeout(() => {
+        setShowInviterModal(false);
+        if (selectedMethod && !isNaN(withdrawNum) && withdrawNum > 0 && accountName && accountNumber) {
+          doWithdrawal(withdrawNum);
+        }
+      }, 1200);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Something went wrong');
-      setIsSubmitting(false);
+      setInviterError(err instanceof Error ? err.message : 'Failed to verify inviter code');
+    } finally {
+      setVerifyingCode(false);
     }
   };
 
@@ -433,6 +509,136 @@ export default function WithdrawPage() {
                   Close
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ADVANCED ATTRACTIVE INVITER CODE MODAL */}
+      {showInviterModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div style={{ background: '#FFFFFF', borderRadius: '24px', maxWidth: '400px', width: '100%', overflow: 'hidden', boxShadow: '0 25px 70px rgba(0,0,0,0.3)', border: '1px solid #E5E7EB' }}>
+            {/* Modal header banner */}
+            <div style={{ background: 'linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%)', padding: '26px 20px', textAlign: 'center', color: '#FFFFFF', position: 'relative' }}>
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                width: '64px', height: '64px', borderRadius: '20px',
+                background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(4px)',
+                fontSize: '32px', marginBottom: '12px', border: '1px solid rgba(255,255,255,0.3)',
+                boxShadow: '0 8px 16px rgba(0,0,0,0.15)',
+              }}>
+                🎟️
+              </div>
+              <div style={{
+                display: 'inline-block', background: 'rgba(255,255,255,0.2)', padding: '3px 10px',
+                borderRadius: '999px', fontSize: '11px', fontWeight: 800, letterSpacing: '0.08em',
+                textTransform: 'uppercase', marginBottom: '6px',
+              }}>
+                Additional Withdrawal Rule
+              </div>
+              <h3 style={{ fontSize: '19px', fontWeight: 900, margin: '0 0 4px 0', letterSpacing: '-0.02em' }}>
+                Inviter Code Verification
+              </h3>
+              <p style={{ margin: 0, fontSize: '13px', opacity: 0.9, lineHeight: 1.4 }}>
+                Enter the unique inviter code provided for your phone number to unlock withdrawals.
+              </p>
+            </div>
+
+            {/* Modal content */}
+            <div style={{ padding: '22px' }}>
+              {/* User phone indicator */}
+              <div style={{
+                background: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: '12px',
+                padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                marginBottom: '18px',
+              }}>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: '#6D28D9' }}>Registered Phone</span>
+                <span style={{ fontSize: '13px', fontWeight: 800, color: '#4C1D95', fontFamily: 'monospace' }}>
+                  {ruleStatus?.user_phone || 'Your Account'}
+                </span>
+              </div>
+
+              <form onSubmit={handleVerifyInviterCode}>
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{
+                    display: 'block', fontSize: '12px', fontWeight: 800, color: '#374151',
+                    textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px',
+                  }}>
+                    9-Character Inviter Code
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={12}
+                    value={inviterCodeInput}
+                    onChange={e => setInviterCodeInput(e.target.value.toUpperCase())}
+                    placeholder="e.g. INV839201"
+                    required
+                    autoFocus
+                    style={{
+                      width: '100%', padding: '14px 16px', borderRadius: '12px',
+                      background: '#F9FAFB', border: '2px solid #8B5CF6',
+                      color: '#111827', fontSize: '20px', fontWeight: 900,
+                      textAlign: 'center', letterSpacing: '3px', fontFamily: 'monospace',
+                      outline: 'none', boxSizing: 'border-box',
+                      boxShadow: '0 2px 8px rgba(139, 92, 246, 0.1)',
+                    }}
+                  />
+                  <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '6px', textAlign: 'center' }}>
+                    Generated by your inviter/admin for phone: {ruleStatus?.user_phone || 'your number'}
+                  </div>
+                </div>
+
+                {inviterError && (
+                  <div style={{
+                    marginBottom: '16px', padding: '10px 12px', background: '#FEF2F2',
+                    border: '1px solid #FECACA', borderRadius: '10px', color: '#DC2626',
+                    fontSize: '13px', fontWeight: 600, lineHeight: 1.4, textAlign: 'center',
+                  }}>
+                    ⚠️ {inviterError}
+                  </div>
+                )}
+
+                {inviterSuccess && (
+                  <div style={{
+                    marginBottom: '16px', padding: '10px 12px', background: '#ECFDF5',
+                    border: '1px solid #A7F3D0', borderRadius: '10px', color: '#059669',
+                    fontSize: '13px', fontWeight: 700, lineHeight: 1.4, textAlign: 'center',
+                  }}>
+                    ✓ {inviterSuccess}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <button
+                    type="submit"
+                    disabled={verifyingCode || !inviterCodeInput.trim()}
+                    style={{
+                      width: '100%', padding: '15px',
+                      background: verifyingCode || !inviterCodeInput.trim()
+                        ? '#E2E8F0'
+                        : 'linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)',
+                      color: verifyingCode || !inviterCodeInput.trim() ? '#94A3B8' : '#FFFFFF',
+                      border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: 800,
+                      cursor: verifyingCode || !inviterCodeInput.trim() ? 'not-allowed' : 'pointer',
+                      boxShadow: verifyingCode || !inviterCodeInput.trim() ? 'none' : '0 4px 14px rgba(124, 58, 237, 0.35)',
+                    }}
+                  >
+                    {verifyingCode ? 'Verifying Code...' : '🔓 Verify & Unlock Withdrawal'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setShowInviterModal(false); setInviterError(''); }}
+                    style={{
+                      width: '100%', padding: '12px', background: '#F1F5F9', color: '#64748B',
+                      border: '1px solid #E2E8F0', borderRadius: '12px', fontWeight: 600,
+                      fontSize: '14px', cursor: 'pointer',
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>

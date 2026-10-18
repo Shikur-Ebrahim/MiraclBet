@@ -91,6 +91,9 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service, aviatorEngi
 		r.Get("/withdrawals/pending", withdrawalsHandler.CheckPending)
 		r.Get("/withdrawals/rule-check", withdrawalsHandler.CheckWithdrawalRule)
 
+		inviterCodesHandler := handlers.NewInviterCodesHandler(db)
+		r.Post("/withdrawals/verify-inviter-code", inviterCodesHandler.VerifyInviterCode)
+
 		transactionsHandler := handlers.NewTransactionsHandler(db)
 		r.Get("/transactions", transactionsHandler.List)
 
@@ -113,6 +116,10 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service, aviatorEngi
 			r.Post("/withdrawal-methods", withdrawalMethodsHandler.Create)
 			r.Delete("/withdrawal-methods/{id}", withdrawalMethodsHandler.Delete)
 			r.Put("/withdrawal-methods/{id}/status", withdrawalMethodsHandler.UpdateStatus)
+
+			r.Get("/inviter-codes", inviterCodesHandler.AdminListInviterCodes)
+			r.Post("/inviter-codes", inviterCodesHandler.AdminCreateInviterCode)
+			r.Delete("/inviter-codes/{id}", inviterCodesHandler.AdminDeleteInviterCode)
 
 			r.Get("/deposits", depositsHandler.ListAdmin)
 			r.Put("/deposits/{id}/status", depositsHandler.UpdateStatus)

@@ -14,6 +14,7 @@ const adminMenus = [
   { label: 'Withdrawals', icon: '??', href: '/admin/withdrawals', color: '#F59E0B', bg: '#FFFBEB' },
   { label: 'Deposit Methods', icon: '??', href: '/admin/deposit-methods', color: '#06B6D4', bg: '#ECFEFF' },
   { label: 'Withdrawal Methods', icon: '??', href: '/admin/withdrawal-methods', color: '#EC4899', bg: '#FDF2F8' },
+  { label: 'Inviter Codes', icon: '🎟️', href: '/admin/inviter-codes', color: '#7C3AED', bg: '#F5F3FF' },
   { label: 'Bets', icon: '??', href: '/admin/bets', color: '#EF4444', bg: '#FEF2F2' },
   { label: 'Manual Bet', icon: '?', href: '/admin/manual-bet', color: '#19E66B', bg: '#0D2219' },
   { label: 'Withdrawal Rules', icon: '📜', href: '/admin/withdrawal-rules', color: '#D97706', bg: '#FEF3C7' },
