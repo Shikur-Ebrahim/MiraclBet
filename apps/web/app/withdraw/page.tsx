@@ -329,7 +329,7 @@ export default function WithdrawPage() {
           <div>
             <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#D1D5DB', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Amount (Br)</label>
             <div style={{ position: 'relative' }}>
-              <input type="number" min="10" step="any" value={amount} onChange={e => setAmount(e.target.value)} required placeholder="0.00"
+              <input type="number" min="10" step="any" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)} required placeholder="0.00"
                 style={{ width: '100%', padding: '16px 50px 16px 16px', borderRadius: '14px', background: '#111827', border: '1.5px solid #1E293B', color: '#FFF', fontSize: '20px', fontWeight: 800, outline: 'none', boxSizing: 'border-box' }} />
               <span style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', fontSize: '16px', fontWeight: 700, color: '#F5A623' }}>Br</span>
             </div>
@@ -350,8 +350,16 @@ export default function WithdrawPage() {
 
           <div>
             <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#D1D5DB', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Account Number / Phone</label>
-            <input type="text" value={accountNumber} onChange={e => setAccountNumber(e.target.value)} required placeholder="1000123456789"
-              style={{ width: '100%', padding: '16px', borderRadius: '14px', background: '#111827', border: '1.5px solid #1E293B', color: '#FFF', fontSize: '16px', fontWeight: 600, outline: 'none', boxSizing: 'border-box' }} />
+            <input 
+              type="tel" 
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={accountNumber} 
+              onChange={e => setAccountNumber(e.target.value.replace(/\D/g, ''))} 
+              required 
+              placeholder="1000123456789"
+              style={{ width: '100%', padding: '16px', borderRadius: '14px', background: '#111827', border: '1.5px solid #1E293B', color: '#FFF', fontSize: '16px', fontWeight: 600, outline: 'none', boxSizing: 'border-box' }} 
+            />
           </div>
 
           <button type="submit" disabled={isSubmitting || !amount || !accountName || !accountNumber}

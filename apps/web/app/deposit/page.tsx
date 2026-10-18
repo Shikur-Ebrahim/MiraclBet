@@ -343,7 +343,7 @@ export default function DepositPage() {
           <div>
             <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#D1D5DB', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Amount (Br)</label>
             <div style={{ position: 'relative' }}>
-              <input type="number" min={selectedMethod?.min_deposit || 450} step="any" value={amount} onChange={e => setAmount(e.target.value)} required placeholder={String(selectedMethod?.min_deposit || 450)}
+              <input type="number" min={selectedMethod?.min_deposit || 450} step="any" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)} required placeholder={String(selectedMethod?.min_deposit || 450)}
                 style={{ width: '100%', padding: '16px 50px 16px 16px', borderRadius: '14px', background: '#111827', border: '1.5px solid #1E293B', color: '#FFF', fontSize: '20px', fontWeight: 800, outline: 'none', boxSizing: 'border-box' }} />
               <span style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', fontSize: '16px', fontWeight: 700, color: '#F5A623' }}>Br</span>
             </div>

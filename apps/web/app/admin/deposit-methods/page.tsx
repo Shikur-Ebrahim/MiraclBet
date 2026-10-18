@@ -394,7 +394,12 @@ export default function DepositMethodsAdmin() {
               <div>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Account Number / Phone</label>
                 <input 
-                  type="text" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} required
+                  type="tel" 
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={accountNumber} 
+                  onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, ''))} 
+                  required
                   placeholder="e.g. 1000123456789 or 0911223344"
                   style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #D1D5DB', background: '#FFFFFF', fontSize: '15px', color: '#111827', outline: 'none' }}
                 />
