@@ -12,6 +12,7 @@ const SECTION_PAGES: Record<string, { label: string; icon: string; href: string;
   'withdrawals': { label: 'Withdrawals',       icon: '💸', href: '/admin/withdrawals', color: '#F59E0B', bg: '#FFFBEB' },
   'bets':        { label: 'Bets / Tickets',    icon: '🎫', href: '/admin/bets',        color: '#EF4444', bg: '#FEF2F2' },
   'manual-bet':  { label: 'Manual Bet',        icon: '⚡', href: '/admin/manual-bet',  color: '#19E66B', bg: '#ECFDF5' },
+  'support':     { label: 'Support Chat',      icon: '💬', href: '/admin/support',     color: '#0284C7', bg: '#E0F2FE' },
 };
 
 export default function WorkerPortal() {

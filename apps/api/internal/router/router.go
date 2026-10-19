@@ -2,6 +2,8 @@ package router
 
 import (
 	"net/http"
+	"os"
+	"path/filepath"
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/miraclbet/api/internal/config"
@@ -97,6 +99,12 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service, aviatorEngi
 		transactionsHandler := handlers.NewTransactionsHandler(db)
 		r.Get("/transactions", transactionsHandler.List)
 
+		// Support Chat Routes (User)
+		supportHandler := handlers.NewSupportHandler(db, r2)
+		r.Get("/support/messages", supportHandler.GetUserMessages)
+		r.Post("/support/messages", supportHandler.UserSendMessage)
+		r.Post("/support/upload", supportHandler.UploadImage)
+
 		// Admin Routes
 		r.Route("/admin", func(r chi.Router) {
 			r.Get("/bets", settlementHandler.GetAllBets)
@@ -142,9 +150,23 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service, aviatorEngi
 			r.Put("/users/{id}/privileges", usersAdminHandler.UpdatePrivileges)
 			r.Put("/users/{id}/balance", usersAdminHandler.AdjustBalance)
 
+			// Admin Support Chat Routes
+			r.Get("/support/conversations", supportHandler.AdminListConversations)
+			r.Get("/support/conversations/{userId}", supportHandler.AdminGetConversation)
+			r.Post("/support/messages", supportHandler.AdminSendMessage)
+			r.Put("/support/users/{userId}/block", supportHandler.AdminToggleBlockUser)
+			r.Get("/support/unread-count", supportHandler.AdminGetUnreadCount)
+
 			r.Put("/settings", settingsHandler.UpdateSettings)
 		})
 	})
+
+	// Static file serving for uploads (local fallback when R2 not used)
+	workDir, _ := os.Getwd()
+	uploadsDir := filepath.Join(workDir, "uploads")
+	_ = os.MkdirAll(filepath.Join(uploadsDir, "support"), 0755)
+	fileServer := http.FileServer(http.Dir(uploadsDir))
+	r.Handle("/uploads/*", http.StripPrefix("/uploads", fileServer))
 
 	return r
 }

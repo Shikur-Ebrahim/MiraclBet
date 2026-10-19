@@ -84,6 +84,7 @@ export function Header() {
     { label: 'Bet History',         href: '/bets',         icon: '🎫',  logout: false },
     { label: 'Betslip',             href: '/betslip',      icon: '🎯',  logout: false },
     { label: 'Account Settings',    href: '/account',      icon: '👤',  logout: false },
+    { label: 'Customer Support',    href: '/support',      icon: '💬',  logout: false },
     ...(user?.role === 'ADMIN' ? [{ label: 'Admin Dashboard', href: '/admin', icon: '⚙️', logout: false }] : []),
     { label: 'Log Out',             href: '#logout',       icon: '🚪',  logout: true  },
   ];

@@ -202,6 +202,24 @@ func autoMigrate(ctx context.Context, db *database.DB) error {
 
 		-- Clean up old preset European or dummy teams so authentic African & Asian teams take over
 		DELETE FROM saved_teams WHERE api_id >= 10000 OR country IN ('England', 'Spain', 'Scotland', 'Germany', 'France', 'Italy', 'Portugal', 'Netherlands', 'Lithuania', 'Estonia', 'Latvia', 'Malta', 'Belgium', 'Brazil', 'Argentina', 'USA');
+
+		-- Support Chat Tables
+		CREATE TABLE IF NOT EXISTS support_messages (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			sender_role TEXT NOT NULL DEFAULT 'USER',
+			sender_id UUID REFERENCES users(id) ON DELETE SET NULL,
+			message TEXT NOT NULL DEFAULT '',
+			image_url TEXT,
+			is_read BOOLEAN NOT NULL DEFAULT false,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		);
+
+		CREATE INDEX IF NOT EXISTS idx_support_messages_user_id ON support_messages(user_id);
+		CREATE INDEX IF NOT EXISTS idx_support_messages_created_at ON support_messages(created_at);
+		CREATE INDEX IF NOT EXISTS idx_support_messages_is_read ON support_messages(is_read);
+
+		ALTER TABLE users ADD COLUMN IF NOT EXISTS is_support_blocked BOOLEAN NOT NULL DEFAULT false;
 	`)
 	return err
 }

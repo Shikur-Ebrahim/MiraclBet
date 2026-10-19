@@ -19,6 +19,7 @@ const SECTIONS = [
   { id: 'withdrawals', label: 'Withdrawals' },
   { id: 'bets', label: 'Bets / Tickets' },
   { id: 'manual-bet', label: 'Manual Bet Creation' },
+  { id: 'support', label: 'Support Chat' },
 ];
 
 export default function WorkersPage() {

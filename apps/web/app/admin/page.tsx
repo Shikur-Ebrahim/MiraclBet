@@ -7,16 +7,17 @@ import Link from 'next/link';
 type UserSession = { phone: string; role: string; balance?: number; id?: string };
 
 const adminMenus = [
-  { label: 'Users', icon: '??', href: '/admin/users', color: '#3B82F6', bg: '#EFF6FF' },
+  { label: 'Users', icon: '👥', href: '/admin/users', color: '#3B82F6', bg: '#EFF6FF' },
   { label: 'Workers', icon: '🔧', href: '/admin/workers', color: '#8B5CF6', bg: '#F5F3FF' },
   { label: 'Agents', icon: '🏪', href: '/admin/agents', color: '#9333EA', bg: '#F3E8FF' },
-  { label: 'Deposits', icon: '??', href: '/admin/deposits', color: '#10B981', bg: '#ECFDF5' },
-  { label: 'Withdrawals', icon: '??', href: '/admin/withdrawals', color: '#F59E0B', bg: '#FFFBEB' },
-  { label: 'Deposit Methods', icon: '??', href: '/admin/deposit-methods', color: '#06B6D4', bg: '#ECFEFF' },
-  { label: 'Withdrawal Methods', icon: '??', href: '/admin/withdrawal-methods', color: '#EC4899', bg: '#FDF2F8' },
+  { label: 'Deposits', icon: '💰', href: '/admin/deposits', color: '#10B981', bg: '#ECFDF5' },
+  { label: 'Withdrawals', icon: '💸', href: '/admin/withdrawals', color: '#F59E0B', bg: '#FFFBEB' },
+  { label: 'Deposit Methods', icon: '💳', href: '/admin/deposit-methods', color: '#06B6D4', bg: '#ECFEFF' },
+  { label: 'Withdrawal Methods', icon: '🏦', href: '/admin/withdrawal-methods', color: '#EC4899', bg: '#FDF2F8' },
   { label: 'Inviter Codes', icon: '🎟️', href: '/admin/inviter-codes', color: '#7C3AED', bg: '#F5F3FF' },
-  { label: 'Bets', icon: '??', href: '/admin/bets', color: '#EF4444', bg: '#FEF2F2' },
-  { label: 'Manual Bet', icon: '?', href: '/admin/manual-bet', color: '#19E66B', bg: '#0D2219' },
+  { label: 'Bets', icon: '🎫', href: '/admin/bets', color: '#EF4444', bg: '#FEF2F2' },
+  { label: 'Manual Bet', icon: '⚡', href: '/admin/manual-bet', color: '#19E66B', bg: '#0D2219' },
+  { label: 'Support Chat', icon: '💬', href: '/admin/support', color: '#0284C7', bg: '#E0F2FE' },
   { label: 'Withdrawal Rules', icon: '📜', href: '/admin/withdrawal-rules', color: '#D97706', bg: '#FEF3C7' },
   { label: 'Settings', icon: '⚙️', href: '/admin/settings', color: '#6B7280', bg: '#F9FAFB' },
 ];
@@ -24,7 +25,7 @@ const adminMenus = [
 export default function AdminDashboard() {
   const router = useRouter();
   const [user, setUser] = useState<UserSession | null>(null);
-  const [pendingStats, setPendingStats] = useState({ deposits: 0, withdrawals: 0 });
+  const [pendingStats, setPendingStats] = useState({ deposits: 0, withdrawals: 0, support: 0 });
 
   useEffect(() => {
     const savedUser = localStorage.getItem('miraclbet_user');
@@ -33,11 +34,23 @@ export default function AdminDashboard() {
     if (parsed.role !== 'ADMIN') { if (parsed.role === 'WORKER') router.push('/worker'); else if (parsed.role === 'AGENT') router.push('/agent'); else router.push('/'); return; }
     setUser(parsed);
 
+    const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+
     // Fetch pending counts
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/stats/pending`)
+    fetch(`${API}/api/v1/admin/stats/pending`)
       .then(res => res.json())
       .then(data => {
-        if (data) setPendingStats({ deposits: data.deposits || 0, withdrawals: data.withdrawals || 0 });
+        if (data) setPendingStats(prev => ({ ...prev, deposits: data.deposits || 0, withdrawals: data.withdrawals || 0 }));
+      })
+      .catch(console.error);
+
+    // Fetch unread support messages count
+    fetch(`${API}/api/v1/admin/support/unread-count`)
+      .then(res => res.json())
+      .then(data => {
+        if (data && typeof data.unread === 'number') {
+          setPendingStats(prev => ({ ...prev, support: data.unread }));
+        }
       })
       .catch(console.error);
   }, [router]);
@@ -102,6 +115,7 @@ export default function AdminDashboard() {
             let badgeCount = 0;
             if (item.label === 'Deposits') badgeCount = pendingStats.deposits;
             if (item.label === 'Withdrawals') badgeCount = pendingStats.withdrawals;
+            if (item.label === 'Support Chat') badgeCount = pendingStats.support;
 
             return (
               <Link
