@@ -332,12 +332,17 @@ export default function AdminSupportPage() {
 
   return (
     <div style={{
-      height: '100vh',
+      position: 'fixed',
+      inset: 0,
+      width: '100vw',
+      height: '100dvh',
       display: 'flex',
       flexDirection: 'column',
       background: '#FFFFFF',
       color: '#111827',
       fontFamily: 'system-ui, -apple-system, sans-serif',
+      zIndex: 9999,
+      overflow: 'hidden',
     }}>
 
       {/* ─── Global Admin Navigation Bar (White Backed) ─── */}
@@ -810,9 +815,11 @@ export default function AdminSupportPage() {
 
               {/* Chat Reply Input Bar */}
               <div style={{
+                flexShrink: 0,
                 background: '#FFFFFF',
                 borderTop: '1px solid #E5E7EB',
                 padding: '10px 16px',
+                paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
               }}>
                 {previewUrl && (
                   <div style={{

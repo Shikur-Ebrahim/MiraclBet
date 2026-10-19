@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 
 type Message = {
   role: 'user' | 'assistant';
@@ -8,6 +9,10 @@ type Message = {
 };
 
 export function AiAssistant() {
+  const pathname = usePathname();
+  if (pathname === '/support' || pathname?.startsWith('/admin') || pathname?.startsWith('/agent') || pathname?.startsWith('/worker')) {
+    return null;
+  }
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');

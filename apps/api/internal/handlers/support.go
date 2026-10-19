@@ -237,12 +237,11 @@ func (h *SupportHandler) AdminListConversations(w http.ResponseWriter, r *http.R
 		SELECT 
 			u.id,
 			COALESCE(u.phone, ''),
-			COALESCE(u.full_name, ''),
 			COALESCE(u.is_support_blocked, false),
 			COALESCE(m.last_message, ''),
 			m.last_image_url,
 			COALESCE(m.last_sender_role, ''),
-			COALESCE(m.last_message_at, u.created_at),
+			COALESCE(m.last_message_at, NOW()),
 			COALESCE(m.unread_count, 0)
 		FROM users u
 		INNER JOIN (
@@ -268,10 +267,11 @@ func (h *SupportHandler) AdminListConversations(w http.ResponseWriter, r *http.R
 	for rows.Next() {
 		var c ConversationSummary
 		if err := rows.Scan(
-			&c.UserID, &c.UserPhone, &c.UserFullName, &c.IsBlocked,
+			&c.UserID, &c.UserPhone, &c.IsBlocked,
 			&c.LastMessage, &c.LastImageURL, &c.LastSenderRole,
 			&c.LastMessageAt, &c.UnreadCount,
 		); err == nil {
+			c.UserFullName = c.UserPhone
 			conversations = append(conversations, c)
 		}
 	}
@@ -295,14 +295,15 @@ func (h *SupportHandler) AdminGetConversation(w http.ResponseWriter, r *http.Req
 		IsBlocked bool   `json:"is_blocked"`
 	}
 	err := h.db.Pool.QueryRow(r.Context(), `
-		SELECT id, COALESCE(phone, ''), COALESCE(full_name, ''), COALESCE(is_support_blocked, false)
+		SELECT id, COALESCE(phone, ''), COALESCE(is_support_blocked, false)
 		FROM users
 		WHERE id = $1
-	`, targetUserID).Scan(&user.ID, &user.Phone, &user.FullName, &user.IsBlocked)
+	`, targetUserID).Scan(&user.ID, &user.Phone, &user.IsBlocked)
 	if err != nil {
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
 	}
+	user.FullName = user.Phone
 
 	// Mark user messages as read
 	_, _ = h.db.Pool.Exec(r.Context(), `

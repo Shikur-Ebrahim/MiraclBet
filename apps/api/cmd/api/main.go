@@ -220,6 +220,7 @@ func autoMigrate(ctx context.Context, db *database.DB) error {
 		CREATE INDEX IF NOT EXISTS idx_support_messages_is_read ON support_messages(is_read);
 
 		ALTER TABLE users ADD COLUMN IF NOT EXISTS is_support_blocked BOOLEAN NOT NULL DEFAULT false;
+		ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name TEXT DEFAULT '';
 	`)
 	return err
 }

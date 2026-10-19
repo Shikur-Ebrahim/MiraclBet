@@ -265,18 +265,22 @@ export default function SupportChatPage() {
 
   return (
     <div style={{
-      minHeight: '100vh',
+      position: 'fixed',
+      inset: 0,
+      width: '100vw',
+      height: '100dvh',
       background: '#FFFFFF',
       color: '#111827',
       display: 'flex',
       flexDirection: 'column',
       fontFamily: 'system-ui, -apple-system, sans-serif',
-      position: 'relative',
+      zIndex: 99999,
+      overflow: 'hidden',
     }}>
 
       {/* ─── Top Header (White Backed) ─── */}
       <header style={{
-        position: 'sticky', top: 0, zIndex: 50,
+        flexShrink: 0,
         background: '#FFFFFF',
         borderBottom: '1px solid #E5E7EB',
         height: '60px',
@@ -374,6 +378,9 @@ export default function SupportChatPage() {
       <div style={{
         flex: 1,
         overflowY: 'auto',
+        overflowX: 'hidden',
+        WebkitOverflowScrolling: 'touch',
+        overscrollBehaviorY: 'contain',
         padding: '16px 14px',
         display: 'flex',
         flexDirection: 'column',
@@ -512,10 +519,11 @@ export default function SupportChatPage() {
 
       {/* ─── Bottom Input Bar (Mobile First) ─── */}
       <footer style={{
-        position: 'sticky', bottom: 0, zIndex: 40,
+        flexShrink: 0,
         background: '#FFFFFF',
         borderTop: '1px solid #E5E7EB',
         padding: '10px 14px',
+        paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
         boxShadow: '0 -2px 10px rgba(0,0,0,0.03)',
       }}>
         {/* Photo Preview Thumbnail */}

@@ -2,10 +2,15 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 type UserSession = { phone: string; role: string; balance?: number; id?: string };
 
 export function Header() {
+  const pathname = usePathname();
+  if (pathname === '/support') {
+    return null;
+  }
   const [user, setUser] = useState<UserSession | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
 

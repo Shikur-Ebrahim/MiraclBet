@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
@@ -9,6 +9,9 @@ const Sidebar = dynamic(() => import('./Sidebar').then(m => ({ default: m.Sideba
 
 export function BottomNav() {
   const pathname = usePathname();
+  if (pathname === '/support' || pathname?.startsWith('/admin') || pathname?.startsWith('/agent') || pathname?.startsWith('/worker')) {
+    return null;
+  }
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarMounted, setSidebarMounted] = useState(false);
   const [betCount, setBetCount] = useState(0);
