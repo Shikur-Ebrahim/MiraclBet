@@ -86,7 +86,7 @@ func (h *SavedTeamsHandler) SaveTeam(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *SavedTeamsHandler) ListTeams(w http.ResponseWriter, r *http.Request) {
-	rows, err := h.db.Pool.Query(r.Context(), "SELECT api_id, name, logo, country, country_flag FROM saved_teams ORDER BY name ASC")
+	rows, err := h.db.Pool.Query(r.Context(), "SELECT api_id, name, logo, country, country_flag FROM saved_teams ORDER BY country ASC, name ASC")
 	if err != nil {
 		h.respondError(w, http.StatusInternalServerError, "Database error")
 		return

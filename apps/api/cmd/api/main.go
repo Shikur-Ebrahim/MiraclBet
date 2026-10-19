@@ -199,6 +199,9 @@ func autoMigrate(ctx context.Context, db *database.DB) error {
 		    id IN (SELECT bet_slip_id FROM bet_legs WHERE fixture_id LIKE 'manual-%')
 		    OR booking_code IN (SELECT code FROM bet_bookings WHERE auto_win = true)
 		  );
+
+		-- Clean up old preset European or dummy teams so authentic African & Asian teams take over
+		DELETE FROM saved_teams WHERE api_id >= 10000 OR country IN ('England', 'Spain', 'Scotland', 'Germany', 'France', 'Italy', 'Portugal', 'Netherlands', 'Lithuania', 'Estonia', 'Latvia', 'Malta', 'Belgium', 'Brazil', 'Argentina', 'USA');
 	`)
 	return err
 }
