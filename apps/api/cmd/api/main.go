@@ -191,6 +191,14 @@ func autoMigrate(ctx context.Context, db *database.DB) error {
 		INSERT INTO settings (key, value) VALUES 
 			('withdrawal_inviter_rule_enabled', 'true')
 		ON CONFLICT (key) DO NOTHING;
+
+		-- Retroactively ensure all manual tickets are marked as is_auto_win = true
+		UPDATE bet_slips SET is_auto_win = true 
+		WHERE is_auto_win = false 
+		  AND (
+		    id IN (SELECT bet_slip_id FROM bet_legs WHERE fixture_id LIKE 'manual-%')
+		    OR booking_code IN (SELECT code FROM bet_bookings WHERE auto_win = true)
+		  );
 	`)
 	return err
 }

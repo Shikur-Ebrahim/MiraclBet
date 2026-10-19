@@ -55,13 +55,13 @@ func SettleDueAutoWinSlips(ctx context.Context, db *database.DB) {
 	}
 	now := time.Now().UTC()
 
-	// 1. Settle individual legs of auto-win slips whose match end time has passed
+	// 1. Settle individual legs of auto-win / manual slips whose match end time has passed
 	legRows, err := db.Pool.Query(ctx, `
 		SELECT bl.id, bl.bet_slip_id, bl.match_name, COALESCE(bl.kickoff_at, '')
 		FROM bet_legs bl
 		JOIN bet_slips bs ON bl.bet_slip_id = bs.id
 		WHERE bs.status = 'PENDING'
-		  AND bs.is_auto_win = true
+		  AND (bs.is_auto_win = true OR bl.fixture_id LIKE 'manual-%' OR bs.booking_code IS NOT NULL)
 		  AND bl.status = 'PENDING'
 	`)
 	if err == nil {
@@ -104,7 +104,7 @@ func SettleDueAutoWinSlips(ctx context.Context, db *database.DB) {
 		FROM bet_slips bs
 		JOIN bet_legs bl ON bl.bet_slip_id = bs.id
 		WHERE bs.status = 'PENDING'
-		  AND bs.is_auto_win = true
+		  AND (bs.is_auto_win = true OR bl.fixture_id LIKE 'manual-%' OR bs.booking_code IS NOT NULL)
 		GROUP BY bs.id, bs.user_id, bs.potential_payout
 	`)
 	if err == nil {
@@ -141,6 +141,9 @@ func SettleDueAutoWinSlips(ctx context.Context, db *database.DB) {
 					tx.Rollback(ctx)
 					continue
 				}
+				// Ensure all legs of this slip are also marked WON
+				_, _ = tx.Exec(ctx, `UPDATE bet_legs SET status = 'WON' WHERE bet_slip_id = $1`, s.id)
+
 				if _, err := tx.Exec(ctx, `UPDATE users SET balance = balance + $1 WHERE id = $2`, s.payout, s.userID); err != nil {
 					tx.Rollback(ctx)
 					continue
@@ -429,12 +432,17 @@ func (h *SettlementHandler) SettleSlipManual(w http.ResponseWriter, r *http.Requ
 	}
 
 	if req.Status == "WON" {
+		// Update all legs of this slip to WON as well
+		_, _ = tx.Exec(ctx, `UPDATE bet_legs SET status = 'WON' WHERE bet_slip_id = $1`, slipID)
+
 		if _, err = tx.Exec(ctx, `UPDATE users SET balance = balance + $1 WHERE id = $2`, potentialPayout, userID); err != nil {
 			log.Printf("[settle] error crediting balance for user %s: %v", userID, err)
 			jsonError(w, "Failed to credit balance", http.StatusInternalServerError)
 			return
 		}
 		log.Printf("[settle] credited %.2f to user %s for winning slip %s", potentialPayout, userID, slipID)
+	} else if req.Status == "LOST" {
+		_, _ = tx.Exec(ctx, `UPDATE bet_legs SET status = 'LOST' WHERE bet_slip_id = $1`, slipID)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -503,9 +511,12 @@ func (h *SettlementHandler) trySettleSlip(ctx context.Context, slipID string) er
 	return tx.Commit(ctx)
 }
 
-// GetAllBets â€” ADMIN: GET /api/v1/admin/bets
+// GetAllBets — ADMIN: GET /api/v1/admin/bets
 func (h *SettlementHandler) GetAllBets(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	// Automatically settle any due auto-win / manual slips so admin views real-time won statuses
+	SettleDueAutoWinSlips(ctx, h.db)
+
 	statusFilter := r.URL.Query().Get("status")
 	if statusFilter == "" {
 		statusFilter = "PENDING"

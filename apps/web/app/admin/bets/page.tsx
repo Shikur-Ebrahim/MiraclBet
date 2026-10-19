@@ -39,10 +39,43 @@ function fmtDate(iso: string) {
   } catch { return iso; }
 }
 
-function AdminBetTicket({ slip }: { slip: SlipAdmin }) {
+function AdminBetTicket({ slip, onSettle }: { slip: SlipAdmin; onSettle: () => void }) {
   const [open, setOpen] = useState(false);
+  const [settling, setSettling] = useState(false);
   const st = STATUS_CFG[slip.status] || STATUS_CFG.PENDING;
   const isAccumulator = slip.legs.length > 1;
+
+  const handleSettle = async (e: React.MouseEvent, targetStatus: 'WON' | 'LOST') => {
+    e.stopPropagation();
+    const actionText = targetStatus === 'WON'
+      ? `Mark this ticket as WON and credit ${slip.potential_payout.toFixed(2)} Br to user (${slip.user_phone || slip.user_id})?`
+      : 'Mark this ticket as LOST?';
+
+    if (!confirm(actionText)) {
+      return;
+    }
+
+    setSettling(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/bets/slips/${slip.id}/settle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: targetStatus }),
+      });
+
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.success) {
+        onSettle();
+      } else {
+        alert(data?.error || data?.message || 'Failed to settle ticket');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error while settling ticket');
+    } finally {
+      setSettling(false);
+    }
+  };
 
   return (
     <div style={{
@@ -50,8 +83,8 @@ function AdminBetTicket({ slip }: { slip: SlipAdmin }) {
       background: '#ffffff',
       borderRadius: 12,
       border: '1px solid #e5e7eb',
-      boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-      overflow: 'hidden'
+      boxShadow: '0 4px 6px rgba(0,0,0,0.06)',
+      overflow: 'hidden',
     }}>
       {/* ─── TICKET HEADER ─── */}
       <div 
@@ -63,10 +96,11 @@ function AdminBetTicket({ slip }: { slip: SlipAdmin }) {
           alignItems: 'center',
           cursor: 'pointer',
           background: open ? '#f9fafb' : '#ffffff',
-          transition: 'background 0.2s'
+          transition: 'background 0.2s',
+          gap: 12,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
           {/* Status Badge */}
           <div style={{
             background: st.bg,
@@ -77,34 +111,64 @@ function AdminBetTicket({ slip }: { slip: SlipAdmin }) {
             fontSize: 13,
             display: 'flex',
             alignItems: 'center',
-            gap: 6
+            gap: 6,
+            flexShrink: 0,
           }}>
             <span>{st.label}</span>
           </div>
 
-          <div>
+          <div style={{ minWidth: 0 }}>
             <div style={{ color: '#111827', fontWeight: 800, fontSize: 16 }}>
               {isAccumulator ? `${slip.legs.length}-Fold Accumulator` : 'Single Bet'}
             </div>
-            <div style={{ color: '#6B7280', fontSize: 12, marginTop: 2 }}>
+            <div style={{ color: '#6B7280', fontSize: 12, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {fmtDate(slip.created_at)} • User: {slip.user_phone || slip.user_id.slice(0,8)}
             </div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+          {/* Quick Settle Won Button on Header for Pending Tickets */}
+          {slip.status === 'PENDING' && (
+            <button
+              type="button"
+              disabled={settling}
+              onClick={(e) => handleSettle(e, 'WON')}
+              style={{
+                background: settling ? '#9CA3AF' : '#16A34A',
+                color: '#FFFFFF',
+                border: 'none',
+                borderRadius: 8,
+                padding: '7px 12px',
+                fontWeight: 800,
+                fontSize: 12,
+                cursor: settling ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                boxShadow: '0 2px 6px rgba(22, 163, 74, 0.3)',
+                whiteSpace: 'nowrap',
+              }}
+              title="Instantly mark this ticket as WON and credit user balance"
+            >
+              {settling ? '...' : '🏆 Mark Won'}
+            </button>
+          )}
+
           <div style={{ textAlign: 'right' }}>
             <div style={{ color: '#9CA3AF', fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>Payout</div>
-            <div style={{ color: slip.status === 'WON' ? '#19E66B' : '#F5A623', fontWeight: 900, fontSize: 16 }}>
+            <div style={{ color: slip.status === 'WON' ? '#16A34A' : '#F5A623', fontWeight: 900, fontSize: 16 }}>
               {slip.potential_payout.toFixed(2)}
             </div>
           </div>
+
           <svg 
             viewBox="0 0 24 24" 
             style={{ 
               width: 20, height: 20, color: '#9CA3AF',
               transform: open ? 'rotate(180deg)' : 'none',
-              transition: 'transform 0.2s'
+              transition: 'transform 0.2s',
+              flexShrink: 0,
             }} 
             fill="none" stroke="currentColor" strokeWidth="2.5"
           >
@@ -157,7 +221,7 @@ function AdminBetTicket({ slip }: { slip: SlipAdmin }) {
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                         <span style={{ color: '#4B5563', fontSize: 12 }}>Status:</span>
-                        {legWon && <span style={{ color: '#19E66B', fontSize: 12, fontWeight: 700 }}>✅ Win</span>}
+                        {legWon && <span style={{ color: '#16A34A', fontSize: 12, fontWeight: 700 }}>✅ Win</span>}
                         {legLost && <span style={{ color: '#EF4444', fontSize: 12, fontWeight: 700 }}>❌ Loss</span>}
                         {!legWon && !legLost && <span style={{ color: '#F5A623', fontSize: 12, fontWeight: 700 }}>⏳ {legSt.label}</span>}
                       </div>
@@ -185,6 +249,53 @@ function AdminBetTicket({ slip }: { slip: SlipAdmin }) {
               <span style={{ color: '#111827', fontSize: 13, fontWeight: 800 }}>Potential Payout</span>
               <span style={{ color: '#d97706', fontSize: 16, fontWeight: 900 }}>{slip.potential_payout.toFixed(2)} Br</span>
             </div>
+
+            {/* Admin Action Buttons for Pending Tickets */}
+            {slip.status === 'PENDING' && (
+              <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid #E5E7EB', display: 'flex', gap: 10 }}>
+                <button
+                  type="button"
+                  disabled={settling}
+                  onClick={(e) => handleSettle(e, 'WON')}
+                  style={{
+                    flex: 1,
+                    background: settling ? '#9CA3AF' : 'linear-gradient(135deg, #16A34A 0%, #15803D 100%)',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    borderRadius: 10,
+                    padding: '12px 16px',
+                    fontWeight: 800,
+                    fontSize: 14,
+                    cursor: settling ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 4px 12px rgba(22, 163, 74, 0.25)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                  }}
+                >
+                  {settling ? 'Settling...' : `🏆 Mark Ticket WON (Credit ${slip.potential_payout.toFixed(2)} Br)`}
+                </button>
+                <button
+                  type="button"
+                  disabled={settling}
+                  onClick={(e) => handleSettle(e, 'LOST')}
+                  style={{
+                    background: '#FEF2F2',
+                    color: '#DC2626',
+                    border: '1px solid #FECACA',
+                    borderRadius: 10,
+                    padding: '12px 16px',
+                    fontWeight: 800,
+                    fontSize: 13,
+                    cursor: settling ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  ❌ Mark Lost
+                </button>
+              </div>
+            )}
+
             <div style={{ marginTop: 20, textAlign: 'center' }}>
                <div style={{ color: '#6B7280', fontSize: 10, letterSpacing: 2, fontFamily: 'monospace' }}>
                 TICKET-{slip.id.slice(0, 12).toUpperCase()}
@@ -200,6 +311,7 @@ function AdminBetTicket({ slip }: { slip: SlipAdmin }) {
 export default function AdminTicketsPage() {
   const [slips, setSlips] = useState<SlipAdmin[]>([]);
   const [loading, setLoading] = useState(true);
+  const [settlingAll, setSettlingAll] = useState(false);
   const [statusFilter, setStatusFilter] = useState('ALL');
 
   useEffect(() => {
@@ -221,23 +333,58 @@ export default function AdminTicketsPage() {
     }
   };
 
+  const handleSettleAll = async () => {
+    setSettlingAll(true);
+    try {
+      await fetchTickets();
+    } finally {
+      setSettlingAll(false);
+    }
+  };
+
   return (
     <div style={{ minHeight: '100vh', background: '#F8FAFC', paddingBottom: '32px' }}>
       {/* Sticky Header */}
       <div style={{
         background: '#FFFFFF', borderBottom: '1px solid #E5E7EB',
-        padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '12px',
+        padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         position: 'sticky', top: 0, zIndex: 100, boxShadow: '0 1px 4px rgba(0,0,0,0.06)'
       }}>
-        <div onClick={() => { const u = localStorage.getItem('miraclbet_user'); const role = u ? JSON.parse(u).role : 'ADMIN'; window.location.href = role === 'WORKER' ? '/worker' : '/admin'; }} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px' }}>
-          <svg viewBox="0 0 24 24" style={{ width: 18, height: 18, color: '#6B7280' }} fill="none" stroke="currentColor" strokeWidth="2.5">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div onClick={() => { const u = localStorage.getItem('miraclbet_user'); const role = u ? JSON.parse(u).role : 'ADMIN'; window.location.href = role === 'WORKER' ? '/worker' : '/admin'; }} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px' }}>
+            <svg viewBox="0 0 24 24" style={{ width: 18, height: 18, color: '#6B7280' }} fill="none" stroke="currentColor" strokeWidth="2.5">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </div>
+          <div>
+            <h1 style={{ fontSize: '18px', fontWeight: 800, color: '#111827', margin: 0, lineHeight: 1 }}>User Tickets</h1>
+            <p style={{ fontSize: '11px', color: '#9CA3AF', margin: '4px 0 0' }}>View and manage all user bets</p>
+          </div>
         </div>
-        <div>
-          <h1 style={{ fontSize: '18px', fontWeight: 800, color: '#111827', margin: 0, lineHeight: 1 }}>User Tickets</h1>
-          <p style={{ fontSize: '11px', color: '#9CA3AF', margin: '4px 0 0' }}>View all bets placed by users</p>
-        </div>
+
+        {/* Settle All Due Matches Button */}
+        <button
+          type="button"
+          onClick={handleSettleAll}
+          disabled={settlingAll || loading}
+          style={{
+            background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
+            color: '#FFFFFF',
+            border: 'none',
+            borderRadius: 8,
+            padding: '8px 14px',
+            fontSize: '12px',
+            fontWeight: 800,
+            cursor: settlingAll || loading ? 'not-allowed' : 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            boxShadow: '0 2px 6px rgba(245, 158, 11, 0.25)',
+          }}
+          title="Auto-settles all tickets whose matches have reached end time"
+        >
+          {settlingAll ? 'Settling...' : '⚡ Settle All Due'}
+        </button>
       </div>
 
       <div style={{ padding: '20px 16px', maxWidth: '600px', margin: '0 auto' }}>
@@ -270,7 +417,13 @@ export default function AdminTicketsPage() {
               <p style={{ color: '#6B7280', fontSize: '13px', margin: 0 }}>No user bets match the selected filter.</p>
             </div>
           ) : (
-            slips.map(slip => <AdminBetTicket key={slip.id} slip={slip} />)
+            slips.map(slip => (
+              <AdminBetTicket
+                key={slip.id}
+                slip={slip}
+                onSettle={fetchTickets}
+              />
+            ))
           )}
         </div>
       </div>

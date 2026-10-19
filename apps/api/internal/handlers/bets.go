@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -82,8 +83,18 @@ func (h *BetsHandler) PlaceBet(w http.ResponseWriter, r *http.Request) {
 
 	// Validate matches haven't started (skip for auto-win bets AND agents)
 	isAutoWin := false
-	if req.BookingCode != "" {
-		h.db.Pool.QueryRow(r.Context(), `SELECT COALESCE(auto_win, false) FROM bet_bookings WHERE code = $1`, req.BookingCode).Scan(&isAutoWin)
+	cleanBookingCode := strings.ToUpper(strings.TrimSpace(req.BookingCode))
+	if cleanBookingCode != "" {
+		_ = h.db.Pool.QueryRow(r.Context(), `SELECT COALESCE(auto_win, false) FROM bet_bookings WHERE UPPER(code) = $1`, cleanBookingCode).Scan(&isAutoWin)
+	}
+	// Also automatically treat manual ticket selections as auto-win tickets!
+	if !isAutoWin {
+		for _, sel := range req.Selections {
+			if strings.HasPrefix(sel.FixtureID, "manual-") {
+				isAutoWin = true
+				break
+			}
+		}
 	}
 
 	// Validate matches haven't already finished (allow live / in-play betting until match ends)
