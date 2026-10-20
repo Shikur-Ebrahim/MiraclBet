@@ -157,6 +157,11 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service, aviatorEngi
 			r.Put("/support/users/{userId}/block", supportHandler.AdminToggleBlockUser)
 			r.Get("/support/unread-count", supportHandler.AdminGetUnreadCount)
 
+			// Balance Manager Routes
+			balanceMgrHandler := handlers.NewBalanceManagerHandler(db)
+			r.Get("/balance-manager", balanceMgrHandler.List)
+			r.Get("/balance-manager/{id}", balanceMgrHandler.UserDetail)
+
 			r.Put("/settings", settingsHandler.UpdateSettings)
 		})
 	})

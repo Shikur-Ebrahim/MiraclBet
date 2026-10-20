@@ -19,6 +19,7 @@ const adminMenus = [
   { label: 'Manual Bet', icon: '⚡', href: '/admin/manual-bet', color: '#19E66B', bg: '#0D2219' },
   { label: 'Support Chat', icon: '💬', href: '/admin/support', color: '#0284C7', bg: '#E0F2FE' },
   { label: 'Withdrawal Rules', icon: '📜', href: '/admin/withdrawal-rules', color: '#D97706', bg: '#FEF3C7' },
+  { label: 'Balance Manager', icon: '⚖️', href: '/admin/balance-manager', color: '#2563EB', bg: '#EFF6FF' },
   { label: 'Settings', icon: '⚙️', href: '/admin/settings', color: '#6B7280', bg: '#F9FAFB' },
 ];
 
