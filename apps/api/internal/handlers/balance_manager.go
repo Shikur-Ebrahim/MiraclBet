@@ -27,37 +27,37 @@ func (h *BalanceManagerHandler) List(w http.ResponseWriter, r *http.Request) {
 			u.id,
 			u.phone,
 			u.role::text,
-			COALESCE(u.balance, 0),
+			COALESCE(u.balance, 0)::float8,
 			COALESCE(u.is_active, true),
 			u.created_at,
-			COALESCE(dep.total_deposited, 0),
-			COALESCE(dep.deposit_count, 0),
-			COALESCE(dep.pending_deposits, 0),
-			COALESCE(bs.total_bets, 0),
-			COALESCE(bs.won_bets, 0),
-			COALESCE(bs.lost_bets, 0),
-			COALESCE(bs.pending_bets, 0),
-			COALESCE(bs.total_staked, 0),
-			COALESCE(bs.total_payout, 0)
+			COALESCE(dep.total_deposited, 0)::float8,
+			COALESCE(dep.deposit_count, 0)::int,
+			COALESCE(dep.pending_deposits, 0)::int,
+			COALESCE(bs.total_bets, 0)::int,
+			COALESCE(bs.won_bets, 0)::int,
+			COALESCE(bs.lost_bets, 0)::int,
+			COALESCE(bs.pending_bets, 0)::int,
+			COALESCE(bs.total_staked, 0)::float8,
+			COALESCE(bs.total_payout, 0)::float8
 		FROM users u
 		LEFT JOIN (
 			SELECT
 				user_id,
-				COALESCE(SUM(CASE WHEN status = 'accepted' THEN amount ELSE 0 END), 0) AS total_deposited,
-				COUNT(*) FILTER (WHERE status = 'accepted') AS deposit_count,
-				COUNT(*) FILTER (WHERE status = 'pending') AS pending_deposits
+				COALESCE(SUM(CASE WHEN status = 'accepted' THEN amount ELSE 0 END), 0)::float8 AS total_deposited,
+				COUNT(*) FILTER (WHERE status = 'accepted')::int AS deposit_count,
+				COUNT(*) FILTER (WHERE status = 'pending')::int AS pending_deposits
 			FROM deposits
 			GROUP BY user_id
 		) dep ON dep.user_id = u.id
 		LEFT JOIN (
 			SELECT
 				user_id,
-				COUNT(*) AS total_bets,
-				COUNT(*) FILTER (WHERE status = 'WON') AS won_bets,
-				COUNT(*) FILTER (WHERE status = 'LOST') AS lost_bets,
-				COUNT(*) FILTER (WHERE status = 'PENDING') AS pending_bets,
-				COALESCE(SUM(stake), 0) AS total_staked,
-				COALESCE(SUM(CASE WHEN status = 'WON' THEN potential_payout ELSE 0 END), 0) AS total_payout
+				COUNT(*)::int AS total_bets,
+				COUNT(*) FILTER (WHERE status = 'WON')::int AS won_bets,
+				COUNT(*) FILTER (WHERE status = 'LOST')::int AS lost_bets,
+				COUNT(*) FILTER (WHERE status = 'PENDING')::int AS pending_bets,
+				COALESCE(SUM(stake), 0)::float8 AS total_staked,
+				COALESCE(SUM(CASE WHEN status = 'WON' THEN potential_payout ELSE 0 END), 0)::float8 AS total_payout
 			FROM bet_slips
 			GROUP BY user_id
 		) bs ON bs.user_id = u.id
@@ -125,7 +125,7 @@ func (h *BalanceManagerHandler) UserDetail(w http.ResponseWriter, r *http.Reques
 	}
 	var u UserInfo
 	err := h.db.Pool.QueryRow(ctx, `
-		SELECT id, phone, role::text, COALESCE(balance, 0), COALESCE(is_active, true), created_at
+		SELECT id, phone, role::text, COALESCE(balance, 0)::float8, COALESCE(is_active, true), created_at
 		FROM users WHERE id = $1
 	`, id).Scan(&u.ID, &u.Phone, &u.Role, &u.Balance, &u.IsActive, &u.CreatedAt)
 	if err != nil {
@@ -142,7 +142,7 @@ func (h *BalanceManagerHandler) UserDetail(w http.ResponseWriter, r *http.Reques
 		CreatedAt    time.Time `json:"created_at"`
 	}
 	depRows, _ := h.db.Pool.Query(ctx, `
-		SELECT d.id, d.amount, d.status, COALESCE(pm.provider_name, 'Unknown'), d.created_at
+		SELECT d.id, d.amount::float8, d.status, COALESCE(pm.provider_name, 'Unknown'), d.created_at
 		FROM deposits d
 		LEFT JOIN payment_methods pm ON pm.id = d.payment_method_id
 		WHERE d.user_id = $1
@@ -175,9 +175,9 @@ func (h *BalanceManagerHandler) UserDetail(w http.ResponseWriter, r *http.Reques
 	}
 	slipRows, _ := h.db.Pool.Query(ctx, `
 		SELECT
-			bs.id, bs.stake, bs.total_odds, bs.potential_payout, bs.status,
+			bs.id, bs.stake::float8, bs.total_odds::float8, bs.potential_payout::float8, bs.status,
 			COALESCE(bs.is_auto_win, false),
-			COUNT(bl.id) as leg_count,
+			COUNT(bl.id)::int as leg_count,
 			bs.created_at
 		FROM bet_slips bs
 		LEFT JOIN bet_legs bl ON bl.bet_slip_id = bs.id
@@ -203,17 +203,17 @@ func (h *BalanceManagerHandler) UserDetail(w http.ResponseWriter, r *http.Reques
 	// Aggregates
 	var totalDeposited float64
 	var depositCount int
-	h.db.Pool.QueryRow(ctx, `SELECT COALESCE(SUM(amount),0), COUNT(*) FROM deposits WHERE user_id=$1 AND status='accepted'`, id).Scan(&totalDeposited, &depositCount)
+	h.db.Pool.QueryRow(ctx, `SELECT COALESCE(SUM(amount),0)::float8, COUNT(*)::int FROM deposits WHERE user_id=$1 AND status='accepted'`, id).Scan(&totalDeposited, &depositCount)
 
 	var totalBets, wonBets, lostBets, pendingBets int
 	var totalStaked, totalWonPayout float64
 	h.db.Pool.QueryRow(ctx, `
-		SELECT COUNT(*),
-		       COUNT(*) FILTER (WHERE status='WON'),
-		       COUNT(*) FILTER (WHERE status='LOST'),
-		       COUNT(*) FILTER (WHERE status='PENDING'),
-		       COALESCE(SUM(stake),0),
-		       COALESCE(SUM(CASE WHEN status='WON' THEN potential_payout ELSE 0 END),0)
+		SELECT COUNT(*)::int,
+		       COUNT(*) FILTER (WHERE status='WON')::int,
+		       COUNT(*) FILTER (WHERE status='LOST')::int,
+		       COUNT(*) FILTER (WHERE status='PENDING')::int,
+		       COALESCE(SUM(stake),0)::float8,
+		       COALESCE(SUM(CASE WHEN status='WON' THEN potential_payout ELSE 0 END),0)::float8
 		FROM bet_slips WHERE user_id=$1
 	`, id).Scan(&totalBets, &wonBets, &lostBets, &pendingBets, &totalStaked, &totalWonPayout)
 
