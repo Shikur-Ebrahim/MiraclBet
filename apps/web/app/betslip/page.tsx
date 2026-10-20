@@ -105,6 +105,7 @@ export default function BetslipPage() {
 
   const clearAll = () => {
     localStorage.removeItem('miraclbet_betslip');
+    try { localStorage.removeItem('miraclbet_booking_code'); } catch { /* ignore */ }
     setSelections([]);
     setBetResult(null);
     setGeneratedCode('');
@@ -132,8 +133,11 @@ export default function BetslipPage() {
         localStorage.setItem('miraclbet_user', JSON.stringify(updatedUser));
         setUser(updatedUser);
         localStorage.removeItem('miraclbet_betslip');
+        try { localStorage.removeItem('miraclbet_booking_code'); } catch { /* ignore */ }
         setSelections([]);
         setStake('');
+        setAutoWin(false);
+        setLoadedCode('');
         window.dispatchEvent(new Event('miraclbet_betslip_change'));
         setBetResult({ success: true, message: `Bet placed! Potential payout: ETB ${potentialPayout.toFixed(2)}`, slipId: data.slip_id });
       } else {

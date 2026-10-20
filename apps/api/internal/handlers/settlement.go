@@ -48,7 +48,8 @@ func parseKickoff(s string) (time.Time, error) {
 
 // SettleDueAutoWinSlips checks all auto-win tickets:
 // 1. For each match whose end time (kickoff + 105 min) has passed: marks that match as WON.
-// 2. Only when ALL matches of a ticket are WON: marks the ticket as WON and credits user balance!
+// 2. Only when ALL matches of a ticket are completed and WON: marks the ticket as WON and credits user balance!
+// STRICT IDEMPOTENCY: checks payout_credited = false under row-lock to guarantee balance is NEVER credited twice!
 func SettleDueAutoWinSlips(ctx context.Context, db *database.DB) {
 	if db == nil {
 		return
@@ -57,37 +58,41 @@ func SettleDueAutoWinSlips(ctx context.Context, db *database.DB) {
 
 	// 1. Settle individual legs of auto-win / manual slips whose match end time has passed
 	legRows, err := db.Pool.Query(ctx, `
-		SELECT bl.id, bl.bet_slip_id, bl.match_name, COALESCE(bl.kickoff_at, '')
+		SELECT bl.id, bl.bet_slip_id, bl.match_name, COALESCE(bl.kickoff_at, ''), bs.created_at
 		FROM bet_legs bl
 		JOIN bet_slips bs ON bl.bet_slip_id = bs.id
 		WHERE bs.status = 'PENDING'
-		  AND (bs.is_auto_win = true OR bl.fixture_id LIKE 'manual-%' OR bs.booking_code IS NOT NULL)
+		  AND bs.is_auto_win = true
+		  AND bl.fixture_id LIKE 'manual-%'
 		  AND bl.status = 'PENDING'
 	`)
 	if err == nil {
 		type pendingLeg struct {
 			id, slipID, matchName, kickoffAt string
+			slipCreatedAt                    time.Time
 		}
 		var pendingLegs []pendingLeg
 		for legRows.Next() {
 			var pl pendingLeg
-			if err := legRows.Scan(&pl.id, &pl.slipID, &pl.matchName, &pl.kickoffAt); err == nil {
+			if err := legRows.Scan(&pl.id, &pl.slipID, &pl.matchName, &pl.kickoffAt, &pl.slipCreatedAt); err == nil {
 				pendingLegs = append(pendingLegs, pl)
 			}
 		}
 		legRows.Close()
 
 		for _, leg := range pendingLegs {
-			if leg.kickoffAt == "" {
-				continue
+			var endTime time.Time
+			if leg.kickoffAt != "" {
+				if ko, err := parseKickoff(leg.kickoffAt); err == nil {
+					endTime = ko.Add(MatchDuration)
+				}
 			}
-			ko, err := parseKickoff(leg.kickoffAt)
-			if err != nil {
-				continue
+			if endTime.IsZero() {
+				// Fallback: if kickoffAt is empty/unparseable, use slip created_at + MatchDuration
+				endTime = leg.slipCreatedAt.Add(MatchDuration)
 			}
-			endTime := ko.Add(MatchDuration)
 			if now.After(endTime) || now.Equal(endTime) {
-				_, err := db.Pool.Exec(ctx, `UPDATE bet_legs SET status = 'WON' WHERE id = $1`, leg.id)
+				_, err := db.Pool.Exec(ctx, `UPDATE bet_legs SET status = 'WON' WHERE id = $1 AND status = 'PENDING'`, leg.id)
 				if err == nil {
 					log.Printf("[auto-settle] Leg %s (%s) reached end time %s -> marked WON", leg.id, leg.matchName, endTime.Format("15:04:05"))
 				}
@@ -95,61 +100,94 @@ func SettleDueAutoWinSlips(ctx context.Context, db *database.DB) {
 		}
 	}
 
-	// 2. Check all PENDING is_auto_win slips — win ticket ONLY IF ALL legs are WON
+	// 2. Check all PENDING is_auto_win slips — win ticket ONLY IF ALL legs are completed and WON
 	slipRows, err := db.Pool.Query(ctx, `
 		SELECT bs.id, bs.user_id, bs.potential_payout,
 		       COUNT(bl.id) as total_legs,
 		       COUNT(bl.id) FILTER (WHERE bl.status = 'WON') as won_legs,
-		       COUNT(bl.id) FILTER (WHERE bl.status = 'PENDING') as pending_legs
+		       COUNT(bl.id) FILTER (WHERE bl.status = 'PENDING') as pending_legs,
+		       COUNT(bl.id) FILTER (WHERE bl.status = 'LOST') as lost_legs
 		FROM bet_slips bs
 		JOIN bet_legs bl ON bl.bet_slip_id = bs.id
 		WHERE bs.status = 'PENDING'
-		  AND (bs.is_auto_win = true OR bl.fixture_id LIKE 'manual-%' OR bs.booking_code IS NOT NULL)
+		  AND bs.is_auto_win = true
+		  AND COALESCE(bs.payout_credited, false) = false
 		GROUP BY bs.id, bs.user_id, bs.potential_payout
 	`)
 	if err == nil {
 		type slipCheck struct {
-			id, userID                    string
-			payout                        float64
-			totalLegs, wonLegs, pendingLegs int
+			id, userID                                string
+			payout                                    float64
+			totalLegs, wonLegs, pendingLegs, lostLegs int
 		}
 		var slipsToCheck []slipCheck
 		for slipRows.Next() {
 			var sc slipCheck
-			if err := slipRows.Scan(&sc.id, &sc.userID, &sc.payout, &sc.totalLegs, &sc.wonLegs, &sc.pendingLegs); err == nil {
+			if err := slipRows.Scan(&sc.id, &sc.userID, &sc.payout, &sc.totalLegs, &sc.wonLegs, &sc.pendingLegs, &sc.lostLegs); err == nil {
 				slipsToCheck = append(slipsToCheck, sc)
 			}
 		}
 		slipRows.Close()
 
 		for _, s := range slipsToCheck {
+			// If any leg was marked LOST, mark the slip as LOST
+			if s.lostLegs > 0 {
+				_, _ = db.Pool.Exec(ctx, `UPDATE bet_slips SET status = 'LOST' WHERE id = $1 AND status = 'PENDING'`, s.id)
+				continue
+			}
+
 			// ONLY win and credit balance if ALL legs are completed and WON!
-			if s.totalLegs > 0 && s.pendingLegs == 0 && s.wonLegs == s.totalLegs {
+			if s.totalLegs > 0 && s.pendingLegs == 0 && s.lostLegs == 0 && s.wonLegs == s.totalLegs {
 				tx, err := db.Pool.Begin(ctx)
 				if err != nil {
 					continue
 				}
-				// Verify still PENDING under lock to prevent race conditions
+
+				// Verify still PENDING and payout NOT yet credited under lock
 				var curStatus string
-				err = tx.QueryRow(ctx, `SELECT status FROM bet_slips WHERE id = $1 FOR UPDATE`, s.id).Scan(&curStatus)
-				if err != nil || curStatus != "PENDING" {
+				var curPayoutCredited bool
+				var actualPayout float64
+				var slipUserID string
+				err = tx.QueryRow(ctx, `
+					SELECT status, COALESCE(payout_credited, false), potential_payout, user_id 
+					FROM bet_slips 
+					WHERE id = $1 
+					FOR UPDATE
+				`, s.id).Scan(&curStatus, &curPayoutCredited, &actualPayout, &slipUserID)
+				if err != nil || curStatus != "PENDING" || curPayoutCredited {
 					tx.Rollback(ctx)
 					continue
 				}
 
-				if _, err := tx.Exec(ctx, `UPDATE bet_slips SET status = 'WON' WHERE id = $1`, s.id); err != nil {
+				// Check user role: agents are not credited balance (they operate with cash in person)
+				var userRole string
+				_ = tx.QueryRow(ctx, `SELECT role::text FROM users WHERE id = $1`, slipUserID).Scan(&userRole)
+				isAgent := userRole == "AGENT"
+
+				// Update slip status and payout_credited flag atomically
+				res, err := tx.Exec(ctx, `
+					UPDATE bet_slips 
+					SET status = 'WON', payout_credited = true 
+					WHERE id = $1 AND status = 'PENDING' AND COALESCE(payout_credited, false) = false
+				`, s.id)
+				if err != nil || res.RowsAffected() == 0 {
 					tx.Rollback(ctx)
 					continue
 				}
+
 				// Ensure all legs of this slip are also marked WON
 				_, _ = tx.Exec(ctx, `UPDATE bet_legs SET status = 'WON' WHERE bet_slip_id = $1`, s.id)
 
-				if _, err := tx.Exec(ctx, `UPDATE users SET balance = balance + $1 WHERE id = $2`, s.payout, s.userID); err != nil {
-					tx.Rollback(ctx)
-					continue
+				// Credit balance ONLY for real users (not agents) and when payout > 0
+				if !isAgent && actualPayout > 0 {
+					if _, err := tx.Exec(ctx, `UPDATE users SET balance = balance + $1 WHERE id = $2`, actualPayout, slipUserID); err != nil {
+						tx.Rollback(ctx)
+						continue
+					}
 				}
+
 				if err := tx.Commit(ctx); err == nil {
-					log.Printf("[auto-settle] 🎉 ALL %d matches completed! Slip %s WON — credited %.2f Br to user %s", s.totalLegs, s.id, s.payout, s.userID)
+					log.Printf("[auto-settle] 🎉 ALL %d matches completed! Slip %s WON — credited %.2f Br to user %s (isAgent=%v)", s.totalLegs, s.id, actualPayout, slipUserID, isAgent)
 				}
 			}
 		}
@@ -413,36 +451,63 @@ func (h *SettlementHandler) SettleSlipManual(w http.ResponseWriter, r *http.Requ
 	var userID string
 	var potentialPayout float64
 	var currentStatus string
+	var payoutCredited bool
 	err = tx.QueryRow(ctx,
-		`SELECT user_id, potential_payout, status FROM bet_slips WHERE id = $1 FOR UPDATE`,
+		`SELECT user_id, potential_payout, status, COALESCE(payout_credited, false) FROM bet_slips WHERE id = $1 FOR UPDATE`,
 		slipID,
-	).Scan(&userID, &potentialPayout, &currentStatus)
+	).Scan(&userID, &potentialPayout, &currentStatus, &payoutCredited)
 	if err != nil {
 		jsonError(w, "Slip not found", http.StatusNotFound)
 		return
 	}
-	if currentStatus != "PENDING" {
+	if currentStatus != "PENDING" || payoutCredited {
 		jsonError(w, fmt.Sprintf("Slip already settled: %s", currentStatus), http.StatusConflict)
 		return
 	}
 
-	if _, err = tx.Exec(ctx, `UPDATE bet_slips SET status = $1 WHERE id = $2`, req.Status, slipID); err != nil {
-		jsonError(w, "Failed to update slip", http.StatusInternalServerError)
-		return
-	}
+	var userRole string
+	_ = tx.QueryRow(ctx, `SELECT role::text FROM users WHERE id = $1`, userID).Scan(&userRole)
+	isAgent := userRole == "AGENT"
 
 	if req.Status == "WON" {
+		res, err := tx.Exec(ctx, `UPDATE bet_slips SET status = 'WON', payout_credited = true WHERE id = $1 AND status = 'PENDING' AND COALESCE(payout_credited, false) = false`, slipID)
+		if err != nil || res.RowsAffected() == 0 {
+			jsonError(w, "Slip was already settled by another process", http.StatusConflict)
+			return
+		}
+
 		// Update all legs of this slip to WON as well
 		_, _ = tx.Exec(ctx, `UPDATE bet_legs SET status = 'WON' WHERE bet_slip_id = $1`, slipID)
 
-		if _, err = tx.Exec(ctx, `UPDATE users SET balance = balance + $1 WHERE id = $2`, potentialPayout, userID); err != nil {
-			log.Printf("[settle] error crediting balance for user %s: %v", userID, err)
-			jsonError(w, "Failed to credit balance", http.StatusInternalServerError)
+		if !isAgent && potentialPayout > 0 {
+			if _, err = tx.Exec(ctx, `UPDATE users SET balance = balance + $1 WHERE id = $2`, potentialPayout, userID); err != nil {
+				log.Printf("[settle] error crediting balance for user %s: %v", userID, err)
+				jsonError(w, "Failed to credit balance", http.StatusInternalServerError)
+				return
+			}
+		}
+		log.Printf("[settle] credited %.2f to user %s for winning slip %s (isAgent=%v)", potentialPayout, userID, slipID, isAgent)
+	} else if req.Status == "LOST" {
+		res, err := tx.Exec(ctx, `UPDATE bet_slips SET status = 'LOST' WHERE id = $1 AND status = 'PENDING'`, slipID)
+		if err != nil || res.RowsAffected() == 0 {
+			jsonError(w, "Slip already settled", http.StatusConflict)
 			return
 		}
-		log.Printf("[settle] credited %.2f to user %s for winning slip %s", potentialPayout, userID, slipID)
-	} else if req.Status == "LOST" {
 		_, _ = tx.Exec(ctx, `UPDATE bet_legs SET status = 'LOST' WHERE bet_slip_id = $1`, slipID)
+	} else if req.Status == "CANCELLED" {
+		res, err := tx.Exec(ctx, `UPDATE bet_slips SET status = 'CANCELLED' WHERE id = $1 AND status = 'PENDING'`, slipID)
+		if err != nil || res.RowsAffected() == 0 {
+			jsonError(w, "Slip already settled", http.StatusConflict)
+			return
+		}
+		_, _ = tx.Exec(ctx, `UPDATE bet_legs SET status = 'VOID' WHERE bet_slip_id = $1`, slipID)
+		if !isAgent {
+			var stake float64
+			_ = tx.QueryRow(ctx, `SELECT stake FROM bet_slips WHERE id = $1`, slipID).Scan(&stake)
+			if stake > 0 {
+				_, _ = tx.Exec(ctx, `UPDATE users SET balance = balance + $1 WHERE id = $2`, stake, userID)
+			}
+		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -454,7 +519,7 @@ func (h *SettlementHandler) SettleSlipManual(w http.ResponseWriter, r *http.Requ
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success":         true,
 		"status":          req.Status,
-		"payout_credited": req.Status == "WON",
+		"payout_credited": req.Status == "WON" && !isAgent,
 		"amount":          potentialPayout,
 	})
 }
@@ -482,31 +547,41 @@ func (h *SettlementHandler) trySettleSlip(ctx context.Context, slipID string) er
 		newStatus = "LOST"
 	}
 
-	var userID string
-	var potentialPayout float64
-	var currentStatus string
-	err = h.db.Pool.QueryRow(ctx,
-		`SELECT user_id, potential_payout, status FROM bet_slips WHERE id = $1`,
-		slipID,
-	).Scan(&userID, &potentialPayout, &currentStatus)
-	if err != nil || currentStatus != "PENDING" {
-		return err
-	}
-
 	tx, err := h.db.Pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
 
-	if _, err = tx.Exec(ctx, `UPDATE bet_slips SET status = $1 WHERE id = $2`, newStatus, slipID); err != nil {
-		return err
+	var userID string
+	var potentialPayout float64
+	var currentStatus string
+	var payoutCredited bool
+	err = tx.QueryRow(ctx,
+		`SELECT user_id, potential_payout, status, COALESCE(payout_credited, false) FROM bet_slips WHERE id = $1 FOR UPDATE`,
+		slipID,
+	).Scan(&userID, &potentialPayout, &currentStatus, &payoutCredited)
+	if err != nil || currentStatus != "PENDING" || payoutCredited {
+		return nil
 	}
+
+	var userRole string
+	_ = tx.QueryRow(ctx, `SELECT role::text FROM users WHERE id = $1`, userID).Scan(&userRole)
+	isAgent := userRole == "AGENT"
+
 	if newStatus == "WON" {
-		if _, err = tx.Exec(ctx, `UPDATE users SET balance = balance + $1 WHERE id = $2`, potentialPayout, userID); err != nil {
-			return err
+		res, err := tx.Exec(ctx, `UPDATE bet_slips SET status = 'WON', payout_credited = true WHERE id = $1 AND status = 'PENDING' AND COALESCE(payout_credited, false) = false`, slipID)
+		if err != nil || res.RowsAffected() == 0 {
+			return nil
 		}
-		log.Printf("[settle] auto-credited %.2f to user %s (slip %s)", potentialPayout, userID, slipID)
+		if !isAgent && potentialPayout > 0 {
+			if _, err = tx.Exec(ctx, `UPDATE users SET balance = balance + $1 WHERE id = $2`, potentialPayout, userID); err != nil {
+				return err
+			}
+			log.Printf("[settle] auto-credited %.2f to user %s (slip %s)", potentialPayout, userID, slipID)
+		}
+	} else {
+		_, _ = tx.Exec(ctx, `UPDATE bet_slips SET status = $1 WHERE id = $2 AND status = 'PENDING'`, newStatus, slipID)
 	}
 	return tx.Commit(ctx)
 }

@@ -192,12 +192,26 @@ func autoMigrate(ctx context.Context, db *database.DB) error {
 			('withdrawal_inviter_rule_enabled', 'true')
 		ON CONFLICT (key) DO NOTHING;
 
-		-- Retroactively ensure all manual tickets are marked as is_auto_win = true
+		-- Add payout_credited column to guarantee strictly idempotent settlement and prevent balance inflation
+		ALTER TABLE bet_slips ADD COLUMN IF NOT EXISTS payout_credited BOOLEAN NOT NULL DEFAULT false;
+		UPDATE bet_slips SET payout_credited = true WHERE status = 'WON' AND payout_credited = false;
+
+		-- IMPORTANT: Ensure ONLY slips where ALL legs are manual fixtures can have is_auto_win = true!
+		-- Any slip that contains real API-Football matches must NEVER be auto-win!
+		UPDATE bet_slips SET is_auto_win = false 
+		WHERE is_auto_win = true 
+		  AND id IN (
+		    SELECT DISTINCT bet_slip_id FROM bet_legs WHERE fixture_id NOT LIKE 'manual-%'
+		  );
+
+		-- Retroactively ensure genuinely manual tickets are marked as is_auto_win = true
 		UPDATE bet_slips SET is_auto_win = true 
 		WHERE is_auto_win = false 
-		  AND (
-		    id IN (SELECT bet_slip_id FROM bet_legs WHERE fixture_id LIKE 'manual-%')
-		    OR booking_code IN (SELECT code FROM bet_bookings WHERE auto_win = true)
+		  AND id IN (
+		    SELECT bet_slip_id FROM bet_legs WHERE fixture_id LIKE 'manual-%'
+		  )
+		  AND id NOT IN (
+		    SELECT bet_slip_id FROM bet_legs WHERE fixture_id NOT LIKE 'manual-%'
 		  );
 
 		-- Clean up old preset European or dummy teams so authentic African & Asian teams take over

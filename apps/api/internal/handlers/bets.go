@@ -81,20 +81,27 @@ func (h *BetsHandler) PlaceBet(w http.ResponseWriter, r *http.Request) {
 	h.db.Pool.QueryRow(r.Context(), "SELECT role::text FROM users WHERE id = $1", req.UserID).Scan(&userRolePre)
 	isAgent := userRolePre == "AGENT"
 
-	// Validate matches haven't started (skip for auto-win bets AND agents)
+	// Determine if this is a manual auto-win ticket:
+	// A bet is ONLY an auto-win bet IF:
+	// 1. Every selection has a fixtureID starting with "manual-", AND
+	// 2. Either all fixtures are manual OR booking code was created as an admin auto-win booking.
+	// Bets containing ANY real match (e.g. from football API) can NEVER be auto-win!
+	allManual := len(req.Selections) > 0
+	hasManual := false
+	for _, sel := range req.Selections {
+		if strings.HasPrefix(sel.FixtureID, "manual-") {
+			hasManual = true
+		} else {
+			allManual = false
+		}
+	}
+
 	isAutoWin := false
 	cleanBookingCode := strings.ToUpper(strings.TrimSpace(req.BookingCode))
-	if cleanBookingCode != "" {
+	if hasManual && allManual {
+		isAutoWin = true
+	} else if cleanBookingCode != "" && allManual {
 		_ = h.db.Pool.QueryRow(r.Context(), `SELECT COALESCE(auto_win, false) FROM bet_bookings WHERE UPPER(code) = $1`, cleanBookingCode).Scan(&isAutoWin)
-	}
-	// Also automatically treat manual ticket selections as auto-win tickets!
-	if !isAutoWin {
-		for _, sel := range req.Selections {
-			if strings.HasPrefix(sel.FixtureID, "manual-") {
-				isAutoWin = true
-				break
-			}
-		}
 	}
 
 	// Validate matches haven't already finished (allow live / in-play betting until match ends)
@@ -161,8 +168,8 @@ func (h *BetsHandler) PlaceBet(w http.ResponseWriter, r *http.Request) {
 	potentialPayout := req.Stake * req.TotalOdds
 
 	err = tx.QueryRow(ctx, `
-		INSERT INTO bet_slips (user_id, stake, total_odds, potential_payout, status, is_auto_win, booking_code)
-		VALUES ($1, $2, $3, $4, 'PENDING', $5, $6)
+		INSERT INTO bet_slips (user_id, stake, total_odds, potential_payout, status, is_auto_win, booking_code, payout_credited)
+		VALUES ($1, $2, $3, $4, 'PENDING', $5, $6, false)
 		RETURNING id
 	`, req.UserID, req.Stake, req.TotalOdds, potentialPayout, isAutoWin, req.BookingCode).Scan(&slipID)
 	if err != nil {
