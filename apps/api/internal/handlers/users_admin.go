@@ -151,7 +151,7 @@ func (h *UsersAdminHandler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"role": req.Role})
 }
 
-// AdjustBalance â€” manually set or add to user balance
+// AdjustBalance — manually set or add to user balance
 func (h *UsersAdminHandler) AdjustBalance(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
@@ -168,20 +168,24 @@ func (h *UsersAdminHandler) AdjustBalance(w http.ResponseWriter, r *http.Request
 	var err error
 	if req.Mode == "set" {
 		err = h.db.Pool.QueryRow(r.Context(),
-			"UPDATE users SET balance = $1 WHERE id = $2 RETURNING balance",
+			"UPDATE users SET balance = $1::numeric WHERE id = $2 RETURNING balance::float8",
 			req.Amount, id).Scan(&newBalance)
 	} else {
 		err = h.db.Pool.QueryRow(r.Context(),
-			"UPDATE users SET balance = balance + $1 WHERE id = $2 RETURNING balance",
+			"UPDATE users SET balance = COALESCE(balance, 0) + $1::numeric WHERE id = $2 RETURNING balance::float8",
 			req.Amount, id).Scan(&newBalance)
 	}
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Failed to update balance: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]float64{"balance": newBalance})
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"balance": newBalance,
+		"user_id": id,
+		"success": true,
+	})
 }
 
 // GetPendingCounts returns the count of pending deposits and withdrawals for the admin dashboard.

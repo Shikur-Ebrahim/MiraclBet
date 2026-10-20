@@ -100,7 +100,10 @@ function DetailModal({ userId, onClose, onBalanceUpdated }: {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API}/api/v1/admin/balance-manager/${userId}`);
+      const token = localStorage.getItem('miraclbet_token') || '';
+      const res = await fetch(`${API}/api/v1/admin/balance-manager/${userId}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
       const data = await res.json();
       setDetail(data);
       setBalInput(String(data.user.balance.toFixed(2)));
@@ -117,22 +120,46 @@ function DetailModal({ userId, onClose, onBalanceUpdated }: {
     if (balMode === 'adjust' && adjustSign === '-') amount = -Math.abs(amount);
     setSaving(true); setSaveMsg('');
     try {
+      const token = localStorage.getItem('miraclbet_token') || '';
       const res = await fetch(`${API}/api/v1/admin/users/${userId}/balance`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
         body: JSON.stringify({ amount, mode: balMode }),
       });
-      const data = await res.json();
-      if (data.balance !== undefined) {
-        setSaveMsg(`✅ Balance updated to ${fmt(data.balance)} Br`);
-        setDetail(prev => prev ? { ...prev, user: { ...prev.user, balance: data.balance } } : prev);
-        onBalanceUpdated(userId, data.balance);
-        setBalInput(String(data.balance.toFixed(2)));
-      } else {
-        setSaveMsg('Failed to update balance');
+
+      if (!res.ok) {
+        const errText = await res.text();
+        setSaveMsg(`❌ Error ${res.status}: ${errText}`);
+        return;
       }
-    } catch { setSaveMsg('Network error'); }
-    finally { setSaving(false); }
+
+      const data = await res.json();
+      const newBal: number = data.balance ?? data.new_balance ?? amount;
+
+      // Re-fetch to confirm the actual DB value
+      const token2 = localStorage.getItem('miraclbet_token') || '';
+      const confirmRes = await fetch(`${API}/api/v1/admin/balance-manager/${userId}`, {
+        headers: { 'Authorization': `Bearer ${token2}` },
+      });
+      if (confirmRes.ok) {
+        const confirmed = await confirmRes.json();
+        const confirmedBal: number = confirmed?.user?.balance ?? newBal;
+        setSaveMsg(`✅ Balance updated to ${fmt(confirmedBal)} Br`);
+        setDetail(prev => prev ? { ...prev, user: { ...prev.user, balance: confirmedBal } } : prev);
+        setBalInput(confirmedBal.toFixed(2));
+        onBalanceUpdated(userId, confirmedBal);
+      } else {
+        setSaveMsg(`✅ Balance updated to ${fmt(newBal)} Br`);
+        setDetail(prev => prev ? { ...prev, user: { ...prev.user, balance: newBal } } : prev);
+        setBalInput(newBal.toFixed(2));
+        onBalanceUpdated(userId, newBal);
+      }
+    } catch (err) {
+      setSaveMsg(`❌ Network error: ${err instanceof Error ? err.message : 'Unknown'}`);
+    } finally { setSaving(false); }
   };
 
   return (
@@ -340,7 +367,10 @@ export default function AdminBalanceManagerPage() {
     const u = JSON.parse(saved);
     if (u.role !== 'ADMIN') { router.push('/admin'); return; }
 
-    fetch(`${API}/api/v1/admin/balance-manager`)
+    const token = localStorage.getItem('miraclbet_token') || '';
+    fetch(`${API}/api/v1/admin/balance-manager`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    })
       .then(r => r.json())
       .then(data => {
         const arr = Array.isArray(data) ? data : [];
@@ -383,7 +413,13 @@ export default function AdminBalanceManagerPage() {
             <p style={{ fontSize: 11, color: '#9CA3AF', margin: '3px 0 0' }}>{filtered.length} users with deposits</p>
           </div>
         </div>
-        <button onClick={() => { setLoading(true); fetch(`${API}/api/v1/admin/balance-manager`).then(r=>r.json()).then(d=>{const a=Array.isArray(d)?d:[];setUsers(a);setFiltered(a);}).finally(()=>setLoading(false)); }}
+        <button onClick={() => {
+          setLoading(true);
+          const token = localStorage.getItem('miraclbet_token') || '';
+          fetch(`${API}/api/v1/admin/balance-manager`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+          }).then(r=>r.json()).then(d=>{const a=Array.isArray(d)?d:[];setUsers(a);setFiltered(a);}).finally(()=>setLoading(false));
+        }}
           style={{ background: '#F3F4F6', border: 'none', borderRadius: 8, padding: '8px 14px', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
           Refresh
         </button>
