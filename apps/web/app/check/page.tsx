@@ -225,7 +225,7 @@ function TicketDisplay({ slip }: { slip: BetSlip }) {
           const hasWonMatch = bookingLegs.some(l => {
             if (!l.kickoffAt) return false;
             const ko = new Date(l.kickoffAt).getTime();
-            return !isNaN(ko) && Date.now() >= ko;
+            return !isNaN(ko) && Date.now() >= (ko + MATCH_DURATION_MS);
           });
 
           return (

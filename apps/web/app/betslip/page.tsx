@@ -119,7 +119,7 @@ export default function BetslipPage() {
   const hasStartedLeg = selections.some(s => {
     if (!s.kickoffAt) return false;
     const ko = new Date(s.kickoffAt).getTime();
-    return !isNaN(ko) && Date.now() >= ko;
+    return !isNaN(ko) && Date.now() >= (ko + MATCH_DURATION_MS);
   });
 
   const placeBet = async () => {

@@ -46,42 +46,39 @@ func parseKickoff(s string) (time.Time, error) {
 	return time.Time{}, fmt.Errorf("unable to parse time: %s", s)
 }
 
-// HasAnyMatchWon checks if at least one match in the given booking code or selections has already started or won.
-// If at least one match has started, it returns (true, reason) to indicate that this ticket is expired/closed
-// and can NEVER be loaded or placed again.
+// HasAnyMatchWon checks if at least one match in the given booking code or selections has already ended / won.
+// If at least one match has completed its duration (kickoff + 105m) or been settled WON in DB,
+// it returns (true, reason) to indicate that this ticket is expired and can no longer be loaded or placed.
+// While matches still have time remaining before end time, newly created tickets remain placeable!
 func HasAnyMatchWon(ctx context.Context, db *database.DB, bookingCode string, selections []BetSelection, bookingCreatedAt time.Time) (bool, string) {
 	if db == nil {
 		return false, ""
 	}
 	now := time.Now().UTC()
 
-	// 1. Check if kickoff has occurred or match end time has passed for each selection
+	// 1. Check if match duration (kickoff + 105 min) has passed for each selection
 	for _, sel := range selections {
 		if sel.KickoffAt != "" {
 			if ko, err := parseKickoff(sel.KickoffAt); err == nil {
-				// If kickoff time has arrived or passed, the game has started!
-				if now.After(ko) || now.Equal(ko) {
-					name := sel.MatchName
-					if name == "" {
-						name = "a match on this ticket"
-					}
-					return true, fmt.Sprintf("Game '%s' has already started.", name)
+				endTime := ko.Add(MatchDuration)
+				if now.After(endTime) || now.Equal(endTime) {
+					return true, "At least one game on this ticket has already started."
 				}
 			}
 		}
 		if !bookingCreatedAt.IsZero() {
-			// If no kickoff time, treat as started 105 min after booking creation
+			// If no kickoff time, treat as ended 105 min after booking creation
 			if now.After(bookingCreatedAt.Add(MatchDuration)) || now.Equal(bookingCreatedAt.Add(MatchDuration)) {
 				return true, "At least one game on this ticket has already started."
 			}
 		}
 
-		// Also check if this fixture in fixtures table is finished or in-play (for real API matches)
+		// Also check if this fixture in fixtures table is finished (for real API matches)
 		if sel.FixtureID != "" && !strings.HasPrefix(sel.FixtureID, "manual-") {
 			var statusShort string
 			_ = db.Pool.QueryRow(ctx, "SELECT COALESCE(status_short, '') FROM fixtures WHERE external_id = $1", sel.FixtureID).Scan(&statusShort)
-			if statusShort == "FT" || statusShort == "AET" || statusShort == "PEN" || statusShort == "FINISHED" || statusShort == "1H" || statusShort == "2H" || statusShort == "HT" || statusShort == "LIVE" {
-				return true, fmt.Sprintf("Game '%s' has already started.", sel.MatchName)
+			if statusShort == "FT" || statusShort == "AET" || statusShort == "PEN" || statusShort == "FINISHED" {
+				return true, "At least one game on this ticket has already started."
 			}
 		}
 
@@ -90,7 +87,7 @@ func HasAnyMatchWon(ctx context.Context, db *database.DB, bookingCode string, se
 			var wonCount int
 			_ = db.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM bet_legs WHERE fixture_id = $1 AND status = 'WON'`, sel.FixtureID).Scan(&wonCount)
 			if wonCount > 0 {
-				return true, fmt.Sprintf("Game '%s' has already started.", sel.MatchName)
+				return true, "At least one game on this ticket has already started."
 			}
 		}
 	}
