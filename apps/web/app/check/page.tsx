@@ -220,13 +220,30 @@ function TicketDisplay({ slip }: { slip: BetSlip }) {
             </div>
           </>
         )}
-        {isBooking && (
-          <div style={{ marginTop: 8, padding: '10px 14px', background: '#EFF6FF', borderRadius: 10, border: '1px solid #BFDBFE', textAlign: 'center' }}>
-            <p style={{ color: '#2563EB', fontSize: 13, fontWeight: 700, margin: 0 }}>
-              🎟️ This is an admin booking code. Use it in the Betslip to place your bet!
-            </p>
-          </div>
-        )}
+        {isBooking && (() => {
+          const MATCH_DURATION_MS = 105 * 60 * 1000;
+          const hasWonMatch = bookingLegs.some(l => {
+            if (!l.kickoffAt) return false;
+            const ko = new Date(l.kickoffAt).getTime();
+            return !isNaN(ko) && Date.now() >= (ko + MATCH_DURATION_MS);
+          });
+
+          return (
+            <div style={{
+              marginTop: 8, padding: '10px 14px',
+              background: hasWonMatch ? '#FEF2F2' : '#EFF6FF',
+              borderRadius: 10,
+              border: `1px solid ${hasWonMatch ? '#FECACA' : '#BFDBFE'}`,
+              textAlign: 'center'
+            }}>
+              <p style={{ color: hasWonMatch ? '#DC2626' : '#2563EB', fontSize: 13, fontWeight: 700, margin: 0 }}>
+                {hasWonMatch
+                  ? '⚠️ This booking code has expired because at least one match has already won.'
+                  : '🎟️ This is an admin booking code. Use it in the Betslip to place your bet!'}
+              </p>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

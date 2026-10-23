@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"math/rand"
+	"strings"
 	"net/http"
 	"time"
 
@@ -102,13 +103,16 @@ func (h *BetSlipsHandler) GetBooking(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	cleanCode := strings.ToUpper(strings.TrimSpace(code))
+
 	var selectionsJSON string
 	var totalOdds float64
 	var autoWin bool
+	var createdAt time.Time
 
 	err := h.db.Pool.QueryRow(r.Context(),
-		"SELECT selections, total_odds, COALESCE(auto_win, false) FROM bet_bookings WHERE code = $1", code,
-	).Scan(&selectionsJSON, &totalOdds, &autoWin)
+		"SELECT selections, total_odds, COALESCE(auto_win, false), created_at FROM bet_bookings WHERE UPPER(code) = $1", cleanCode,
+	).Scan(&selectionsJSON, &totalOdds, &autoWin, &createdAt)
 
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
@@ -125,9 +129,22 @@ func (h *BetSlipsHandler) GetBooking(w http.ResponseWriter, r *http.Request) {
 	var selections []BetSelection
 	_ = json.Unmarshal([]byte(selectionsJSON), &selections)
 
+	// Check if at least one match has already won or finished!
+	// If at least one match has won, loading this booking code is strictly forbidden.
+	if won, reason := HasAnyMatchWon(r.Context(), h.db, cleanCode, selections, createdAt); won {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"error":   "This booking code has expired because at least one match has already won.",
+			"detail":  reason,
+			"expired": true,
+		})
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"code":       code,
+		"code":       cleanCode,
 		"selections": selections,
 		"total_odds": totalOdds,
 		"auto_win":   autoWin,

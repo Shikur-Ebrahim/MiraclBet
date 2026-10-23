@@ -46,6 +46,85 @@ func parseKickoff(s string) (time.Time, error) {
 	return time.Time{}, fmt.Errorf("unable to parse time: %s", s)
 }
 
+// HasAnyMatchWon checks if at least one match in the given booking code or selections has already won / finished.
+// If at least one match has won, it returns (true, reason) to indicate that this ticket is expired/closed
+// and can NEVER be loaded or placed again.
+func HasAnyMatchWon(ctx context.Context, db *database.DB, bookingCode string, selections []BetSelection, bookingCreatedAt time.Time) (bool, string) {
+	if db == nil {
+		return false, ""
+	}
+	now := time.Now().UTC()
+
+	// 1. Check time-based end time for each selection (kickoff + 105 min)
+	for _, sel := range selections {
+		var endTime time.Time
+		if sel.KickoffAt != "" {
+			if ko, err := parseKickoff(sel.KickoffAt); err == nil {
+				endTime = ko.Add(MatchDuration)
+			}
+		}
+		if endTime.IsZero() && !bookingCreatedAt.IsZero() {
+			endTime = bookingCreatedAt.Add(MatchDuration)
+		}
+		if !endTime.IsZero() && (now.After(endTime) || now.Equal(endTime)) {
+			name := sel.MatchName
+			if name == "" {
+				name = "a match on this ticket"
+			}
+			return true, fmt.Sprintf("Match '%s' has already finished and won.", name)
+		}
+
+		// Also check if this fixture in fixtures table is finished (for real API matches)
+		if sel.FixtureID != "" && !strings.HasPrefix(sel.FixtureID, "manual-") {
+			var statusShort string
+			_ = db.Pool.QueryRow(ctx, "SELECT COALESCE(status_short, '') FROM fixtures WHERE external_id = $1", sel.FixtureID).Scan(&statusShort)
+			if statusShort == "FT" || statusShort == "AET" || statusShort == "PEN" || statusShort == "FINISHED" {
+				return true, fmt.Sprintf("Match '%s' has already finished.", sel.MatchName)
+			}
+		}
+
+		// Also check if this manual fixture was already settled as WON in bet_legs
+		if sel.FixtureID != "" {
+			var wonCount int
+			_ = db.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM bet_legs WHERE fixture_id = $1 AND status = 'WON'`, sel.FixtureID).Scan(&wonCount)
+			if wonCount > 0 {
+				return true, fmt.Sprintf("Match '%s' has already won.", sel.MatchName)
+			}
+		}
+	}
+
+	// 2. Check if any slip with this booking code has already won, or has any won leg
+	cleanCode := strings.ToUpper(strings.TrimSpace(bookingCode))
+	if cleanCode != "" {
+		var wonSlipsOrLegs int
+		_ = db.Pool.QueryRow(ctx, `
+			SELECT COUNT(*)
+			FROM bet_slips bs
+			LEFT JOIN bet_legs bl ON bl.bet_slip_id = bs.id
+			WHERE UPPER(bs.booking_code) = $1
+			  AND (bs.status = 'WON' OR bl.status = 'WON')
+		`, cleanCode).Scan(&wonSlipsOrLegs)
+		if wonSlipsOrLegs > 0 {
+			return true, "This ticket has already won."
+		}
+
+		// If selections slice was empty, load selections from bet_bookings and check them
+		if len(selections) == 0 {
+			var selJSON string
+			var bCreatedAt time.Time
+			err := db.Pool.QueryRow(ctx, `SELECT selections, created_at FROM bet_bookings WHERE UPPER(code) = $1`, cleanCode).Scan(&selJSON, &bCreatedAt)
+			if err == nil {
+				var bSels []BetSelection
+				if json.Unmarshal([]byte(selJSON), &bSels) == nil && len(bSels) > 0 {
+					return HasAnyMatchWon(ctx, db, "", bSels, bCreatedAt)
+				}
+			}
+		}
+	}
+
+	return false, ""
+}
+
 // SettleDueAutoWinSlips checks all auto-win tickets:
 // 1. For each match whose end time (kickoff + 105 min) has passed: marks that match as WON.
 // 2. Only when ALL matches of a ticket are completed and WON: marks the ticket as WON and credits user balance!

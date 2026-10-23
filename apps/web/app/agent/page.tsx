@@ -159,7 +159,11 @@ function PlaceBetView({ agent, onBetPlaced }: { agent: AgentSession; onBetPlaced
     setLoading(true);
     try {
       const res = await fetch(`${API}/api/v1/betslips/${code}`);
-      if (!res.ok) { setError('Booking code not found.'); return; }
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        setError(errData?.error || 'Booking code not found or expired.');
+        return;
+      }
       const data = await res.json();
       setBooking(data);
       printDate.current = new Date().toLocaleString();
@@ -171,6 +175,18 @@ function PlaceBetView({ agent, onBetPlaced }: { agent: AgentSession; onBetPlaced
     if (!booking || !stake || !agent.id) return;
     const stakeNum = parseFloat(stake);
     if (isNaN(stakeNum) || stakeNum < 1) { setError('Enter a valid amount'); return; }
+
+    const MATCH_DURATION_MS = 105 * 60 * 1000;
+    const hasWonMatch = (booking.selections || []).some(s => {
+      if (!s.kickoffAt) return false;
+      const ko = new Date(s.kickoffAt).getTime();
+      return !isNaN(ko) && Date.now() >= (ko + MATCH_DURATION_MS);
+    });
+    if (hasWonMatch) {
+      setError('Cannot place bet: one or more matches on this ticket have already won or finished.');
+      return;
+    }
+
     setPlacing(true); setError('');
     betStartTime.current = new Date().toLocaleString();
     try {
