@@ -180,10 +180,10 @@ function PlaceBetView({ agent, onBetPlaced }: { agent: AgentSession; onBetPlaced
     const hasWonMatch = (booking.selections || []).some(s => {
       if (!s.kickoffAt) return false;
       const ko = new Date(s.kickoffAt).getTime();
-      return !isNaN(ko) && Date.now() >= (ko + MATCH_DURATION_MS);
+      return !isNaN(ko) && Date.now() >= ko;
     });
     if (hasWonMatch) {
-      setError('Cannot place bet: one or more matches on this ticket have already won or finished.');
+      setError('Cannot place bet: at least one game has already started.');
       return;
     }
 

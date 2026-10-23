@@ -31,11 +31,7 @@ export default function GamePage() {
   const [loggedIn, setLoggedIn] = useState(false);
 
   useEffect(() => {
-    // Aviator has its own full page — redirect there
-    if (slug === 'aviator') {
-      router.replace('/games/aviator');
-      return;
-    }
+
     const user = localStorage.getItem('miraclbet_user');
     if (!user || user === 'null') {
       router.replace(`/login?callback=/games/${slug}`);

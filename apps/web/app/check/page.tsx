@@ -225,7 +225,7 @@ function TicketDisplay({ slip }: { slip: BetSlip }) {
           const hasWonMatch = bookingLegs.some(l => {
             if (!l.kickoffAt) return false;
             const ko = new Date(l.kickoffAt).getTime();
-            return !isNaN(ko) && Date.now() >= (ko + MATCH_DURATION_MS);
+            return !isNaN(ko) && Date.now() >= ko;
           });
 
           return (
@@ -238,7 +238,7 @@ function TicketDisplay({ slip }: { slip: BetSlip }) {
             }}>
               <p style={{ color: hasWonMatch ? '#DC2626' : '#2563EB', fontSize: 13, fontWeight: 700, margin: 0 }}>
                 {hasWonMatch
-                  ? '⚠️ This booking code has expired because at least one match has already won.'
+                  ? '⚠️ This booking code has expired because at least one game has already started.'
                   : '🎟️ This is an admin booking code. Use it in the Betslip to place your bet!'}
               </p>
             </div>

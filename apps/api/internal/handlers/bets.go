@@ -104,10 +104,10 @@ func (h *BetsHandler) PlaceBet(w http.ResponseWriter, r *http.Request) {
 		_ = h.db.Pool.QueryRow(r.Context(), `SELECT COALESCE(auto_win, false) FROM bet_bookings WHERE UPPER(code) = $1`, cleanBookingCode).Scan(&isAutoWin)
 	}
 
-	// STRICT VALIDATION: If at least one match on this ticket has already won or finished,
+	// STRICT VALIDATION: If at least one match on this ticket has already started or won,
 	// NO ONE can place this bet under any circumstance!
-	if won, reason := HasAnyMatchWon(r.Context(), h.db, cleanBookingCode, req.Selections, time.Time{}); won {
-		h.respondError(w, http.StatusBadRequest, "Cannot place bet: "+reason)
+	if won, _ := HasAnyMatchWon(r.Context(), h.db, cleanBookingCode, req.Selections, time.Time{}); won {
+		h.respondError(w, http.StatusBadRequest, "Cannot place bet: at least one game has already started.")
 		return
 	}
 

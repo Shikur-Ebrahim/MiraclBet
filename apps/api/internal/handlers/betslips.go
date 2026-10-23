@@ -135,7 +135,7 @@ func (h *BetSlipsHandler) GetBooking(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"error":   "This booking code has expired because at least one match has already won.",
+			"error":   "This booking code has expired because at least one game has started.",
 			"detail":  reason,
 			"expired": true,
 		})

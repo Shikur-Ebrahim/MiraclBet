@@ -116,18 +116,18 @@ export default function BetslipPage() {
   };
 
   const MATCH_DURATION_MS = 105 * 60 * 1000;
-  const hasWonLeg = selections.some(s => {
+  const hasStartedLeg = selections.some(s => {
     if (!s.kickoffAt) return false;
     const ko = new Date(s.kickoffAt).getTime();
-    return !isNaN(ko) && Date.now() >= (ko + MATCH_DURATION_MS);
+    return !isNaN(ko) && Date.now() >= ko;
   });
 
   const placeBet = async () => {
     if (!user) { window.location.href = '/login?redirect=/betslip'; return; }
     if (!stake || stakeNum <= 0) { setBetResult({ success: false, message: 'Please enter a valid stake amount.' }); return; }
     if (stakeNum > user.balance) { setBetResult({ success: false, message: `Insufficient balance. Your balance is ETB ${user.balance.toFixed(2)}.` }); return; }
-    if (hasWonLeg) {
-      setBetResult({ success: false, message: 'Cannot place bet: one or more matches on this ticket have already won or finished.' });
+    if (hasStartedLeg) {
+      setBetResult({ success: false, message: 'Cannot place bet: at least one game has already started.' });
       return;
     }
     setPlacing(true);
@@ -360,7 +360,7 @@ export default function BetslipPage() {
                                 try {
                                   const ko = new Date(sel.kickoffAt).getTime();
                                   if (!isNaN(ko) && Date.now() >= (ko + MATCH_DURATION_MS)) {
-                                    return <span style={{ background: '#FEE2E2', color: '#DC2626', border: '1px solid #FECACA', borderRadius: 4, padding: '1px 5px', fontSize: 9, fontWeight: 800 }}>⚠️ Finished / Won</span>;
+                                    return <span style={{ background: '#FEE2E2', color: '#DC2626', border: '1px solid #FECACA', borderRadius: 4, padding: '1px 5px', fontSize: 9, fontWeight: 800 }}>⚠️ Game Started</span>;
                                   }
                                 } catch { /* ignore */ }
                                 return null;
@@ -448,10 +448,10 @@ export default function BetslipPage() {
             </div>
 
             {/* Expired / already won warning */}
-            {hasWonLeg && (
+            {hasStartedLeg && (
               <div style={{ padding: '12px 14px', background: '#FEF2F2', border: '1.5px solid #FECACA', borderRadius: 12, marginBottom: 14, color: '#DC2626', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span>⚠️</span>
-                <span>One or more matches have already won or finished. This ticket can no longer be placed.</span>
+                <span>At least one game has already started. This booking code has expired and cannot be placed.</span>
               </div>
             )}
 
@@ -459,14 +459,14 @@ export default function BetslipPage() {
             {user ? (
               <button
                 onClick={placeBet}
-                disabled={placing || !stake || stakeNum <= 0 || hasWonLeg}
+                disabled={placing || !stake || stakeNum <= 0 || hasStartedLeg}
                 style={{
                   width: '100%', padding: 17, border: 'none', borderRadius: 14, fontWeight: 900, fontSize: 16,
-                  cursor: placing || !stake || hasWonLeg ? 'not-allowed' : 'pointer',
-                  background: placing || !stake || hasWonLeg ? '#E2E8F0' : 'linear-gradient(135deg, #10B981, #059669)',
-                  color: placing || !stake || hasWonLeg ? '#94A3B8' : '#FFFFFF',
+                  cursor: placing || !stake || hasStartedLeg ? 'not-allowed' : 'pointer',
+                  background: placing || !stake || hasStartedLeg ? '#E2E8F0' : 'linear-gradient(135deg, #10B981, #059669)',
+                  color: placing || !stake || hasStartedLeg ? '#94A3B8' : '#FFFFFF',
                   marginBottom: 12,
-                  boxShadow: !placing && stake && !hasWonLeg ? '0 4px 20px rgba(16,185,129,0.35)' : 'none',
+                  boxShadow: !placing && stake && !hasStartedLeg ? '0 4px 20px rgba(16,185,129,0.35)' : 'none',
                 }}
               >
                 {placing ? (
@@ -474,7 +474,7 @@ export default function BetslipPage() {
                     <div style={{ width: 18, height: 18, border: '2.5px solid rgba(255,255,255,0.3)', borderTop: '2.5px solid #fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
                     Placing Bet...
                   </span>
-                ) : hasWonLeg ? 'Ticket Expired (Match Already Won)' : stakeNum > 0 ? `Place Bet — ETB ${stakeNum.toFixed(2)}` : 'Place Bet'}
+                ) : hasStartedLeg ? 'Ticket Expired (Game Already Started)' : stakeNum > 0 ? `Place Bet — ETB ${stakeNum.toFixed(2)}` : 'Place Bet'}
               </button>
             ) : (
               <button
