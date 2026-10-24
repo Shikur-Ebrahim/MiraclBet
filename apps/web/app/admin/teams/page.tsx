@@ -19,7 +19,7 @@ export default function AdminTeamsPage() {
     const saved = localStorage.getItem('miraclbet_user');
     if (!saved) { router.push('/login'); return; }
     const u = JSON.parse(saved);
-    if (u.role !== 'ADMIN') { router.push('/'); }
+    if (u.role !== 'ADMIN' && u.role !== 'SUPER_ADMIN') { router.push('/'); return; }
     loadSaved();
   }, [router]);
 

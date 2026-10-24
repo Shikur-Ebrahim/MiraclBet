@@ -7,6 +7,7 @@ import {
   ShieldCheck, Loader2, Check, CheckCheck, UserX, UserCheck,
   RefreshCw, MessageSquare
 } from 'lucide-react';
+import { getAdminAuthHeaders, getAdminRoleQuery, isCurrentSuperAdmin } from '@/lib/adminAuth';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
@@ -20,6 +21,7 @@ type ConversationSummary = {
   last_sender_role: string;
   last_message_at: string;
   unread_count: number;
+  promo_code?: string;
 };
 
 type SupportMessage = {
@@ -38,6 +40,7 @@ type ActiveUser = {
   phone: string;
   full_name: string;
   is_blocked: boolean;
+  promo_code?: string;
 };
 
 export default function AdminSupportPage() {
@@ -83,7 +86,7 @@ export default function AdminSupportPage() {
       return;
     }
     const u = JSON.parse(saved);
-    if (u.role !== 'ADMIN' && !(u.role === 'WORKER' && (u.privileges || []).includes('support'))) {
+    if (u.role !== 'ADMIN' && u.role !== 'SUPER_ADMIN' && !(u.role === 'WORKER' && (u.privileges || []).includes('support'))) {
       router.push('/');
       return;
     }
@@ -94,7 +97,9 @@ export default function AdminSupportPage() {
   const fetchConversations = async (silent = false) => {
     if (!silent) setLoadingConversations(true);
     try {
-      const res = await fetch(`${API}/api/v1/admin/support/conversations`);
+      const res = await fetch(`${API}/api/v1/admin/support/conversations?t=${Date.now()}&${getAdminRoleQuery()}`, {
+        headers: getAdminAuthHeaders(),
+      });
       if (!res.ok) return;
       const data = await res.json();
       setConversations(Array.isArray(data) ? data : []);
@@ -109,7 +114,9 @@ export default function AdminSupportPage() {
   const fetchActiveConversation = async (userId: string, silent = false) => {
     if (!silent) setLoadingMessages(true);
     try {
-      const res = await fetch(`${API}/api/v1/admin/support/conversations/${userId}`);
+      const res = await fetch(`${API}/api/v1/admin/support/conversations/${userId}?t=${Date.now()}&${getAdminRoleQuery()}`, {
+        headers: getAdminAuthHeaders(),
+      });
       if (!res.ok) return;
       const data = await res.json();
       setActiveUser(data.user || null);
@@ -533,8 +540,15 @@ export default function AdminSupportPage() {
                   {/* Thread details */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
-                      <div style={{ fontSize: '13px', fontWeight: 800, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {displayPhone}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', overflow: 'hidden' }}>
+                        <div style={{ fontSize: '13px', fontWeight: 800, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {displayPhone}
+                        </div>
+                        {conv.promo_code && (
+                          <span style={{ fontSize: '9px', fontWeight: 800, background: '#FEF3C7', color: '#92400E', padding: '1px 5px', borderRadius: '4px', flexShrink: 0, border: '1px solid #FDE68A' }}>
+                            🏷️ {conv.promo_code}
+                          </span>
+                        )}
                       </div>
                       <span style={{ fontSize: '10px', color: '#9CA3AF', flexShrink: 0 }}>
                         {formatTime(conv.last_message_at)}
@@ -627,8 +641,13 @@ export default function AdminSupportPage() {
                   </div>
 
                   <div>
-                    <div style={{ fontSize: '14px', fontWeight: 800, color: '#111827', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      {activeUser.phone || 'User Chat'}
+                    <div style={{ fontSize: '14px', fontWeight: 800, color: '#111827', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      <span>{activeUser.phone || 'User Chat'}</span>
+                      {activeUser.promo_code && (
+                        <span style={{ fontSize: '10px', fontWeight: 800, background: '#FEF3C7', color: '#92400E', padding: '2px 6px', borderRadius: '6px', border: '1px solid #FDE68A' }}>
+                          🏷️ Promo: {activeUser.promo_code}
+                        </span>
+                      )}
                       {activeUser.is_blocked && (
                         <span style={{ fontSize: '10px', fontWeight: 800, background: '#FEE2E2', color: '#DC2626', padding: '2px 6px', borderRadius: '8px' }}>
                           BLOCKED

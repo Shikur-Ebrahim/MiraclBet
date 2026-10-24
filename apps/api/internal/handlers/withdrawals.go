@@ -32,6 +32,7 @@ type Withdrawal struct {
 	Amount             float64   `json:"amount"`
 	Status             string    `json:"status"`
 	CreatedAt          time.Time `json:"created_at"`
+	PromoCode          string    `json:"promo_code,omitempty"`
 }
 
 // User requests a withdrawal
@@ -163,16 +164,26 @@ func (h *WithdrawalsHandler) Create(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"id": newID, "status": "pending"})
 }
 
-// ListAdmin — Returns all withdrawals for admin UI
+// ListAdmin — Returns all withdrawals for admin UI (filtered for normal admin, full for super admin)
 func (h *WithdrawalsHandler) ListAdmin(w http.ResponseWriter, r *http.Request) {
-	rows, err := h.db.Pool.Query(r.Context(), `
+	isSuper := IsSuperAdminRequest(r, h.db)
+	promoFilter := r.URL.Query().Get("promo_filter")
+
+	query := `
 		SELECT w.id, w.user_id, w.withdrawal_method_id, w.account_name, w.account_number, w.amount, w.status, w.created_at,
-		       u.phone, m.provider_name
+		       u.phone, m.provider_name, COALESCE(u.promo_code, '')
 		FROM withdrawals w
 		JOIN users u ON w.user_id = u.id
 		JOIN withdrawal_methods m ON w.withdrawal_method_id = m.id
-		ORDER BY CASE WHEN w.status = 'pending' THEN 1 ELSE 2 END, w.created_at DESC
-	`)
+	`
+	if !isSuper || promoFilter == "none" {
+		query += " WHERE COALESCE(u.promo_code, '') = '' "
+	} else if promoFilter == "only" {
+		query += " WHERE COALESCE(u.promo_code, '') != '' "
+	}
+	query += " ORDER BY CASE WHEN w.status = 'pending' THEN 1 ELSE 2 END, w.created_at DESC"
+
+	rows, err := h.db.Pool.Query(r.Context(), query)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -182,7 +193,7 @@ func (h *WithdrawalsHandler) ListAdmin(w http.ResponseWriter, r *http.Request) {
 	var withdrawals []Withdrawal
 	for rows.Next() {
 		var wd Withdrawal
-		if err := rows.Scan(&wd.ID, &wd.UserID, &wd.WithdrawalMethodID, &wd.AccountName, &wd.AccountNumber, &wd.Amount, &wd.Status, &wd.CreatedAt, &wd.UserPhone, &wd.ProviderName); err != nil {
+		if err := rows.Scan(&wd.ID, &wd.UserID, &wd.WithdrawalMethodID, &wd.AccountName, &wd.AccountNumber, &wd.Amount, &wd.Status, &wd.CreatedAt, &wd.UserPhone, &wd.ProviderName, &wd.PromoCode); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}

@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/miraclbet/api/internal/database"
 	"golang.org/x/crypto/bcrypt"
@@ -33,6 +34,7 @@ type User struct {
 	Role       string   `json:"role"`
 	Balance    float64  `json:"balance"`
 	Privileges []string `json:"privileges"`
+	PromoCode  string   `json:"promo_code,omitempty"`
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -48,9 +50,9 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var privBytes []byte
 
 	err := h.db.Pool.QueryRow(r.Context(),
-		`SELECT id, phone, role, COALESCE(balance, 0), password_hash, COALESCE(is_active, true), COALESCE(privileges, '[]'::jsonb) 
+		`SELECT id, phone, role, COALESCE(balance, 0), password_hash, COALESCE(is_active, true), COALESCE(privileges, '[]'::jsonb), COALESCE(promo_code, '') 
 		 FROM users WHERE phone = $1`,
-		req.Phone).Scan(&user.ID, &user.Phone, &user.Role, &user.Balance, &hash, &isActive, &privBytes)
+		req.Phone).Scan(&user.ID, &user.Phone, &user.Role, &user.Balance, &hash, &isActive, &privBytes, &user.PromoCode)
 
 	if err != nil {
 		h.respondError(w, http.StatusUnauthorized, "Invalid phone number or password")
@@ -90,8 +92,9 @@ func (h *AuthHandler) respondError(w http.ResponseWriter, code int, message stri
 }
 
 type RegisterRequest struct {
-	Phone    string `json:"phone"`
-	Password string `json:"password"`
+	Phone     string `json:"phone"`
+	Password  string `json:"password"`
+	PromoCode string `json:"promo_code,omitempty"`
 }
 
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
@@ -121,11 +124,21 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var user User
-	err = h.db.Pool.QueryRow(r.Context(), `
-		INSERT INTO users (phone, password_hash, role, balance) 
-		VALUES ($1, $2, 'USER', 0.00) 
-		RETURNING id, phone, role, balance
-	`, req.Phone, string(hash)).Scan(&user.ID, &user.Phone, &user.Role, &user.Balance)
+	cleanPromo := strings.ToUpper(strings.TrimSpace(req.PromoCode))
+	user.PromoCode = cleanPromo
+	if cleanPromo != "" {
+		err = h.db.Pool.QueryRow(r.Context(), `
+			INSERT INTO users (phone, password_hash, role, balance, promo_code, verified_inviter_code, inviter_code_verified) 
+			VALUES ($1, $2, 'USER', 0.00, $3, $3, true) 
+			RETURNING id, phone, role, balance, COALESCE(promo_code, '')
+		`, req.Phone, string(hash), cleanPromo).Scan(&user.ID, &user.Phone, &user.Role, &user.Balance, &user.PromoCode)
+	} else {
+		err = h.db.Pool.QueryRow(r.Context(), `
+			INSERT INTO users (phone, password_hash, role, balance) 
+			VALUES ($1, $2, 'USER', 0.00) 
+			RETURNING id, phone, role, balance, COALESCE(promo_code, '')
+		`, req.Phone, string(hash)).Scan(&user.ID, &user.Phone, &user.Role, &user.Balance, &user.PromoCode)
+	}
 
 	if err != nil {
 		// Mostly unique violation for duplicate phone
@@ -153,8 +166,8 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	var user User
 	var privBytes []byte
 	err := h.db.Pool.QueryRow(r.Context(),
-		`SELECT id, phone, role, COALESCE(balance, 0), COALESCE(privileges, '[]'::jsonb) FROM users WHERE id = $1`, userID,
-	).Scan(&user.ID, &user.Phone, &user.Role, &user.Balance, &privBytes)
+		`SELECT id, phone, role, COALESCE(balance, 0), COALESCE(privileges, '[]'::jsonb), COALESCE(promo_code, '') FROM users WHERE id = $1`, userID,
+	).Scan(&user.ID, &user.Phone, &user.Role, &user.Balance, &privBytes, &user.PromoCode)
 
 	if err != nil {
 		h.respondError(w, http.StatusNotFound, "User not found")

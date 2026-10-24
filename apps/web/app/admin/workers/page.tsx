@@ -1,10 +1,12 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { getAdminAuthHeaders, getAdminRoleQuery } from '@/lib/adminAuth';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
-type Role = 'USER' | 'WORKER' | 'ADMIN';
+type Role = 'USER' | 'WORKER' | 'ADMIN' | 'SUPER_ADMIN';
 
 type WorkerUser = {
   id: string;
@@ -23,6 +25,7 @@ const SECTIONS = [
 ];
 
 export default function WorkersPage() {
+  const router = useRouter();
   const [users, setUsers] = useState<WorkerUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -31,12 +34,20 @@ export default function WorkersPage() {
   const [addPhone, setAddPhone] = useState('');
   const [addError, setAddError] = useState('');
 
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => {
+    const saved = localStorage.getItem('miraclbet_user');
+    if (!saved) { router.push('/login'); return; }
+    const u = JSON.parse(saved);
+    if (u.role !== 'ADMIN' && u.role !== 'SUPER_ADMIN') { router.push('/'); return; }
+    fetchUsers();
+  }, [router]);
 
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API}/api/v1/admin/users`);
+      const res = await fetch(`${API}/api/v1/admin/users?t=${Date.now()}&${getAdminRoleQuery()}`, {
+        headers: getAdminAuthHeaders(),
+      });
       if (res.ok) {
         const data = await res.json();
         // Only show WORKERs, and maybe ADMINs, but here we manage WORKERs.

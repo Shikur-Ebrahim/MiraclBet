@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { getAdminAuthHeaders, getAdminRoleQuery, isCurrentSuperAdmin } from '@/lib/adminAuth';
 
 type Deposit = {
   id: string;
@@ -12,6 +13,7 @@ type Deposit = {
   screenshot_url: string;
   status: 'pending' | 'accepted' | 'rejected';
   created_at: string;
+  promo_code?: string;
 };
 
 export default function AdminDepositsPage() {
@@ -19,17 +21,48 @@ export default function AdminDepositsPage() {
   const [deposits, setDeposits] = useState<Deposit[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [isSuper, setIsSuper] = useState(false);
+  const [promoFilter, setPromoFilter] = useState<'all' | 'only' | 'normal'>('all');
 
   // Modal for screenshot
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   useEffect(() => {
+    const saved = localStorage.getItem('miraclbet_user');
+    if (!saved) {
+      router.push('/login');
+      return;
+    }
+    const u = JSON.parse(saved);
+    if (u.role !== 'ADMIN' && u.role !== 'SUPER_ADMIN' && u.role !== 'WORKER') {
+      router.push('/');
+      return;
+    }
+    const superAdmin = u.role === 'SUPER_ADMIN' || isCurrentSuperAdmin();
+    setIsSuper(superAdmin);
+
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search).get('promo_filter');
+      if (p === 'only') setPromoFilter('only');
+    }
+  }, [router]);
+
+  useEffect(() => {
     fetchDeposits();
-  }, []);
+  }, [promoFilter]);
 
   const fetchDeposits = async () => {
+    setLoading(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/deposits`);
+      let url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/deposits?t=${Date.now()}&${getAdminRoleQuery()}`;
+      if (promoFilter === 'only') {
+        url += '&promo_filter=only';
+      } else if (promoFilter === 'normal') {
+        url += '&promo_filter=none';
+      }
+      const res = await fetch(url, {
+        headers: getAdminAuthHeaders(),
+      });
       if (res.ok) {
         const data = await res.json();
         setDeposits(data || []);
@@ -46,9 +79,9 @@ export default function AdminDepositsPage() {
     
     setProcessingId(id);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/deposits/${id}/status`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/deposits/${id}/status?${getAdminRoleQuery()}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAdminAuthHeaders() },
         body: JSON.stringify({ status }),
       });
       
@@ -75,8 +108,9 @@ export default function AdminDepositsPage() {
 
     setProcessingId(id);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/deposits/${id}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/deposits/${id}?${getAdminRoleQuery()}`, {
         method: 'DELETE',
+        headers: getAdminAuthHeaders(),
       });
       
       if (res.ok) {
@@ -110,6 +144,48 @@ export default function AdminDepositsPage() {
 
       <div style={{ padding: '20px 16px', maxWidth: '600px', margin: '0 auto', paddingBottom: '100px' }}>
         
+        {/* Super Admin Promo Filter Tabs */}
+        {isSuper && (
+          <div style={{
+            display: 'flex', gap: '8px', marginBottom: '16px', background: '#FEF3C7',
+            padding: '8px', borderRadius: '12px', border: '1px solid #FDE68A'
+          }}>
+            <button
+              onClick={() => setPromoFilter('all')}
+              style={{
+                flex: 1, padding: '7px 10px', borderRadius: '8px', border: 'none',
+                fontWeight: 700, fontSize: '12px', cursor: 'pointer',
+                background: promoFilter === 'all' ? '#111827' : 'transparent',
+                color: promoFilter === 'all' ? '#FFF' : '#78350F'
+              }}
+            >
+              All Deposits
+            </button>
+            <button
+              onClick={() => setPromoFilter('only')}
+              style={{
+                flex: 1, padding: '7px 10px', borderRadius: '8px', border: 'none',
+                fontWeight: 700, fontSize: '12px', cursor: 'pointer',
+                background: promoFilter === 'only' ? '#D97706' : 'transparent',
+                color: promoFilter === 'only' ? '#FFF' : '#78350F'
+              }}
+            >
+              👑 Promo Only
+            </button>
+            <button
+              onClick={() => setPromoFilter('normal')}
+              style={{
+                flex: 1, padding: '7px 10px', borderRadius: '8px', border: 'none',
+                fontWeight: 700, fontSize: '12px', cursor: 'pointer',
+                background: promoFilter === 'normal' ? '#111827' : 'transparent',
+                color: promoFilter === 'normal' ? '#FFF' : '#78350F'
+              }}
+            >
+              Normal Only
+            </button>
+          </div>
+        )}
+
         {loading ? (
           <div style={{ textAlign: 'center', padding: '40px', color: '#6B7280' }}>Loading...</div>
         ) : deposits.length === 0 ? (
@@ -126,7 +202,17 @@ export default function AdminDepositsPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
                   <div>
                     <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '2px' }}>User Phone</div>
-                    <div style={{ fontSize: '16px', fontWeight: 800, color: '#111827' }}>{deposit.user_phone || 'Unknown'}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      <div style={{ fontSize: '16px', fontWeight: 800, color: '#111827' }}>{deposit.user_phone || 'Unknown'}</div>
+                      {deposit.promo_code && (
+                        <span style={{
+                          background: '#FEF3C7', color: '#92400E', padding: '2px 7px',
+                          borderRadius: '5px', fontSize: '11px', fontWeight: 800, border: '1px solid #FDE68A'
+                        }}>
+                          🏷️ Promo: {deposit.promo_code}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '2px' }}>Amount</div>

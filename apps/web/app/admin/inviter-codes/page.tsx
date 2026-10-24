@@ -37,7 +37,7 @@ export default function AdminInviterCodesPage() {
       return;
     }
     const parsed = JSON.parse(savedUser);
-    if (parsed.role !== 'ADMIN') {
+    if (parsed.role !== 'ADMIN' && parsed.role !== 'SUPER_ADMIN') {
       router.push('/');
       return;
     }

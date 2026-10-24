@@ -693,25 +693,36 @@ func (h *SettlementHandler) GetAllBets(w http.ResponseWriter, r *http.Request) {
 		PotentialPayout float64    `json:"potential_payout"`
 		Status          string     `json:"status"`
 		CreatedAt       time.Time  `json:"created_at"`
+		PromoCode       string     `json:"promo_code,omitempty"`
 		Legs            []LegAdmin `json:"legs"`
+	}
+
+	isSuper := IsSuperAdminRequest(r, h.db)
+	promoFilter := r.URL.Query().Get("promo_filter")
+	whereClause := ""
+	if !isSuper || promoFilter == "none" {
+		whereClause += " AND COALESCE(u.promo_code, '') = '' "
+	} else if promoFilter == "only" {
+		whereClause += " AND COALESCE(u.promo_code, '') != '' "
 	}
 
 	var rows pgx.Rows
 	var err error
 	if statusFilter == "ALL" {
 		rows, err = h.db.Pool.Query(ctx, `
-			SELECT bs.id, bs.user_id, COALESCE(u.phone, ''), bs.stake, bs.total_odds, bs.potential_payout, bs.status, bs.created_at
+			SELECT bs.id, bs.user_id, COALESCE(u.phone, ''), bs.stake, bs.total_odds, bs.potential_payout, bs.status, bs.created_at, COALESCE(u.promo_code, '')
 			FROM bet_slips bs
 			LEFT JOIN users u ON u.id = bs.user_id
+			WHERE 1=1 ` + whereClause + `
 			ORDER BY bs.created_at DESC
 			LIMIT 500
 		`)
 	} else {
 		rows, err = h.db.Pool.Query(ctx, `
-			SELECT bs.id, bs.user_id, COALESCE(u.phone, ''), bs.stake, bs.total_odds, bs.potential_payout, bs.status, bs.created_at
+			SELECT bs.id, bs.user_id, COALESCE(u.phone, ''), bs.stake, bs.total_odds, bs.potential_payout, bs.status, bs.created_at, COALESCE(u.promo_code, '')
 			FROM bet_slips bs
 			LEFT JOIN users u ON u.id = bs.user_id
-			WHERE bs.status = $1
+			WHERE bs.status = $1 ` + whereClause + `
 			ORDER BY bs.created_at DESC
 			LIMIT 500
 		`, statusFilter)
@@ -725,7 +736,7 @@ func (h *SettlementHandler) GetAllBets(w http.ResponseWriter, r *http.Request) {
 	var slips []SlipAdmin
 	for rows.Next() {
 		var s SlipAdmin
-		if err := rows.Scan(&s.ID, &s.UserID, &s.UserPhone, &s.Stake, &s.TotalOdds, &s.PotentialPayout, &s.Status, &s.CreatedAt); err != nil {
+		if err := rows.Scan(&s.ID, &s.UserID, &s.UserPhone, &s.Stake, &s.TotalOdds, &s.PotentialPayout, &s.Status, &s.CreatedAt, &s.PromoCode); err != nil {
 			continue
 		}
 		legRows, _ := h.db.Pool.Query(ctx, `

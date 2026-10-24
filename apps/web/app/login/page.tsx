@@ -43,7 +43,7 @@ function LoginForm() {
       window.dispatchEvent(new Event('miraclbet_auth_change'));
 
       // Immediate redirect
-      if (data.user.role === 'ADMIN') {
+      if (data.user.role === 'ADMIN' || data.user.role === 'SUPER_ADMIN') {
         window.location.href = '/admin';
       } else if (data.user.role === 'WORKER') {
         window.location.href = '/worker';

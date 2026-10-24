@@ -25,6 +25,7 @@ type AdminUser struct {
 	IsActive     bool      `json:"is_active"`
 	CreatedAt    time.Time `json:"created_at"`
 	Privileges   []string  `json:"privileges"`
+	PromoCode    string    `json:"promo_code,omitempty"`
 }
 
 type AdminUserDetail struct {
@@ -35,13 +36,24 @@ type AdminUserDetail struct {
 	WithdrawalCount  int     `json:"withdrawal_count"`
 }
 
-// List â€” all users
+// List — all users (filtered for regular admin, full for super admin)
 func (h *UsersAdminHandler) List(w http.ResponseWriter, r *http.Request) {
-	rows, err := h.db.Pool.Query(r.Context(), `
-		SELECT id, phone, role, COALESCE(balance, 0), COALESCE(is_active, true), created_at, COALESCE(privileges, '[]'::jsonb)
+	isSuper := IsSuperAdminRequest(r, h.db)
+	promoFilter := r.URL.Query().Get("promo_filter") // "only", "none", or default
+
+	query := `
+		SELECT id, phone, role, COALESCE(balance, 0), COALESCE(is_active, true), created_at, COALESCE(privileges, '[]'::jsonb), COALESCE(promo_code, '')
 		FROM users
-		ORDER BY created_at DESC
-	`)
+	`
+	if !isSuper || promoFilter == "none" {
+		// Normal admins NEVER see promo code users!
+		query += " WHERE COALESCE(promo_code, '') = '' "
+	} else if promoFilter == "only" {
+		query += " WHERE COALESCE(promo_code, '') != '' "
+	}
+	query += " ORDER BY created_at DESC"
+
+	rows, err := h.db.Pool.Query(r.Context(), query)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -52,7 +64,7 @@ func (h *UsersAdminHandler) List(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var u AdminUser
 		var privs []byte
-		if err := rows.Scan(&u.ID, &u.Phone, &u.Role, &u.Balance, &u.IsActive, &u.CreatedAt, &privs); err != nil {
+		if err := rows.Scan(&u.ID, &u.Phone, &u.Role, &u.Balance, &u.IsActive, &u.CreatedAt, &privs, &u.PromoCode); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -71,13 +83,20 @@ func (h *UsersAdminHandler) List(w http.ResponseWriter, r *http.Request) {
 // Get - single user with stats
 func (h *UsersAdminHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+	isSuper := IsSuperAdminRequest(r, h.db)
 
 	var u AdminUserDetail
 	var privs []byte
 	err := h.db.Pool.QueryRow(r.Context(), `
-		SELECT id, phone, role, COALESCE(balance, 0), COALESCE(is_active, true), created_at, COALESCE(privileges, '[]'::jsonb)
+		SELECT id, phone, role, COALESCE(balance, 0), COALESCE(is_active, true), created_at, COALESCE(privileges, '[]'::jsonb), COALESCE(promo_code, '')
 		FROM users WHERE id = $1
-	`, id).Scan(&u.ID, &u.Phone, &u.Role, &u.Balance, &u.IsActive, &u.CreatedAt, &privs)
+	`, id).Scan(&u.ID, &u.Phone, &u.Role, &u.Balance, &u.IsActive, &u.CreatedAt, &privs, &u.PromoCode)
+
+	if err == nil && !isSuper && u.PromoCode != "" {
+		// Normal admins cannot access promo users
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
 	
 	if err == nil {
 		json.Unmarshal(privs, &u.Privileges)
@@ -136,8 +155,8 @@ func (h *UsersAdminHandler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid body", http.StatusBadRequest)
 		return
 	}
-	if req.Role != "USER" && req.Role != "ADMIN" && req.Role != "WORKER" && req.Role != "AGENT" {
-		http.Error(w, "Role must be USER, WORKER, AGENT or ADMIN", http.StatusBadRequest)
+	if req.Role != "USER" && req.Role != "ADMIN" && req.Role != "SUPER_ADMIN" && req.Role != "WORKER" && req.Role != "AGENT" {
+		http.Error(w, "Role must be USER, WORKER, AGENT, ADMIN or SUPER_ADMIN", http.StatusBadRequest)
 		return
 	}
 
@@ -191,10 +210,27 @@ func (h *UsersAdminHandler) AdjustBalance(w http.ResponseWriter, r *http.Request
 // GetPendingCounts returns the count of pending deposits and withdrawals for the admin dashboard.
 func (h *UsersAdminHandler) GetPendingCounts(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	isSuper := IsSuperAdminRequest(r, h.db)
 	var deposits, withdrawals int
 
-	h.db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM deposits WHERE status = 'pending'").Scan(&deposits)
-	h.db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM withdrawals WHERE status = 'pending'").Scan(&withdrawals)
+	if isSuper {
+		h.db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM deposits WHERE status = 'pending'").Scan(&deposits)
+		h.db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM withdrawals WHERE status = 'pending'").Scan(&withdrawals)
+	} else {
+		// Exclude promo users from normal admin badges
+		h.db.Pool.QueryRow(ctx, `
+			SELECT COUNT(*) 
+			FROM deposits d 
+			JOIN users u ON d.user_id = u.id 
+			WHERE d.status = 'pending' AND COALESCE(u.promo_code, '') = ''
+		`).Scan(&deposits)
+		h.db.Pool.QueryRow(ctx, `
+			SELECT COUNT(*) 
+			FROM withdrawals w 
+			JOIN users u ON w.user_id = u.id 
+			WHERE w.status = 'pending' AND COALESCE(u.promo_code, '') = ''
+		`).Scan(&withdrawals)
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]int{
@@ -239,8 +275,8 @@ func (h *UsersAdminHandler) AssignRoleByPhone(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if req.Role != "USER" && req.Role != "ADMIN" && req.Role != "WORKER" && req.Role != "AGENT" {
-		http.Error(w, "Role must be USER, WORKER, AGENT or ADMIN", http.StatusBadRequest)
+	if req.Role != "USER" && req.Role != "ADMIN" && req.Role != "SUPER_ADMIN" && req.Role != "WORKER" && req.Role != "AGENT" {
+		http.Error(w, "Role must be USER, WORKER, AGENT, ADMIN or SUPER_ADMIN", http.StatusBadRequest)
 		return
 	}
 

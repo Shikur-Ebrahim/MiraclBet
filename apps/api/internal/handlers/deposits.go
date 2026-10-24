@@ -33,6 +33,7 @@ type Deposit struct {
 	// Additional fields for admin list
 	UserPhone         *string   `json:"user_phone,omitempty"`
 	ProviderName      *string   `json:"provider_name,omitempty"`
+	PromoCode         *string   `json:"promo_code,omitempty"`
 }
 
 func (h *DepositsHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -80,14 +81,24 @@ func (h *DepositsHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *DepositsHandler) ListAdmin(w http.ResponseWriter, r *http.Request) {
-	rows, err := h.db.Pool.Query(r.Context(), `
+	isSuper := IsSuperAdminRequest(r, h.db)
+	promoFilter := r.URL.Query().Get("promo_filter")
+
+	query := `
 		SELECT d.id, d.user_id, d.payment_method_id, d.amount, d.screenshot_url, d.status, d.created_at,
-		       u.phone, p.provider_name
+		       u.phone, p.provider_name, COALESCE(u.promo_code, '')
 		FROM deposits d
 		JOIN users u ON d.user_id = u.id
 		JOIN payment_methods p ON d.payment_method_id = p.id
-		ORDER BY d.created_at DESC
-	`)
+	`
+	if !isSuper || promoFilter == "none" {
+		query += " WHERE COALESCE(u.promo_code, '') = '' "
+	} else if promoFilter == "only" {
+		query += " WHERE COALESCE(u.promo_code, '') != '' "
+	}
+	query += " ORDER BY d.created_at DESC"
+
+	rows, err := h.db.Pool.Query(r.Context(), query)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -97,9 +108,13 @@ func (h *DepositsHandler) ListAdmin(w http.ResponseWriter, r *http.Request) {
 	var deposits []Deposit
 	for rows.Next() {
 		var d Deposit
-		if err := rows.Scan(&d.ID, &d.UserID, &d.PaymentMethodID, &d.Amount, &d.ScreenshotURL, &d.Status, &d.CreatedAt, &d.UserPhone, &d.ProviderName); err != nil {
+		var promo string
+		if err := rows.Scan(&d.ID, &d.UserID, &d.PaymentMethodID, &d.Amount, &d.ScreenshotURL, &d.Status, &d.CreatedAt, &d.UserPhone, &d.ProviderName, &promo); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
+		}
+		if promo != "" {
+			d.PromoCode = &promo
 		}
 		deposits = append(deposits, d)
 	}

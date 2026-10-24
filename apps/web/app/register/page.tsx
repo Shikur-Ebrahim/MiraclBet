@@ -15,8 +15,25 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [promoCode, setPromoCode] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+
+  React.useEffect(() => {
+    try {
+      if (typeof window === 'undefined') return;
+      const params = new URLSearchParams(window.location.search);
+      const qPromo = params.get('ref') || params.get('promo') || params.get('code');
+      const saved = localStorage.getItem('miraclbet_promo_code');
+      if (qPromo) {
+        setPromoCode(qPromo.trim().toUpperCase());
+      } else if (saved) {
+        setPromoCode(saved.trim().toUpperCase());
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +63,7 @@ export default function RegisterPage() {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, password }),
+        body: JSON.stringify({ phone, password, promo_code: promoCode.trim().toUpperCase() }),
       });
 
       const data = await res.json();
@@ -161,6 +178,27 @@ export default function RegisterPage() {
                     <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                   )}
                 </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-muted mb-1">
+                Promo / Referral Code <span className="text-xs text-gray-400 font-normal">(Optional)</span>
+              </label>
+              <div className="relative">
+                <input 
+                  type="text" 
+                  value={promoCode}
+                  onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                  maxLength={10}
+                  className="w-full bg-dark border border-brand rounded px-4 py-2 pr-24 text-white uppercase tracking-wider font-semibold focus:outline-none focus:border-primary"
+                  placeholder="e.g. 7777"
+                />
+                {promoCode.trim().length >= 3 && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-green-400 bg-green-500/15 px-2 py-0.5 rounded border border-green-500/30">
+                    ✓ APPLIED
+                  </span>
+                )}
               </div>
             </div>
 

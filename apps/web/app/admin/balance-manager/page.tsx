@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { getAdminAuthHeaders, getAdminRoleQuery, isCurrentSuperAdmin } from '@/lib/adminAuth';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
 
@@ -22,6 +23,7 @@ type UserRow = {
   pending_bets: number;
   total_staked: number;
   total_payout: number;
+  promo_code?: string;
 };
 
 type DepositRow = {
@@ -51,6 +53,7 @@ type UserDetail = {
     balance: number;
     is_active: boolean;
     created_at: string;
+    promo_code?: string;
   };
   deposits: DepositRow[];
   bets: BetRow[];
@@ -101,8 +104,8 @@ function DetailModal({ userId, onClose, onBalanceUpdated }: {
     setLoading(true);
     try {
       const token = localStorage.getItem('miraclbet_token') || '';
-      const res = await fetch(`${API}/api/v1/admin/balance-manager/${userId}`, {
-        headers: { 'Authorization': `Bearer ${token}` },
+      const res = await fetch(`${API}/api/v1/admin/balance-manager/${userId}?t=${Date.now()}&${getAdminRoleQuery()}`, {
+        headers: { 'Authorization': `Bearer ${token}`, ...getAdminAuthHeaders() },
       });
       const data = await res.json();
       setDetail(data);
@@ -170,7 +173,17 @@ function DetailModal({ userId, onClose, onBalanceUpdated }: {
         {/* Header */}
         <div style={{ padding: '16px 20px', borderBottom: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <div>
-            <div style={{ fontWeight: 800, fontSize: 18, color: '#111827' }}>{detail?.user.phone ?? '...'}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <span style={{ fontWeight: 800, fontSize: 18, color: '#111827' }}>{detail?.user.phone ?? '...'}</span>
+              {detail?.user.promo_code && (
+                <span style={{
+                  background: '#FEF3C7', color: '#92400E', padding: '2px 7px',
+                  borderRadius: 5, fontSize: 11, fontWeight: 800, border: '1px solid #FDE68A'
+                }}>
+                  🏷️ Promo: {detail.user.promo_code}
+                </span>
+              )}
+            </div>
             <div style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>{detail?.user.role} · {detail?.user.is_active ? 'Active' : 'Inactive'}</div>
           </div>
           <button onClick={onClose} style={{ background: '#F3F4F6', border: 'none', borderRadius: 10, padding: '8px 14px', fontWeight: 700, fontSize: 13, cursor: 'pointer', color: '#374151' }}>
@@ -359,27 +372,57 @@ export default function AdminBalanceManagerPage() {
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [isSuper, setIsSuper] = useState(false);
+  const [promoFilter, setPromoFilter] = useState<'all' | 'only' | 'normal'>('all');
+
+  const fetchUsers = useCallback(async (currentPromoFilter: string) => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('miraclbet_token') || '';
+      let url = `${API}/api/v1/admin/balance-manager?t=${Date.now()}&${getAdminRoleQuery()}`;
+      if (currentPromoFilter === 'only') url += '&promo_filter=only';
+      else if (currentPromoFilter === 'normal') url += '&promo_filter=none';
+
+      const res = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${token}`, ...getAdminAuthHeaders() },
+      });
+      const data = await res.json();
+      const arr = Array.isArray(data) ? data : [];
+      setUsers(arr);
+      setFiltered(arr);
+    } catch {
+      setUsers([]);
+      setFiltered([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     setMounted(true);
     const saved = localStorage.getItem('miraclbet_user');
     if (!saved) { router.push('/login'); return; }
     const u = JSON.parse(saved);
-    if (u.role !== 'ADMIN') { router.push('/admin'); return; }
+    if (u.role !== 'ADMIN' && u.role !== 'SUPER_ADMIN') { router.push('/admin'); return; }
+    const superAdmin = u.role === 'SUPER_ADMIN' || isCurrentSuperAdmin();
+    setIsSuper(superAdmin);
 
-    const token = localStorage.getItem('miraclbet_token') || '';
-    fetch(`${API}/api/v1/admin/balance-manager`, {
-      headers: { 'Authorization': `Bearer ${token}` },
-    })
-      .then(r => r.json())
-      .then(data => {
-        const arr = Array.isArray(data) ? data : [];
-        setUsers(arr);
-        setFiltered(arr);
-      })
-      .catch(() => setUsers([]))
-      .finally(() => setLoading(false));
-  }, [router]);
+    let initialFilter: 'all' | 'only' | 'normal' = 'all';
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search).get('promo_filter');
+      if (p === 'only') {
+        initialFilter = 'only';
+        setPromoFilter('only');
+      }
+    }
+    fetchUsers(initialFilter);
+  }, [router, fetchUsers]);
+
+  useEffect(() => {
+    if (mounted) {
+      fetchUsers(promoFilter);
+    }
+  }, [promoFilter, mounted, fetchUsers]);
 
   useEffect(() => {
     const q = search.trim().toLowerCase();
@@ -413,19 +456,55 @@ export default function AdminBalanceManagerPage() {
             <p style={{ fontSize: 11, color: '#9CA3AF', margin: '3px 0 0' }}>{filtered.length} users with deposits</p>
           </div>
         </div>
-        <button onClick={() => {
-          setLoading(true);
-          const token = localStorage.getItem('miraclbet_token') || '';
-          fetch(`${API}/api/v1/admin/balance-manager`, {
-            headers: { 'Authorization': `Bearer ${token}` },
-          }).then(r=>r.json()).then(d=>{const a=Array.isArray(d)?d:[];setUsers(a);setFiltered(a);}).finally(()=>setLoading(false));
-        }}
+        <button onClick={() => fetchUsers(promoFilter)}
           style={{ background: '#F3F4F6', border: 'none', borderRadius: 8, padding: '8px 14px', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
           Refresh
         </button>
       </div>
 
       <div style={{ padding: '16px', maxWidth: 640, margin: '0 auto' }}>
+
+        {/* Super Admin Promo Filter Tabs */}
+        {isSuper && (
+          <div style={{
+            display: 'flex', gap: '8px', marginBottom: '16px', background: '#FEF3C7',
+            padding: '8px', borderRadius: '12px', border: '1px solid #FDE68A'
+          }}>
+            <button
+              onClick={() => setPromoFilter('all')}
+              style={{
+                flex: 1, padding: '7px 10px', borderRadius: '8px', border: 'none',
+                fontWeight: 700, fontSize: '12px', cursor: 'pointer',
+                background: promoFilter === 'all' ? '#111827' : 'transparent',
+                color: promoFilter === 'all' ? '#FFF' : '#78350F'
+              }}
+            >
+              All Users
+            </button>
+            <button
+              onClick={() => setPromoFilter('only')}
+              style={{
+                flex: 1, padding: '7px 10px', borderRadius: '8px', border: 'none',
+                fontWeight: 700, fontSize: '12px', cursor: 'pointer',
+                background: promoFilter === 'only' ? '#D97706' : 'transparent',
+                color: promoFilter === 'only' ? '#FFF' : '#78350F'
+              }}
+            >
+              👑 Promo Only
+            </button>
+            <button
+              onClick={() => setPromoFilter('normal')}
+              style={{
+                flex: 1, padding: '7px 10px', borderRadius: '8px', border: 'none',
+                fontWeight: 700, fontSize: '12px', cursor: 'pointer',
+                background: promoFilter === 'normal' ? '#111827' : 'transparent',
+                color: promoFilter === 'normal' ? '#FFF' : '#78350F'
+              }}
+            >
+              Normal Only
+            </button>
+          </div>
+        )}
 
         {/* Summary cards */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
@@ -477,7 +556,17 @@ export default function AdminBalanceManagerPage() {
               <div style={{ padding: '14px 16px' }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
                   <div>
-                    <div style={{ fontWeight: 800, fontSize: 16, color: '#111827' }}>{u.phone}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: 800, fontSize: 16, color: '#111827' }}>{u.phone}</span>
+                      {u.promo_code && (
+                        <span style={{
+                          background: '#FEF3C7', color: '#92400E', padding: '2px 7px',
+                          borderRadius: 5, fontSize: 11, fontWeight: 800, border: '1px solid #FDE68A'
+                        }}>
+                          🏷️ Promo: {u.promo_code}
+                        </span>
+                      )}
+                    </div>
                     <div style={{ fontSize: 12, color: '#9CA3AF', marginTop: 2 }}>{u.role} · {u.is_active ? 'Active' : 'Inactive'} · Since {new Date(u.created_at).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}</div>
                   </div>
                   <div style={{ textAlign: 'right' }}>

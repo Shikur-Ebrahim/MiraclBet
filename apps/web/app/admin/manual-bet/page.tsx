@@ -322,7 +322,7 @@ export default function AdminManualBetPage() {
     const saved = localStorage.getItem('miraclbet_user');
     if (!saved) { router.push('/login'); return; }
     const u = JSON.parse(saved);
-    if (u.role !== 'ADMIN' && !(u.role === 'WORKER' && (u.privileges || []).includes('manual-bet'))) { router.push('/worker'); return; }
+    if (u.role !== 'ADMIN' && u.role !== 'SUPER_ADMIN' && !(u.role === 'WORKER' && (u.privileges || []).includes('manual-bet'))) { router.push('/worker'); return; }
     setUserRole(u.role || 'ADMIN');
     fetch(`${API}/api/v1/admin/teams`).then(r => r.json()).then(d => setSavedTeams(d || []));
     fetchTickets();

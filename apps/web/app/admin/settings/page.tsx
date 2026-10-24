@@ -21,8 +21,12 @@ export default function AdminSettingsPage() {
   const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
   useEffect(() => {
+    const saved = localStorage.getItem('miraclbet_user');
+    if (!saved) { router.push('/login'); return; }
+    const u = JSON.parse(saved);
+    if (u.role !== 'ADMIN' && u.role !== 'SUPER_ADMIN') { router.push('/'); return; }
     fetchSettings();
-  }, []);
+  }, [router]);
 
   const fetchSettings = async () => {
     try {

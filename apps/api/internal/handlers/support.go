@@ -46,6 +46,7 @@ type ConversationSummary struct {
 	LastSenderRole string    `json:"last_sender_role"`
 	LastMessageAt  time.Time `json:"last_message_at"`
 	UnreadCount    int       `json:"unread_count"`
+	PromoCode      string    `json:"promo_code,omitempty"`
 }
 
 // ─── USER ENDPOINTS ──────────────────────────────────────────────────────────
@@ -233,6 +234,12 @@ func (h *SupportHandler) UploadImage(w http.ResponseWriter, r *http.Request) {
 
 // AdminListConversations lists all conversation threads with latest messages and unread counts.
 func (h *SupportHandler) AdminListConversations(w http.ResponseWriter, r *http.Request) {
+	isSuper := IsSuperAdminRequest(r, h.db)
+	whereClause := ""
+	if !isSuper {
+		whereClause = " WHERE COALESCE(u.promo_code, '') = '' "
+	}
+
 	rows, err := h.db.Pool.Query(r.Context(), `
 		SELECT 
 			u.id,
@@ -242,7 +249,8 @@ func (h *SupportHandler) AdminListConversations(w http.ResponseWriter, r *http.R
 			m.last_image_url,
 			COALESCE(m.last_sender_role, ''),
 			COALESCE(m.last_message_at, NOW()),
-			COALESCE(m.unread_count, 0)
+			COALESCE(m.unread_count, 0),
+			COALESCE(u.promo_code, '')
 		FROM users u
 		INNER JOIN (
 			SELECT 
@@ -255,6 +263,7 @@ func (h *SupportHandler) AdminListConversations(w http.ResponseWriter, r *http.R
 			FROM support_messages
 			GROUP BY user_id
 		) m ON u.id = m.user_id
+		` + whereClause + `
 		ORDER BY m.last_message_at DESC
 	`)
 	if err != nil {
@@ -269,7 +278,7 @@ func (h *SupportHandler) AdminListConversations(w http.ResponseWriter, r *http.R
 		if err := rows.Scan(
 			&c.UserID, &c.UserPhone, &c.IsBlocked,
 			&c.LastMessage, &c.LastImageURL, &c.LastSenderRole,
-			&c.LastMessageAt, &c.UnreadCount,
+			&c.LastMessageAt, &c.UnreadCount, &c.PromoCode,
 		); err == nil {
 			c.UserFullName = c.UserPhone
 			conversations = append(conversations, c)
@@ -432,12 +441,23 @@ func (h *SupportHandler) AdminToggleBlockUser(w http.ResponseWriter, r *http.Req
 
 // AdminGetUnreadCount returns total unread messages sent by users.
 func (h *SupportHandler) AdminGetUnreadCount(w http.ResponseWriter, r *http.Request) {
+	isSuper := IsSuperAdminRequest(r, h.db)
 	var count int
-	_ = h.db.Pool.QueryRow(r.Context(), `
-		SELECT COUNT(*) 
-		FROM support_messages 
-		WHERE sender_role = 'USER' AND is_read = false
-	`).Scan(&count)
+
+	if isSuper {
+		_ = h.db.Pool.QueryRow(r.Context(), `
+			SELECT COUNT(*) 
+			FROM support_messages 
+			WHERE sender_role = 'USER' AND is_read = false
+		`).Scan(&count)
+	} else {
+		_ = h.db.Pool.QueryRow(r.Context(), `
+			SELECT COUNT(*) 
+			FROM support_messages sm
+			JOIN users u ON sm.user_id = u.id
+			WHERE sm.sender_role = 'USER' AND sm.is_read = false AND COALESCE(u.promo_code, '') = ''
+		`).Scan(&count)
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]int{"unread": count})

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { getAdminAuthHeaders, getAdminRoleQuery, isCurrentSuperAdmin } from '@/lib/adminAuth';
 
 type LegAdmin = {
   id: string;
@@ -21,6 +22,7 @@ type SlipAdmin = {
   potential_payout: number;
   status: string;
   created_at: string;
+  promo_code?: string;
   legs: LegAdmin[];
 };
 
@@ -121,8 +123,16 @@ function AdminBetTicket({ slip, onSettle }: { slip: SlipAdmin; onSettle: () => v
             <div style={{ color: '#111827', fontWeight: 800, fontSize: 16 }}>
               {isAccumulator ? `${slip.legs.length}-Fold Accumulator` : 'Single Bet'}
             </div>
-            <div style={{ color: '#6B7280', fontSize: 12, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {fmtDate(slip.created_at)} • User: {slip.user_phone || slip.user_id.slice(0,8)}
+            <div style={{ color: '#6B7280', fontSize: 12, marginTop: 2, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <span>{fmtDate(slip.created_at)} • User: {slip.user_phone || slip.user_id.slice(0,8)}</span>
+              {slip.promo_code && (
+                <span style={{
+                  background: '#FEF3C7', color: '#92400E', padding: '1px 6px',
+                  borderRadius: 4, fontSize: 10, fontWeight: 800, border: '1px solid #FDE68A'
+                }}>
+                  🏷️ Promo: {slip.promo_code}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -313,15 +323,37 @@ export default function AdminTicketsPage() {
   const [loading, setLoading] = useState(true);
   const [settlingAll, setSettlingAll] = useState(false);
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [isSuper, setIsSuper] = useState(false);
+  const [promoFilter, setPromoFilter] = useState<'all' | 'only' | 'normal'>('all');
+
+  useEffect(() => {
+    const saved = localStorage.getItem('miraclbet_user');
+    if (saved) {
+      const u = JSON.parse(saved);
+      setIsSuper(u.role === 'SUPER_ADMIN' || isCurrentSuperAdmin());
+    }
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search).get('promo_filter');
+      if (p === 'only') setPromoFilter('only');
+    }
+  }, []);
 
   useEffect(() => {
     fetchTickets();
-  }, [statusFilter]);
+  }, [statusFilter, promoFilter]);
 
   const fetchTickets = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/bets?status=${statusFilter}`);
+      let url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/bets?status=${statusFilter}&t=${Date.now()}&${getAdminRoleQuery()}`;
+      if (promoFilter === 'only') {
+        url += '&promo_filter=only';
+      } else if (promoFilter === 'normal') {
+        url += '&promo_filter=none';
+      }
+      const res = await fetch(url, {
+        headers: getAdminAuthHeaders(),
+      });
       if (res.ok) {
         const data = await res.json();
         setSlips(data || []);
@@ -388,6 +420,48 @@ export default function AdminTicketsPage() {
       </div>
 
       <div style={{ padding: '20px 16px', maxWidth: '600px', margin: '0 auto' }}>
+        {/* Super Admin Promo Filter Tabs */}
+        {isSuper && (
+          <div style={{
+            display: 'flex', gap: '8px', marginBottom: '16px', background: '#FEF3C7',
+            padding: '8px', borderRadius: '12px', border: '1px solid #FDE68A'
+          }}>
+            <button
+              onClick={() => setPromoFilter('all')}
+              style={{
+                flex: 1, padding: '7px 10px', borderRadius: '8px', border: 'none',
+                fontWeight: 700, fontSize: '12px', cursor: 'pointer',
+                background: promoFilter === 'all' ? '#111827' : 'transparent',
+                color: promoFilter === 'all' ? '#FFF' : '#78350F'
+              }}
+            >
+              All Tickets
+            </button>
+            <button
+              onClick={() => setPromoFilter('only')}
+              style={{
+                flex: 1, padding: '7px 10px', borderRadius: '8px', border: 'none',
+                fontWeight: 700, fontSize: '12px', cursor: 'pointer',
+                background: promoFilter === 'only' ? '#D97706' : 'transparent',
+                color: promoFilter === 'only' ? '#FFF' : '#78350F'
+              }}
+            >
+              👑 Promo Only
+            </button>
+            <button
+              onClick={() => setPromoFilter('normal')}
+              style={{
+                flex: 1, padding: '7px 10px', borderRadius: '8px', border: 'none',
+                fontWeight: 700, fontSize: '12px', cursor: 'pointer',
+                background: promoFilter === 'normal' ? '#111827' : 'transparent',
+                color: promoFilter === 'normal' ? '#FFF' : '#78350F'
+              }}
+            >
+              Normal Only
+            </button>
+          </div>
+        )}
+
         {/* Status Filters */}
         <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '16px', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
           {['ALL', 'PENDING', 'WON', 'LOST', 'VOID'].map(st => (

@@ -21,6 +21,15 @@ func NewBalanceManagerHandler(db *database.DB) *BalanceManagerHandler {
 // Returns all users who have at least one deposit, with their deposit totals and bet stats.
 func (h *BalanceManagerHandler) List(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	isSuper := IsSuperAdminRequest(r, h.db)
+	promoFilter := r.URL.Query().Get("promo_filter")
+
+	whereClause := "WHERE (dep.deposit_count > 0 OR dep.pending_deposits > 0)"
+	if !isSuper || promoFilter == "none" {
+		whereClause += " AND COALESCE(u.promo_code, '') = ''"
+	} else if promoFilter == "only" {
+		whereClause += " AND COALESCE(u.promo_code, '') != ''"
+	}
 
 	rows, err := h.db.Pool.Query(ctx, `
 		SELECT
@@ -38,7 +47,8 @@ func (h *BalanceManagerHandler) List(w http.ResponseWriter, r *http.Request) {
 			COALESCE(bs.lost_bets, 0)::int,
 			COALESCE(bs.pending_bets, 0)::int,
 			COALESCE(bs.total_staked, 0)::float8,
-			COALESCE(bs.total_payout, 0)::float8
+			COALESCE(bs.total_payout, 0)::float8,
+			COALESCE(u.promo_code, '')
 		FROM users u
 		LEFT JOIN (
 			SELECT
@@ -61,7 +71,7 @@ func (h *BalanceManagerHandler) List(w http.ResponseWriter, r *http.Request) {
 			FROM bet_slips
 			GROUP BY user_id
 		) bs ON bs.user_id = u.id
-		WHERE dep.deposit_count > 0 OR dep.pending_deposits > 0
+		` + whereClause + `
 		ORDER BY dep.total_deposited DESC NULLS LAST, u.created_at DESC
 	`)
 	if err != nil {
@@ -86,6 +96,7 @@ func (h *BalanceManagerHandler) List(w http.ResponseWriter, r *http.Request) {
 		PendingBets     int       `json:"pending_bets"`
 		TotalStaked     float64   `json:"total_staked"`
 		TotalPayout     float64   `json:"total_payout"`
+		PromoCode       string    `json:"promo_code,omitempty"`
 	}
 
 	var result []BalanceRow
@@ -95,7 +106,7 @@ func (h *BalanceManagerHandler) List(w http.ResponseWriter, r *http.Request) {
 			&row.ID, &row.Phone, &row.Role, &row.Balance, &row.IsActive, &row.CreatedAt,
 			&row.TotalDeposited, &row.DepositCount, &row.PendingDeposits,
 			&row.TotalBets, &row.WonBets, &row.LostBets, &row.PendingBets,
-			&row.TotalStaked, &row.TotalPayout,
+			&row.TotalStaked, &row.TotalPayout, &row.PromoCode,
 		); err != nil {
 			continue
 		}

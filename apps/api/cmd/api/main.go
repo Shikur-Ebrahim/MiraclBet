@@ -235,6 +235,24 @@ func autoMigrate(ctx context.Context, db *database.DB) error {
 
 		ALTER TABLE users ADD COLUMN IF NOT EXISTS is_support_blocked BOOLEAN NOT NULL DEFAULT false;
 		ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name TEXT DEFAULT '';
+
+		-- Super Admin & Promo Code support
+		DO $$ 
+		BEGIN
+		    BEGIN
+		        ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'SUPER_ADMIN';
+		    EXCEPTION
+		        WHEN duplicate_object THEN null;
+		        WHEN undefined_object THEN null;
+		    END;
+		END $$;
+
+		ALTER TABLE users ADD COLUMN IF NOT EXISTS promo_code TEXT DEFAULT '';
+		CREATE INDEX IF NOT EXISTS idx_users_promo_code ON users(promo_code);
+
+		INSERT INTO settings (key, value) VALUES 
+		    ('super_admin_promo_code', '7777')
+		ON CONFLICT (key) DO NOTHING;
 	`)
 	return err
 }

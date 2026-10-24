@@ -162,6 +162,11 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service, aviatorEngi
 			r.Get("/balance-manager", balanceMgrHandler.List)
 			r.Get("/balance-manager/{id}", balanceMgrHandler.UserDetail)
 
+			// Super Admin Routes
+			superAdminHandler := handlers.NewSuperAdminHandler(db)
+			r.Get("/super/promo-stats", superAdminHandler.GetPromoStats)
+			r.Put("/super/promo-code", superAdminHandler.UpdatePromoCode)
+
 			r.Put("/settings", settingsHandler.UpdateSettings)
 		})
 	})

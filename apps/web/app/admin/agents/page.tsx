@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { getAdminAuthHeaders, getAdminRoleQuery } from '@/lib/adminAuth';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
@@ -11,6 +13,7 @@ type AgentUser = {
 };
 
 export default function AgentsPage() {
+  const router = useRouter();
   const [agents, setAgents] = useState<AgentUser[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -21,12 +24,20 @@ export default function AgentsPage() {
 
   const [removingId, setRemovingId] = useState<string | null>(null);
 
-  useEffect(() => { fetchAgents(); }, []);
+  useEffect(() => {
+    const saved = localStorage.getItem('miraclbet_user');
+    if (!saved) { router.push('/login'); return; }
+    const u = JSON.parse(saved);
+    if (u.role !== 'ADMIN' && u.role !== 'SUPER_ADMIN') { router.push('/'); return; }
+    fetchAgents();
+  }, [router]);
 
   const fetchAgents = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API}/api/v1/admin/users`);
+      const res = await fetch(`${API}/api/v1/admin/users?t=${Date.now()}&${getAdminRoleQuery()}`, {
+        headers: getAdminAuthHeaders(),
+      });
       if (res.ok) {
         const data: AgentUser[] = await res.json();
         setAgents(data.filter(u => u.role === 'AGENT'));

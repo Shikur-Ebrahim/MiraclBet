@@ -2,10 +2,11 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { getAdminAuthHeaders, getAdminRoleQuery, isCurrentSuperAdmin } from '@/lib/adminAuth';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
-type Role = 'USER' | 'WORKER' | 'AGENT' | 'ADMIN';
+type Role = 'USER' | 'WORKER' | 'AGENT' | 'ADMIN' | 'SUPER_ADMIN';
 
 type User = {
   id: string;
@@ -14,6 +15,7 @@ type User = {
   balance: number;
   is_active: boolean;
   created_at: string;
+  promo_code?: string;
 };
 
 type UserDetail = User & {
@@ -27,10 +29,11 @@ const ROLE_CONFIG: Record<Role, { bg: string; text: string; border: string; avat
   USER:   { bg: '#EFF6FF', text: '#3B82F6', border: '#BFDBFE', avatarBg: '#EFF6FF', avatarText: '#3B82F6' },
   WORKER: { bg: '#F0FDF4', text: '#16A34A', border: '#BBF7D0', avatarBg: '#F0FDF4', avatarText: '#16A34A' },
   ADMIN:  { bg: '#FEF3C7', text: '#D97706', border: '#FDE68A', avatarBg: '#FEF3C7', avatarText: '#D97706' },
+  SUPER_ADMIN: { bg: '#EDE9FE', text: '#7C3AED', border: '#DDD6FE', avatarBg: '#EDE9FE', avatarText: '#7C3AED' },
   AGENT:  { bg: '#F3E8FF', text: '#9333EA', border: '#E9D5FF', avatarBg: '#F3E8FF', avatarText: '#9333EA' },
 };
 
-const ALL_ROLES: Role[] = ['USER', 'WORKER', 'AGENT', 'ADMIN'];
+const ALL_ROLES: Role[] = ['USER', 'WORKER', 'AGENT', 'ADMIN', 'SUPER_ADMIN'];
 
 function shortId(id: string) { return id.slice(-6).toUpperCase(); }
 function formatDate(d: string) {
@@ -45,6 +48,28 @@ export default function AdminUsersPage() {
   const [search, setSearch] = useState('');
   const [filterRole, setFilterRole] = useState<'ALL' | Role>('ALL');
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
+  const [isSuper, setIsSuper] = useState(false);
+  const [promoTab, setPromoTab] = useState<'all' | 'promo_only' | 'normal_only'>('all');
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('miraclbet_user');
+      if (!raw) { router.push('/login'); return; }
+      const u = JSON.parse(raw);
+      if (u.role !== 'ADMIN' && u.role !== 'SUPER_ADMIN') {
+        router.push('/');
+        return;
+      }
+      setIsSuper(u.role === 'SUPER_ADMIN');
+
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('promo_filter') === 'only') {
+        setPromoTab('promo_only');
+      }
+    } catch {
+      router.push('/login');
+    }
+  }, [router]);
 
   // Detail drawer
   const [selectedUser, setSelectedUser] = useState<UserDetail | null>(null);
@@ -63,7 +88,10 @@ export default function AdminUsersPage() {
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API}/api/v1/admin/users`);
+      const qRole = getAdminRoleQuery();
+      const res = await fetch(`${API}/api/v1/admin/users?t=${Date.now()}${qRole}`, {
+        headers: getAdminAuthHeaders(),
+      });
       if (res.ok) setUsers(await res.json() || []);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
@@ -79,8 +107,12 @@ export default function AdminUsersPage() {
     }
     if (filterRole !== 'ALL') result = result.filter(u => u.role === filterRole);
     if (filterStatus !== 'ALL') result = result.filter(u => filterStatus === 'ACTIVE' ? u.is_active : !u.is_active);
+    if (isSuper) {
+      if (promoTab === 'promo_only') result = result.filter(u => !!u.promo_code);
+      else if (promoTab === 'normal_only') result = result.filter(u => !u.promo_code);
+    }
     setFiltered(result);
-  }, [search, filterRole, filterStatus, users]);
+  }, [search, filterRole, filterStatus, promoTab, isSuper, users]);
 
   const openDetail = async (user: User) => {
     setDrawerOpen(true);
@@ -91,7 +123,7 @@ export default function AdminUsersPage() {
     setSuccessMsg('');
     setEditingBalance(false);
     try {
-      const res = await fetch(`${API}/api/v1/admin/users/${user.id}`);
+      const res = await fetch(`${API}/api/v1/admin/users/${user.id}?t=${Date.now()}${getAdminRoleQuery()}`, { headers: getAdminAuthHeaders() });
       if (res.ok) setSelectedUser(await res.json());
     } catch (e) { console.error(e); }
     finally { setDetailLoading(false); }
@@ -221,6 +253,26 @@ export default function AdminUsersPage() {
               style={{ width: '100%', padding: '10px 12px 10px 36px', borderRadius: '10px', border: '1px solid #E5E7EB', fontSize: '14px', color: '#111827', background: '#FFF', outline: 'none', boxSizing: 'border-box' }} />
           </div>
 
+          {/* Super Admin Promo Filter Tabs */}
+          {isSuper && (
+            <div style={{ display: 'flex', gap: '6px', padding: '8px', background: '#F5F3FF', borderRadius: '10px', border: '1px solid #DDD6FE' }}>
+              {(['all', 'promo_only', 'normal_only'] as const).map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setPromoTab(tab)}
+                  style={{
+                    flex: 1, padding: '6px 4px', borderRadius: '6px', fontSize: '11px', fontWeight: 800,
+                    background: promoTab === tab ? '#7C3AED' : 'transparent',
+                    color: promoTab === tab ? '#FFF' : '#6D28D9',
+                    border: 'none', cursor: 'pointer'
+                  }}
+                >
+                  {tab === 'all' ? `All (${users.length})` : tab === 'promo_only' ? `👑 Promo Only (${users.filter(u => !!u.promo_code).length})` : `Normal (${users.filter(u => !u.promo_code).length})`}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Role filter */}
           <div style={{ display: 'flex', gap: '6px' }}>
             {(['ALL', 'USER', 'WORKER', 'AGENT', 'ADMIN'] as const).map(r => (
@@ -279,7 +331,17 @@ export default function AdminUsersPage() {
                     {/* Phone + ID */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: '15px', fontWeight: 800, color: '#111827' }}>+251 {user.phone}</div>
-                      <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '2px' }}>ID: {shortId(user.id)} · {formatDate(user.created_at)}</div>
+                      <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                        <span>ID: {shortId(user.id)} · {formatDate(user.created_at)}</span>
+                        {user.promo_code && (
+                          <span style={{
+                            fontSize: '10px', fontWeight: 800, color: '#7C3AED', background: '#F5F3FF',
+                            border: '1px solid #DDD6FE', padding: '1px 6px', borderRadius: '5px'
+                          }}>
+                            🏷️ Promo: {user.promo_code}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {/* Status dot */}

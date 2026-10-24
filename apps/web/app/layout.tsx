@@ -8,6 +8,7 @@ import { RightSidebar } from '@/components/layout/RightSidebar';
 import { DesktopSidebar } from '@/components/layout/DesktopSidebar';
 import { AiAssistant } from '@/components/layout/AiAssistant';
 import { MainContent } from '@/components/layout/MainContent';
+import { PromoCapture } from '@/components/common/PromoCapture';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
@@ -81,6 +82,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <DesktopSidebar />
         <BottomNav />
         <AiAssistant />
+        <PromoCapture />
       </body>
     </html>
   );
