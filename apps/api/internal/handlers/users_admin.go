@@ -36,13 +36,15 @@ type AdminUserDetail struct {
 	WithdrawalCount  int     `json:"withdrawal_count"`
 }
 
-// List — all users (filtered for regular admin, full for super admin)
+// List Ã¢â‚¬â€ all users (filtered for regular admin, full for super admin)
 func (h *UsersAdminHandler) List(w http.ResponseWriter, r *http.Request) {
 	isSuper := IsSuperAdminRequest(r, h.db)
 	promoFilter := r.URL.Query().Get("promo_filter") // "only", "none", or default
-	// Regular admins never see promo users unless explicitly requested
+	// Regular admins never see promo users; Super admin defaults to promo users exclusively
 	if !isSuper {
 		promoFilter = "none"
+	} else if promoFilter == "" {
+		promoFilter = "only"
 	}
 
 	query := `
@@ -121,7 +123,7 @@ func (h *UsersAdminHandler) Get(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(u)
 }
 
-// ToggleStatus â€” activate or deactivate user
+// ToggleStatus ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â activate or deactivate user
 func (h *UsersAdminHandler) ToggleStatus(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
@@ -143,7 +145,7 @@ func (h *UsersAdminHandler) ToggleStatus(w http.ResponseWriter, r *http.Request)
 	json.NewEncoder(w).Encode(map[string]bool{"is_active": req.IsActive})
 }
 
-// UpdateRole â€” set USER or ADMIN
+// UpdateRole ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â set USER or ADMIN
 func (h *UsersAdminHandler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
@@ -169,7 +171,7 @@ func (h *UsersAdminHandler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"role": req.Role})
 }
 
-// AdjustBalance — manually set or add to user balance
+// AdjustBalance Ã¢â‚¬â€ manually set or add to user balance
 func (h *UsersAdminHandler) AdjustBalance(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
@@ -213,8 +215,18 @@ func (h *UsersAdminHandler) GetPendingCounts(w http.ResponseWriter, r *http.Requ
 	var deposits, withdrawals int
 
 	if isSuper {
-		h.db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM deposits WHERE status = 'pending'").Scan(&deposits)
-		h.db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM withdrawals WHERE status = 'pending'").Scan(&withdrawals)
+		h.db.Pool.QueryRow(ctx, `
+			SELECT COUNT(*) 
+			FROM deposits d 
+			JOIN users u ON d.user_id = u.id 
+			WHERE d.status = 'pending' AND COALESCE(u.promo_code, '') != ''
+		`).Scan(&deposits)
+		h.db.Pool.QueryRow(ctx, `
+			SELECT COUNT(*) 
+			FROM withdrawals w 
+			JOIN users u ON w.user_id = u.id 
+			WHERE w.status = 'pending' AND COALESCE(u.promo_code, '') != ''
+		`).Scan(&withdrawals)
 	} else {
 		// Exclude promo users from normal admin badges
 		h.db.Pool.QueryRow(ctx, `

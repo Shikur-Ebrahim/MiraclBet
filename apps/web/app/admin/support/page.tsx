@@ -47,7 +47,7 @@ export default function AdminSupportPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [adminUser, setAdminUser] = useState<any>(null);
-  const [isSuper, setIsSuper] = useState(false);
+  const [isSuper, setIsSuper] = useState<boolean>(() => isCurrentSuperAdmin());
 
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [loadingConversations, setLoadingConversations] = useState(true);
@@ -99,7 +99,13 @@ export default function AdminSupportPage() {
   const fetchConversations = async (silent = false) => {
     if (!silent) setLoadingConversations(true);
     try {
-      const res = await fetch(`${API}/api/v1/admin/support/conversations?t=${Date.now()}&${getAdminRoleQuery()}`, {
+      let url = `${API}/api/v1/admin/support/conversations?t=${Date.now()}${getAdminRoleQuery()}`;
+      if (isCurrentSuperAdmin()) {
+        url += '&promo_filter=only';
+      } else {
+        url += '&promo_filter=none';
+      }
+      const res = await fetch(url, {
         headers: getAdminAuthHeaders(),
       });
       if (!res.ok) return;
@@ -389,11 +395,11 @@ export default function AdminSupportPage() {
               <MessageSquare size={18} />
             </div>
             <div>
-              <div style={{ fontSize: '15px', fontWeight: 800, color: '#111827', lineHeight: 1.2 }}>
-                Support Chat Management
+              <div style={{ fontSize: '15px', fontWeight: 800, color: '#111827', lineHeight: 1.2, display: 'flex', alignItems: 'center', gap: 6 }}>
+                Support Chat Management {isSuper && <span style={{ fontSize: '11px', color: '#7C3AED', background: '#F5F3FF', border: '1px solid #DDD6FE', padding: '1px 7px', borderRadius: 999 }}>👑 Promo Mode</span>}
               </div>
               <div style={{ fontSize: '11px', color: '#6B7280' }}>
-                Direct live communication with customers
+                {isSuper ? 'Customer support exclusively for promo code users' : 'Direct live communication with customers'}
               </div>
             </div>
           </div>

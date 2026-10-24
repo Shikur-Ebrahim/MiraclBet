@@ -48,8 +48,15 @@ export default function AdminUsersPage() {
   const [search, setSearch] = useState('');
   const [filterRole, setFilterRole] = useState<'ALL' | Role>('ALL');
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
-  const [isSuper, setIsSuper] = useState(false);
-  const [promoTab, setPromoTab] = useState<'all' | 'promo_only' | 'normal_only'>('all');
+  const [isSuper, setIsSuper] = useState<boolean>(() => isCurrentSuperAdmin());
+  const [promoTab, setPromoTab] = useState<'promo_only' | 'all' | 'normal_only'>(() => {
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search).get('promo_filter');
+      if (p === 'normal') return 'normal_only';
+      if (p === 'all') return 'all';
+    }
+    return isCurrentSuperAdmin() ? 'promo_only' : 'normal_only';
+  });
 
   useEffect(() => {
     try {
@@ -276,18 +283,18 @@ export default function AdminUsersPage() {
           {/* Super Admin Promo Filter Tabs */}
           {isSuper && (
             <div style={{ display: 'flex', gap: '6px', padding: '8px', background: '#F5F3FF', borderRadius: '10px', border: '1px solid #DDD6FE' }}>
-              {(['all', 'promo_only', 'normal_only'] as const).map(tab => (
+              {(['promo_only', 'all', 'normal_only'] as const).map(tab => (
                 <button
                   key={tab}
                   onClick={() => setPromoTab(tab)}
                   style={{
-                    flex: 1, padding: '6px 4px', borderRadius: '6px', fontSize: '11px', fontWeight: 800,
+                    flex: 1, padding: '7px 4px', borderRadius: '7px', fontSize: '11px', fontWeight: 800,
                     background: promoTab === tab ? '#7C3AED' : 'transparent',
                     color: promoTab === tab ? '#FFF' : '#6D28D9',
                     border: 'none', cursor: 'pointer'
                   }}
                 >
-                  {tab === 'all' ? `All (${users.length})` : tab === 'promo_only' ? `👑 Promo Only (${users.filter(u => !!u.promo_code).length})` : `Normal (${users.filter(u => !u.promo_code).length})`}
+                  {tab === 'promo_only' ? `👑 Promo Users (${users.filter(u => !!u.promo_code).length})` : tab === 'all' ? `All (${users.length})` : `Normal (${users.filter(u => !u.promo_code).length})`}
                 </button>
               ))}
             </div>

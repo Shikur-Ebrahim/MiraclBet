@@ -171,6 +171,8 @@ func (h *WithdrawalsHandler) ListAdmin(w http.ResponseWriter, r *http.Request) {
 	// Regular admins never see promo users unless explicitly requested
 	if !isWdSuper {
 		promoFilter = "none"
+	} else if promoFilter == "" {
+		promoFilter = "only"
 	}
 
 	query := `
@@ -202,6 +204,10 @@ func (h *WithdrawalsHandler) ListAdmin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		withdrawals = append(withdrawals, wd)
+	}
+
+	if withdrawals == nil {
+		withdrawals = []Withdrawal{}
 	}
 
 	w.Header().Set("Content-Type", "application/json")

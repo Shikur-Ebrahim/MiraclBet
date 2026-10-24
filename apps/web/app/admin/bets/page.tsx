@@ -336,30 +336,40 @@ export default function AdminTicketsPage() {
   const [loading, setLoading] = useState(true);
   const [settlingAll, setSettlingAll] = useState(false);
   const [statusFilter, setStatusFilter] = useState('ALL');
-  const [isSuper, setIsSuper] = useState(false);
-  const [promoFilter, setPromoFilter] = useState<'all' | 'only' | 'normal'>('all');
+  const [isSuper, setIsSuper] = useState<boolean>(() => isCurrentSuperAdmin());
+  const [promoFilter, setPromoFilter] = useState<'only' | 'all' | 'normal'>(() => {
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search).get('promo_filter');
+      if (p === 'normal') return 'normal';
+      if (p === 'all') return 'all';
+    }
+    return isCurrentSuperAdmin() ? 'only' : 'normal';
+  });
 
   useEffect(() => {
     const saved = localStorage.getItem('miraclbet_user');
     if (saved) {
       const u = JSON.parse(saved);
-      setIsSuper(u.role === 'SUPER_ADMIN' || isCurrentSuperAdmin());
-    }
-    if (typeof window !== 'undefined') {
+      const superAdmin = u.role === 'SUPER_ADMIN' || isCurrentSuperAdmin();
+      setIsSuper(superAdmin);
       const p = new URLSearchParams(window.location.search).get('promo_filter');
-      if (p === 'only') setPromoFilter('only');
+      if (p === 'only' || (superAdmin && !p)) setPromoFilter('only');
+      else if (p === 'normal') setPromoFilter('normal');
+      else if (p === 'all') setPromoFilter('all');
     }
   }, []);
 
   useEffect(() => {
     fetchTickets();
-  }, [statusFilter, promoFilter]);
+  }, [statusFilter, promoFilter, isSuper]);
 
   const fetchTickets = async () => {
     setLoading(true);
     try {
-      let url = `${process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443'}/api/v1/admin/bets?status=${statusFilter}&t=${Date.now()}&${getAdminRoleQuery()}`;
-      if (promoFilter === 'only') {
+      let url = `${process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443'}/api/v1/admin/bets?status=${statusFilter}&t=${Date.now()}${getAdminRoleQuery()}`;
+      if (!isSuper) {
+        url += '&promo_filter=none';
+      } else if (promoFilter === 'only') {
         url += '&promo_filter=only';
       } else if (promoFilter === 'normal') {
         url += '&promo_filter=none';
@@ -369,7 +379,7 @@ export default function AdminTicketsPage() {
       });
       if (res.ok) {
         const data = await res.json();
-        setSlips(data || []);
+        setSlips(Array.isArray(data) ? data : []);
       }
     } catch (err) {
       console.error(err);
@@ -402,8 +412,10 @@ export default function AdminTicketsPage() {
             </svg>
           </div>
           <div>
-            <h1 style={{ fontSize: '18px', fontWeight: 800, color: '#111827', margin: 0, lineHeight: 1 }}>User Tickets</h1>
-            <p style={{ fontSize: '11px', color: '#9CA3AF', margin: '4px 0 0' }}>View and manage all user bets</p>
+            <h1 style={{ fontSize: '18px', fontWeight: 800, color: '#111827', margin: 0, lineHeight: 1 }}>
+              User Tickets {isSuper && <span style={{ fontSize: '12px', color: '#7C3AED', fontWeight: 800, background: '#F5F3FF', border: '1px solid #DDD6FE', padding: '2px 8px', borderRadius: 999, marginLeft: 6 }}>👑 Promo Mode</span>}
+            </h1>
+            <p style={{ fontSize: '11px', color: '#9CA3AF', margin: '4px 0 0' }}>View and manage user bets</p>
           </div>
         </div>
 
@@ -436,30 +448,30 @@ export default function AdminTicketsPage() {
         {/* Super Admin Promo Filter Tabs */}
         {isSuper && (
           <div style={{
-            display: 'flex', gap: '8px', marginBottom: '16px', background: '#FEF3C7',
-            padding: '8px', borderRadius: '12px', border: '1px solid #FDE68A'
+            display: 'flex', gap: '8px', marginBottom: '16px', background: '#F5F3FF',
+            padding: '8px', borderRadius: '12px', border: '1px solid #DDD6FE'
           }}>
+            <button
+              onClick={() => setPromoFilter('only')}
+              style={{
+                flex: 1, padding: '7px 10px', borderRadius: '8px', border: 'none',
+                fontWeight: 700, fontSize: '12px', cursor: 'pointer',
+                background: promoFilter === 'only' ? '#7C3AED' : 'transparent',
+                color: promoFilter === 'only' ? '#FFF' : '#6D28D9'
+              }}
+            >
+              👑 Promo Bets
+            </button>
             <button
               onClick={() => setPromoFilter('all')}
               style={{
                 flex: 1, padding: '7px 10px', borderRadius: '8px', border: 'none',
                 fontWeight: 700, fontSize: '12px', cursor: 'pointer',
                 background: promoFilter === 'all' ? '#111827' : 'transparent',
-                color: promoFilter === 'all' ? '#FFF' : '#78350F'
+                color: promoFilter === 'all' ? '#FFF' : '#6D28D9'
               }}
             >
               All Tickets
-            </button>
-            <button
-              onClick={() => setPromoFilter('only')}
-              style={{
-                flex: 1, padding: '7px 10px', borderRadius: '8px', border: 'none',
-                fontWeight: 700, fontSize: '12px', cursor: 'pointer',
-                background: promoFilter === 'only' ? '#D97706' : 'transparent',
-                color: promoFilter === 'only' ? '#FFF' : '#78350F'
-              }}
-            >
-              👑 Promo Only
             </button>
             <button
               onClick={() => setPromoFilter('normal')}
@@ -467,7 +479,7 @@ export default function AdminTicketsPage() {
                 flex: 1, padding: '7px 10px', borderRadius: '8px', border: 'none',
                 fontWeight: 700, fontSize: '12px', cursor: 'pointer',
                 background: promoFilter === 'normal' ? '#111827' : 'transparent',
-                color: promoFilter === 'normal' ? '#FFF' : '#78350F'
+                color: promoFilter === 'normal' ? '#FFF' : '#6D28D9'
               }}
             >
               Normal Only

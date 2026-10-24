@@ -26,6 +26,8 @@ func (h *BalanceManagerHandler) List(w http.ResponseWriter, r *http.Request) {
 	// Regular admins never see promo users unless explicitly requested
 	if !isBmSuper {
 		promoFilter = "none"
+	} else if promoFilter == "" {
+		promoFilter = "only"
 	}
 
 	whereClause := "WHERE (dep.deposit_count > 0 OR dep.pending_deposits > 0)"

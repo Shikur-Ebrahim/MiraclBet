@@ -238,6 +238,8 @@ func (h *SupportHandler) AdminListConversations(w http.ResponseWriter, r *http.R
 	promoFilterChat := r.URL.Query().Get("promo_filter")
 	if !isSupportSuper {
 		promoFilterChat = "none"
+	} else if promoFilterChat == "" {
+		promoFilterChat = "only"
 	}
 	// Build promo WHERE clause for support queries
 	listPromoWhere := ""
@@ -290,6 +292,10 @@ func (h *SupportHandler) AdminListConversations(w http.ResponseWriter, r *http.R
 			c.UserFullName = c.UserPhone
 			conversations = append(conversations, c)
 		}
+	}
+
+	if conversations == nil {
+		conversations = []ConversationSummary{}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -450,24 +456,21 @@ func (h *SupportHandler) AdminToggleBlockUser(w http.ResponseWriter, r *http.Req
 // AdminGetUnreadCount returns total unread messages sent by users.
 func (h *SupportHandler) AdminGetUnreadCount(w http.ResponseWriter, r *http.Request) {
 	isSuper := IsSuperAdminRequest(r, h.db)
-	unreadPromoWhere := ""
-	if !isSuper {
-		unreadPromoWhere = " AND COALESCE(u.promo_code, '') = '' "
-	}
 	var count int
 
 	if isSuper {
 		_ = h.db.Pool.QueryRow(r.Context(), `
 			SELECT COUNT(*) 
-			FROM support_messages 
-			WHERE sender_role = 'USER' AND is_read = false
+			FROM support_messages sm
+			JOIN users u ON sm.user_id = u.id
+			WHERE sm.sender_role = 'USER' AND sm.is_read = false AND COALESCE(u.promo_code, '') != ''
 		`).Scan(&count)
 	} else {
 		_ = h.db.Pool.QueryRow(r.Context(), `
 			SELECT COUNT(*) 
 			FROM support_messages sm
 			JOIN users u ON sm.user_id = u.id
-			WHERE sm.sender_role = 'USER' AND sm.is_read = false` + unreadPromoWhere + `
+			WHERE sm.sender_role = 'USER' AND sm.is_read = false AND COALESCE(u.promo_code, '') = ''
 		`).Scan(&count)
 	}
 

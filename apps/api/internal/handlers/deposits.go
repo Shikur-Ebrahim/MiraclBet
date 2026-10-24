@@ -86,6 +86,8 @@ func (h *DepositsHandler) ListAdmin(w http.ResponseWriter, r *http.Request) {
 	// Regular admins never see promo users unless explicitly requested
 	if !isDepositsSuper {
 		promoFilter = "none"
+	} else if promoFilter == "" {
+		promoFilter = "only"
 	}
 
 	query := `
@@ -121,6 +123,10 @@ func (h *DepositsHandler) ListAdmin(w http.ResponseWriter, r *http.Request) {
 			d.PromoCode = &promo
 		}
 		deposits = append(deposits, d)
+	}
+
+	if deposits == nil {
+		deposits = []Deposit{}
 	}
 
 	w.Header().Set("Content-Type", "application/json")

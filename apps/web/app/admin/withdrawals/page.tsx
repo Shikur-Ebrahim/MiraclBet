@@ -22,8 +22,15 @@ export default function AdminWithdrawalsPage() {
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
-  const [isSuper, setIsSuper] = useState(false);
-  const [promoFilter, setPromoFilter] = useState<'all' | 'only' | 'normal'>('all');
+  const [isSuper, setIsSuper] = useState<boolean>(() => isCurrentSuperAdmin());
+  const [promoFilter, setPromoFilter] = useState<'only' | 'all' | 'normal'>(() => {
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search).get('promo_filter');
+      if (p === 'normal') return 'normal';
+      if (p === 'all') return 'all';
+    }
+    return isCurrentSuperAdmin() ? 'only' : 'normal';
+  });
 
   useEffect(() => {
     const saved = localStorage.getItem('miraclbet_user');
@@ -39,21 +46,23 @@ export default function AdminWithdrawalsPage() {
     const superAdmin = u.role === 'SUPER_ADMIN' || isCurrentSuperAdmin();
     setIsSuper(superAdmin);
 
-    if (typeof window !== 'undefined') {
-      const p = new URLSearchParams(window.location.search).get('promo_filter');
-      if (p === 'only') setPromoFilter('only');
-    }
+    const p = new URLSearchParams(window.location.search).get('promo_filter');
+    if (p === 'only' || (superAdmin && !p)) setPromoFilter('only');
+    else if (p === 'normal') setPromoFilter('normal');
+    else if (p === 'all') setPromoFilter('all');
   }, [router]);
 
   useEffect(() => {
     fetchWithdrawals();
-  }, [promoFilter]);
+  }, [promoFilter, isSuper]);
 
   const fetchWithdrawals = async () => {
     setLoading(true);
     try {
-      let url = `${process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443'}/api/v1/admin/withdrawals?t=${Date.now()}&${getAdminRoleQuery()}`;
-      if (promoFilter === 'only') {
+      let url = `${process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443'}/api/v1/admin/withdrawals?t=${Date.now()}${getAdminRoleQuery()}`;
+      if (!isSuper) {
+        url += '&promo_filter=none';
+      } else if (promoFilter === 'only') {
         url += '&promo_filter=only';
       } else if (promoFilter === 'normal') {
         url += '&promo_filter=none';
@@ -63,7 +72,7 @@ export default function AdminWithdrawalsPage() {
       });
       if (res.ok) {
         const data = await res.json();
-        setWithdrawals(data || []);
+        setWithdrawals(Array.isArray(data) ? data : []);
       }
     } catch (err) {
       console.error(err);
@@ -118,7 +127,9 @@ export default function AdminWithdrawalsPage() {
             <path d="M15 18l-6-6 6-6" />
           </svg>
         </button>
-        <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#111827' }}>Withdrawals Review</h1>
+        <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#111827' }}>
+          Withdrawals Review {isSuper && <span style={{ fontSize: '12px', color: '#7C3AED', fontWeight: 800, background: '#F5F3FF', border: '1px solid #DDD6FE', padding: '2px 8px', borderRadius: 999, marginLeft: 6 }}>👑 Promo Mode</span>}
+        </h1>
       </div>
 
       {/* List */}
@@ -126,30 +137,30 @@ export default function AdminWithdrawalsPage() {
         {/* Super Admin Promo Filter Tabs */}
         {isSuper && (
           <div style={{
-            display: 'flex', gap: '8px', marginBottom: '16px', background: '#FEF3C7',
-            padding: '8px', borderRadius: '12px', border: '1px solid #FDE68A'
+            display: 'flex', gap: '8px', marginBottom: '16px', background: '#F5F3FF',
+            padding: '8px', borderRadius: '12px', border: '1px solid #DDD6FE'
           }}>
+            <button
+              onClick={() => setPromoFilter('only')}
+              style={{
+                flex: 1, padding: '7px 10px', borderRadius: '8px', border: 'none',
+                fontWeight: 700, fontSize: '12px', cursor: 'pointer',
+                background: promoFilter === 'only' ? '#7C3AED' : 'transparent',
+                color: promoFilter === 'only' ? '#FFF' : '#6D28D9'
+              }}
+            >
+              👑 Promo Withdrawals
+            </button>
             <button
               onClick={() => setPromoFilter('all')}
               style={{
                 flex: 1, padding: '7px 10px', borderRadius: '8px', border: 'none',
                 fontWeight: 700, fontSize: '12px', cursor: 'pointer',
                 background: promoFilter === 'all' ? '#111827' : 'transparent',
-                color: promoFilter === 'all' ? '#FFF' : '#78350F'
+                color: promoFilter === 'all' ? '#FFF' : '#6D28D9'
               }}
             >
               All Withdrawals
-            </button>
-            <button
-              onClick={() => setPromoFilter('only')}
-              style={{
-                flex: 1, padding: '7px 10px', borderRadius: '8px', border: 'none',
-                fontWeight: 700, fontSize: '12px', cursor: 'pointer',
-                background: promoFilter === 'only' ? '#D97706' : 'transparent',
-                color: promoFilter === 'only' ? '#FFF' : '#78350F'
-              }}
-            >
-              👑 Promo Only
             </button>
             <button
               onClick={() => setPromoFilter('normal')}
@@ -157,7 +168,7 @@ export default function AdminWithdrawalsPage() {
                 flex: 1, padding: '7px 10px', borderRadius: '8px', border: 'none',
                 fontWeight: 700, fontSize: '12px', cursor: 'pointer',
                 background: promoFilter === 'normal' ? '#111827' : 'transparent',
-                color: promoFilter === 'normal' ? '#FFF' : '#78350F'
+                color: promoFilter === 'normal' ? '#FFF' : '#6D28D9'
               }}
             >
               Normal Only

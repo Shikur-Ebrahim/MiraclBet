@@ -702,6 +702,8 @@ func (h *SettlementHandler) GetAllBets(w http.ResponseWriter, r *http.Request) {
 	// Regular admins never see promo users unless explicitly requested
 	if !isBetsSuper {
 		promoFilter = "none"
+	} else if promoFilter == "" {
+		promoFilter = "only"
 	}
 	whereClause := ""
 	if promoFilter == "none" {
@@ -797,6 +799,7 @@ func (h *SettlementHandler) GetAllBets(w http.ResponseWriter, r *http.Request) {
 	if slips == nil {
 		slips = []SlipAdmin{}
 	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(slips)
 }

@@ -392,16 +392,28 @@ export default function AdminBalanceManagerPage() {
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
-  const [isSuper, setIsSuper] = useState(false);
-  const [promoFilter, setPromoFilter] = useState<'all' | 'only' | 'normal'>('all');
+  const [isSuper, setIsSuper] = useState<boolean>(() => isCurrentSuperAdmin());
+  const [promoFilter, setPromoFilter] = useState<'only' | 'all' | 'normal'>(() => {
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search).get('promo_filter');
+      if (p === 'normal') return 'normal';
+      if (p === 'all') return 'all';
+    }
+    return isCurrentSuperAdmin() ? 'only' : 'normal';
+  });
 
   const fetchUsers = useCallback(async (currentPromoFilter: string) => {
     setLoading(true);
     try {
       const token = localStorage.getItem('miraclbet_token') || '';
-      let url = `${API}/api/v1/admin/balance-manager?t=${Date.now()}&${getAdminRoleQuery()}`;
-      if (currentPromoFilter === 'only') url += '&promo_filter=only';
-      else if (currentPromoFilter === 'normal') url += '&promo_filter=none';
+      let url = `${API}/api/v1/admin/balance-manager?t=${Date.now()}${getAdminRoleQuery()}`;
+      if (!isCurrentSuperAdmin()) {
+        url += '&promo_filter=none';
+      } else if (currentPromoFilter === 'only') {
+        url += '&promo_filter=only';
+      } else if (currentPromoFilter === 'normal') {
+        url += '&promo_filter=none';
+      }
 
       const res = await fetch(url, {
         headers: { 'Authorization': `Bearer ${token}`, ...getAdminAuthHeaders() },
@@ -427,14 +439,18 @@ export default function AdminBalanceManagerPage() {
     const superAdmin = u.role === 'SUPER_ADMIN' || isCurrentSuperAdmin();
     setIsSuper(superAdmin);
 
-    let initialFilter: 'all' | 'only' | 'normal' = 'all';
+    let initialFilter: 'only' | 'all' | 'normal' = superAdmin ? 'only' : 'normal';
     if (typeof window !== 'undefined') {
       const p = new URLSearchParams(window.location.search).get('promo_filter');
       if (p === 'only') {
         initialFilter = 'only';
-        setPromoFilter('only');
+      } else if (p === 'normal') {
+        initialFilter = 'normal';
+      } else if (p === 'all') {
+        initialFilter = 'all';
       }
     }
+    setPromoFilter(initialFilter);
     fetchUsers(initialFilter);
   }, [router, fetchUsers]);
 
@@ -472,7 +488,9 @@ export default function AdminBalanceManagerPage() {
             </svg>
           </button>
           <div>
-            <h1 style={{ fontSize: 18, fontWeight: 800, color: '#111827', margin: 0, lineHeight: 1 }}>Balance Manager</h1>
+            <h1 style={{ fontSize: 18, fontWeight: 800, color: '#111827', margin: 0, lineHeight: 1 }}>
+              Balance Manager {isSuper && <span style={{ fontSize: '12px', color: '#7C3AED', fontWeight: 800, background: '#F5F3FF', border: '1px solid #DDD6FE', padding: '2px 8px', borderRadius: 999, marginLeft: 6 }}>👑 Promo Mode</span>}
+            </h1>
             <p style={{ fontSize: 11, color: '#9CA3AF', margin: '3px 0 0' }}>{filtered.length} users with deposits</p>
           </div>
         </div>
@@ -487,30 +505,30 @@ export default function AdminBalanceManagerPage() {
         {/* Super Admin Promo Filter Tabs */}
         {isSuper && (
           <div style={{
-            display: 'flex', gap: '8px', marginBottom: '16px', background: '#FEF3C7',
-            padding: '8px', borderRadius: '12px', border: '1px solid #FDE68A'
+            display: 'flex', gap: '8px', marginBottom: '16px', background: '#F5F3FF',
+            padding: '8px', borderRadius: '12px', border: '1px solid #DDD6FE'
           }}>
+            <button
+              onClick={() => setPromoFilter('only')}
+              style={{
+                flex: 1, padding: '7px 10px', borderRadius: '8px', border: 'none',
+                fontWeight: 700, fontSize: '12px', cursor: 'pointer',
+                background: promoFilter === 'only' ? '#7C3AED' : 'transparent',
+                color: promoFilter === 'only' ? '#FFF' : '#6D28D9'
+              }}
+            >
+              👑 Promo Users
+            </button>
             <button
               onClick={() => setPromoFilter('all')}
               style={{
                 flex: 1, padding: '7px 10px', borderRadius: '8px', border: 'none',
                 fontWeight: 700, fontSize: '12px', cursor: 'pointer',
                 background: promoFilter === 'all' ? '#111827' : 'transparent',
-                color: promoFilter === 'all' ? '#FFF' : '#78350F'
+                color: promoFilter === 'all' ? '#FFF' : '#6D28D9'
               }}
             >
               All Users
-            </button>
-            <button
-              onClick={() => setPromoFilter('only')}
-              style={{
-                flex: 1, padding: '7px 10px', borderRadius: '8px', border: 'none',
-                fontWeight: 700, fontSize: '12px', cursor: 'pointer',
-                background: promoFilter === 'only' ? '#D97706' : 'transparent',
-                color: promoFilter === 'only' ? '#FFF' : '#78350F'
-              }}
-            >
-              👑 Promo Only
             </button>
             <button
               onClick={() => setPromoFilter('normal')}
@@ -518,7 +536,7 @@ export default function AdminBalanceManagerPage() {
                 flex: 1, padding: '7px 10px', borderRadius: '8px', border: 'none',
                 fontWeight: 700, fontSize: '12px', cursor: 'pointer',
                 background: promoFilter === 'normal' ? '#111827' : 'transparent',
-                color: promoFilter === 'normal' ? '#FFF' : '#78350F'
+                color: promoFilter === 'normal' ? '#FFF' : '#6D28D9'
               }}
             >
               Normal Only
