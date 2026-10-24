@@ -51,7 +51,7 @@ export default function AdminDashboard() {
   const [codeCopied, setCodeCopied] = useState(false);
   const [regCopied, setRegCopied] = useState(false);
 
-  const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  const API = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
 
   const fetchPromoStats = useCallback(async () => {
     try {

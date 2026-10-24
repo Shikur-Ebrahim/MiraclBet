@@ -234,7 +234,18 @@ func (h *SupportHandler) UploadImage(w http.ResponseWriter, r *http.Request) {
 
 // AdminListConversations lists all conversation threads with latest messages and unread counts.
 func (h *SupportHandler) AdminListConversations(w http.ResponseWriter, r *http.Request) {
-	whereClause := ""
+	isSupportSuper := IsSuperAdminRequest(r, h.db)
+	promoFilterChat := r.URL.Query().Get("promo_filter")
+	if !isSupportSuper && promoFilterChat == "" {
+		promoFilterChat = "none"
+	}
+	// Build promo WHERE clause for support queries
+	listPromoWhere := ""
+	if promoFilterChat == "none" {
+		listPromoWhere = " AND COALESCE(u.promo_code, '') = '' "
+	} else if promoFilterChat == "only" {
+		listPromoWhere = " AND COALESCE(u.promo_code, '') != '' "
+	}
 
 	rows, err := h.db.Pool.Query(r.Context(), `
 		SELECT 
@@ -259,7 +270,7 @@ func (h *SupportHandler) AdminListConversations(w http.ResponseWriter, r *http.R
 			FROM support_messages
 			GROUP BY user_id
 		) m ON u.id = m.user_id
-		` + whereClause + `
+		` + listPromoWhere + `
 		ORDER BY m.last_message_at DESC
 	`)
 	if err != nil {
@@ -439,6 +450,10 @@ func (h *SupportHandler) AdminToggleBlockUser(w http.ResponseWriter, r *http.Req
 // AdminGetUnreadCount returns total unread messages sent by users.
 func (h *SupportHandler) AdminGetUnreadCount(w http.ResponseWriter, r *http.Request) {
 	isSuper := IsSuperAdminRequest(r, h.db)
+	unreadPromoWhere := ""
+	if !isSuper {
+		unreadPromoWhere = " AND COALESCE(u.promo_code, '') = '' "
+	}
 	var count int
 
 	if isSuper {
@@ -452,7 +467,7 @@ func (h *SupportHandler) AdminGetUnreadCount(w http.ResponseWriter, r *http.Requ
 			SELECT COUNT(*) 
 			FROM support_messages sm
 			JOIN users u ON sm.user_id = u.id
-			WHERE sm.sender_role = 'USER' AND sm.is_read = false AND COALESCE(u.promo_code, '') = ''
+			WHERE sm.sender_role = 'USER' AND sm.is_read = false` + unreadPromoWhere + `
 		`).Scan(&count)
 	}
 

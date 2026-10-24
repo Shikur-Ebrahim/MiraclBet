@@ -54,7 +54,7 @@ export default function AdminDepositsPage() {
   const fetchDeposits = async () => {
     setLoading(true);
     try {
-      let url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/deposits?t=${Date.now()}&${getAdminRoleQuery()}`;
+      let url = `${process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443'}/api/v1/admin/deposits?t=${Date.now()}&${getAdminRoleQuery()}`;
       if (promoFilter === 'only') {
         url += '&promo_filter=only';
       } else if (promoFilter === 'normal') {
@@ -79,7 +79,7 @@ export default function AdminDepositsPage() {
     
     setProcessingId(id);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/deposits/${id}/status?${getAdminRoleQuery()}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443'}/api/v1/admin/deposits/${id}/status?${getAdminRoleQuery()}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...getAdminAuthHeaders() },
         body: JSON.stringify({ status }),
@@ -108,7 +108,7 @@ export default function AdminDepositsPage() {
 
     setProcessingId(id);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/deposits/${id}?${getAdminRoleQuery()}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443'}/api/v1/admin/deposits/${id}?${getAdminRoleQuery()}`, {
         method: 'DELETE',
         headers: getAdminAuthHeaders(),
       });

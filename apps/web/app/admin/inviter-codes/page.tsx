@@ -27,7 +27,7 @@ export default function AdminInviterCodesPage() {
   const [newlyGenerated, setNewlyGenerated] = useState<InviterCode | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
-  const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  const API = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
 
   useEffect(() => {
     // Auth check

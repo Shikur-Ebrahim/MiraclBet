@@ -21,8 +21,12 @@ func NewBalanceManagerHandler(db *database.DB) *BalanceManagerHandler {
 // Returns all users who have at least one deposit, with their deposit totals and bet stats.
 func (h *BalanceManagerHandler) List(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	_ = IsSuperAdminRequest(r, h.db)
+	isBmSuper := IsSuperAdminRequest(r, h.db)
 	promoFilter := r.URL.Query().Get("promo_filter")
+	// Regular admins never see promo users unless explicitly requested
+	if !isBmSuper && promoFilter == "" {
+		promoFilter = "none"
+	}
 
 	whereClause := "WHERE (dep.deposit_count > 0 OR dep.pending_deposits > 0)"
 	if promoFilter == "none" {

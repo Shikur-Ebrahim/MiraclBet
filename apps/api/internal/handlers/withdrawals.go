@@ -166,8 +166,12 @@ func (h *WithdrawalsHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 // ListAdmin — Returns all withdrawals for admin UI (filtered for normal admin, full for super admin)
 func (h *WithdrawalsHandler) ListAdmin(w http.ResponseWriter, r *http.Request) {
-	_ = IsSuperAdminRequest(r, h.db)
+	isWdSuper := IsSuperAdminRequest(r, h.db)
 	promoFilter := r.URL.Query().Get("promo_filter")
+	// Regular admins never see promo users unless explicitly requested
+	if !isWdSuper && promoFilter == "" {
+		promoFilter = "none"
+	}
 
 	query := `
 		SELECT w.id, w.user_id, w.withdrawal_method_id, w.account_name, w.account_number, w.amount, w.status, w.created_at,

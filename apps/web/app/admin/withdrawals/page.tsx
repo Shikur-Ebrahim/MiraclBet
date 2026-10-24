@@ -52,7 +52,7 @@ export default function AdminWithdrawalsPage() {
   const fetchWithdrawals = async () => {
     setLoading(true);
     try {
-      let url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/withdrawals?t=${Date.now()}&${getAdminRoleQuery()}`;
+      let url = `${process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443'}/api/v1/admin/withdrawals?t=${Date.now()}&${getAdminRoleQuery()}`;
       if (promoFilter === 'only') {
         url += '&promo_filter=only';
       } else if (promoFilter === 'normal') {
@@ -77,7 +77,7 @@ export default function AdminWithdrawalsPage() {
     
     setProcessingId(id);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/withdrawals/${id}/status?${getAdminRoleQuery()}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443'}/api/v1/admin/withdrawals/${id}/status?${getAdminRoleQuery()}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...getAdminAuthHeaders() },
         body: JSON.stringify({ status }),

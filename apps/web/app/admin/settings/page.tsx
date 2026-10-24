@@ -18,7 +18,7 @@ export default function AdminSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState({ text: '', type: '' });
 
-  const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  const API = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
 
   useEffect(() => {
     const saved = localStorage.getItem('miraclbet_user');

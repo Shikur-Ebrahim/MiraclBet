@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getAdminAuthHeaders, getAdminRoleQuery } from '@/lib/adminAuth';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
 
 type AgentUser = {
   id: string;

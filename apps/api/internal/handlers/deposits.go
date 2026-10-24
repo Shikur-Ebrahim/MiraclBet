@@ -81,8 +81,12 @@ func (h *DepositsHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *DepositsHandler) ListAdmin(w http.ResponseWriter, r *http.Request) {
-	_ = IsSuperAdminRequest(r, h.db)
+	isDepositsSuper := IsSuperAdminRequest(r, h.db)
 	promoFilter := r.URL.Query().Get("promo_filter")
+	// Regular admins never see promo users unless explicitly requested
+	if !isDepositsSuper && promoFilter == "" {
+		promoFilter = "none"
+	}
 
 	query := `
 		SELECT d.id, d.user_id, d.payment_method_id, d.amount, d.screenshot_url, d.status, d.created_at,

@@ -59,7 +59,7 @@ function AdminBetTicket({ slip, onSettle }: { slip: SlipAdmin; onSettle: () => v
 
     setSettling(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/bets/slips/${slip.id}/settle`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443'}/api/v1/admin/bets/slips/${slip.id}/settle`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: targetStatus }),
@@ -355,7 +355,7 @@ export default function AdminTicketsPage() {
   const fetchTickets = async () => {
     setLoading(true);
     try {
-      let url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/bets?status=${statusFilter}&t=${Date.now()}&${getAdminRoleQuery()}`;
+      let url = `${process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443'}/api/v1/admin/bets?status=${statusFilter}&t=${Date.now()}&${getAdminRoleQuery()}`;
       if (promoFilter === 'only') {
         url += '&promo_filter=only';
       } else if (promoFilter === 'normal') {

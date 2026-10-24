@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { getAdminAuthHeaders, getAdminRoleQuery, isCurrentSuperAdmin } from '@/lib/adminAuth';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
 
 type Role = 'USER' | 'WORKER' | 'AGENT' | 'ADMIN' | 'SUPER_ADMIN';
 
