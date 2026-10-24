@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -50,6 +50,8 @@ export default function AdminDashboard() {
   const [codeSaving, setCodeSaving] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
   const [regCopied, setRegCopied] = useState(false);
+  const [promoPortalOpen, setPromoPortalOpen] = useState(true);
+  const promoPortalRef = useRef<HTMLDivElement>(null);
 
   const API = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
 
@@ -182,11 +184,18 @@ export default function AdminDashboard() {
           <div style={{ fontWeight: 800, fontSize: '17px', color: '#111827', lineHeight: 1 }}>
             Miracl<span style={{ color: '#16A34A' }}>Bet</span>
             {isSuper ? (
-              <span style={{
-                marginLeft: '8px', fontSize: '10px', fontWeight: 800, color: '#6D28D9',
-                background: '#EDE9FE', border: '1px solid #DDD6FE', padding: '2px 8px', borderRadius: '999px', verticalAlign: 'middle',
-                letterSpacing: 0.5
-              }}>👑 SUPER ADMIN</span>
+              <span
+                onClick={() => {
+                  setPromoPortalOpen(v => !v);
+                  setTimeout(() => {
+                    if (promoPortalRef.current) promoPortalRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }, 50);
+                }}
+                style={{
+                  marginLeft: '8px', fontSize: '10px', fontWeight: 800, color: '#6D28D9',
+                  background: '#EDE9FE', border: '1px solid #DDD6FE', padding: '2px 8px', borderRadius: '999px', verticalAlign: 'middle',
+                  letterSpacing: 0.5, cursor: 'pointer', userSelect: 'none',
+                }}>👑 SUPER ADMIN {promoPortalOpen ? '▲' : '▼'}</span>
             ) : (
               <span style={{
                 marginLeft: '8px', fontSize: '10px', fontWeight: 700, color: '#16A34A',
@@ -212,7 +221,7 @@ export default function AdminDashboard() {
       <div style={{ padding: '20px 16px', maxWidth: '640px', margin: '0 auto' }}>
 
         {/* Welcome */}
-        <div style={{ marginBottom: '20px' }}>
+        <div style={{ marginBottom: '16px' }}>
           <h1 style={{ fontSize: '20px', fontWeight: 800, color: '#111827', margin: '0 0 4px' }}>
             {isSuper ? 'Super Admin Dashboard' : 'Admin Dashboard'}
           </h1>
@@ -223,27 +232,57 @@ export default function AdminDashboard() {
 
         {/* ── SUPER ADMIN SECRET PROMO PORTAL (Exclusive for SUPER_ADMIN) ── */}
         {isSuper && (
-          <div style={{
-            background: 'linear-gradient(135deg, #1E1B4B 0%, #312E81 50%, #4338CA 100%)',
-            borderRadius: '18px',
-            padding: '20px',
-            color: '#FFFFFF',
-            marginBottom: '24px',
-            boxShadow: '0 8px 24px rgba(49, 46, 129, 0.25)',
-            border: '1px solid rgba(199, 210, 254, 0.25)',
-          }}>
-            {/* Header row */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '20px' }}>👑</span>
-                <div>
-                  <div style={{ fontSize: '15px', fontWeight: 800, letterSpacing: '0.3px' }}>
-                    Super Admin Secret Promo Portal
+          <div ref={promoPortalRef} style={{ marginBottom: '24px' }}>
+            {/* Collapsible toggle header */}
+            <button
+              onClick={() => setPromoPortalOpen(v => !v)}
+              style={{
+                width: '100%',
+                background: 'linear-gradient(135deg, #1E1B4B 0%, #312E81 50%, #4338CA 100%)',
+                borderRadius: promoPortalOpen ? '18px 18px 0 0' : '18px',
+                padding: '14px 20px',
+                color: '#FFFFFF',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                boxShadow: '0 4px 16px rgba(49, 46, 129, 0.35)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '22px' }}>👑</span>
+                <div style={{ textAlign: 'left' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 900, letterSpacing: '0.3px' }}>
+                    Super Admin Promo Portal
                   </div>
-                  <div style={{ fontSize: '11px', color: '#C7D2FE', marginTop: '1px' }}>
-                    Users with this code are completely HIDDEN from normal Admins
+                  <div style={{ fontSize: '11px', color: '#A5B4FC', marginTop: '1px' }}>
+                    {promoStats ? `Code: ${promoStats.promo_code} · ${promoStats.total_users} users` : 'Tap to expand'}
                   </div>
                 </div>
+              </div>
+              <div style={{
+                fontSize: '18px', fontWeight: 900, color: '#A5B4FC',
+                transform: promoPortalOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.2s',
+              }}>▼</div>
+            </button>
+
+            {/* Collapsible body */}
+            {promoPortalOpen && (
+              <div style={{
+                background: 'linear-gradient(180deg, #312E81 0%, #1E1B4B 100%)',
+                borderRadius: '0 0 18px 18px',
+                padding: '16px 20px 20px',
+                color: '#FFFFFF',
+                boxShadow: '0 8px 24px rgba(49, 46, 129, 0.25)',
+                border: '1px solid rgba(199, 210, 254, 0.15)',
+                borderTop: 'none',
+              }}>
+            {/* Sub-header: hidden note + refresh */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+              <div style={{ fontSize: '11px', color: '#C7D2FE' }}>
+                🔒 Promo users are completely HIDDEN from normal Admins
               </div>
               <button
                 onClick={fetchPromoStats}
@@ -463,6 +502,8 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
+      </div>
+    )}
 
         {/* 2-column button grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>

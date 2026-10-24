@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -16,19 +16,26 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [promoCode, setPromoCode] = useState('');
+  const [promoApplied, setPromoApplied] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     try {
       if (typeof window === 'undefined') return;
       const params = new URLSearchParams(window.location.search);
       const qPromo = params.get('ref') || params.get('promo') || params.get('code');
       const saved = localStorage.getItem('miraclbet_promo_code');
       if (qPromo) {
-        setPromoCode(qPromo.trim().toUpperCase());
+        const clean = qPromo.trim().toUpperCase();
+        setPromoCode(clean);
+        setPromoApplied(true);
+        // Save to localStorage so it persists if user navigates away
+        localStorage.setItem('miraclbet_promo_code', clean);
       } else if (saved) {
-        setPromoCode(saved.trim().toUpperCase());
+        const clean = saved.trim().toUpperCase();
+        setPromoCode(clean);
+        setPromoApplied(true);
       }
     } catch {
       // ignore
@@ -72,6 +79,9 @@ export default function RegisterPage() {
         throw new Error(data.message || 'Registration failed');
       }
 
+      // Clear stored promo code after successful registration
+      localStorage.removeItem('miraclbet_promo_code');
+
       // Show inline success message then redirect to login
       setSuccess(true);
       setTimeout(() => router.push('/login'), 2000);
@@ -105,6 +115,34 @@ export default function RegisterPage() {
             <h1 className="text-2xl font-bold text-white">Create Account</h1>
             <p className="text-muted text-sm mt-2">Join MiraclBet and start winning today</p>
           </div>
+
+          {/* Promo code banner — shows prominently when code is auto-applied */}
+          {promoApplied && promoCode && (
+            <div style={{
+              background: 'linear-gradient(135deg, #064E3B, #065F46)',
+              border: '1.5px solid #10B981',
+              borderRadius: '10px',
+              padding: '10px 14px',
+              marginBottom: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '8px',
+            }}>
+              <div>
+                <div style={{ fontSize: '11px', color: '#6EE7B7', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  🏷️ Promo Code Applied
+                </div>
+                <div style={{ fontSize: '20px', fontWeight: 900, color: '#34D399', letterSpacing: '3px', marginTop: '2px' }}>
+                  {promoCode}
+                </div>
+              </div>
+              <span style={{
+                background: '#10B981', color: '#fff', fontSize: '11px', fontWeight: 800,
+                padding: '4px 10px', borderRadius: '999px'
+              }}>✓ APPLIED</span>
+            </div>
+          )}
 
           {error && (
             <div className="bg-red-500/10 border border-red-500/50 text-red-500 text-sm p-3 rounded mb-4 text-center">
@@ -156,6 +194,7 @@ export default function RegisterPage() {
                 </button>
               </div>
             </div>
+
             <div>
               <label className="block text-sm font-medium text-muted mb-1">Confirm Password</label>
               <div className="relative">
@@ -181,6 +220,7 @@ export default function RegisterPage() {
               </div>
             </div>
 
+            {/* Promo Code field — always visible */}
             <div>
               <label className="block text-sm font-medium text-muted mb-1">
                 Promo / Referral Code <span className="text-xs text-gray-400 font-normal">(Optional)</span>
@@ -189,10 +229,19 @@ export default function RegisterPage() {
                 <input 
                   type="text" 
                   value={promoCode}
-                  onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                  onChange={(e) => {
+                    const val = e.target.value.toUpperCase();
+                    setPromoCode(val);
+                    setPromoApplied(val.length >= 3);
+                    if (val.length >= 3) {
+                      localStorage.setItem('miraclbet_promo_code', val);
+                    } else {
+                      localStorage.removeItem('miraclbet_promo_code');
+                    }
+                  }}
                   maxLength={10}
                   className="w-full bg-dark border border-brand rounded px-4 py-2 pr-24 text-white uppercase tracking-wider font-semibold focus:outline-none focus:border-primary"
-                  placeholder="e.g. 7777"
+                  placeholder="e.g. 6832"
                 />
                 {promoCode.trim().length >= 3 && (
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-green-400 bg-green-500/15 px-2 py-0.5 rounded border border-green-500/30">

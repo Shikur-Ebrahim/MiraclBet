@@ -1,12 +1,25 @@
 export function getAdminAuthHeaders(): Record<string, string> {
-  if (typeof window === 'undefined') return {};
+  const headers: Record<string, string> = {};
+  if (typeof window === 'undefined') return headers;
   try {
     const token = localStorage.getItem('miraclbet_token');
     if (token) {
-      return { 'Authorization': `Bearer ${token}` };
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const raw = localStorage.getItem('miraclbet_user');
+    if (raw) {
+      const u = JSON.parse(raw);
+      const isSuper = isCurrentSuperAdmin();
+      const effectiveRole = isSuper ? 'SUPER_ADMIN' : (u.role || 'ADMIN');
+      headers['X-Admin-Role'] = effectiveRole;
+      headers['X-User-Role'] = effectiveRole;
+      if (u.id) {
+        headers['X-Admin-ID'] = u.id;
+        headers['X-User-ID'] = u.id;
+      }
     }
   } catch {}
-  return {};
+  return headers;
 }
 
 export function isCurrentSuperAdmin(): boolean {
