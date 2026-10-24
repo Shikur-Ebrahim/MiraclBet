@@ -181,29 +181,29 @@ function TicketCard({ ticket }: { ticket: ManualTicket }) {
     const ko = new Date(s.kickoffAt).getTime();
     const ends = ko + MATCH_DURATION_MS;
     if (now >= ends) return 'WON';
-    if (now >= ko)   return 'LIVE';
+    if (now >= ko)   return 'STARTED';
     return 'PENDING';
   });
 
   // Overall ticket status
   const allWon     = legStatuses.every(st => st === 'WON');
-  const anyLive    = legStatuses.some(st => st === 'LIVE');
+  const anyStarted  = legStatuses.some(st => st === 'STARTED');
   const allPending = legStatuses.every(st => st === 'PENDING');
 
-  const ticketStatus = allWon ? 'WON' : anyLive ? 'LIVE' : allPending ? 'PENDING' : 'IN PROGRESS';
-  const statusColor  = allWon ? '#059669' : anyLive ? '#EF4444' : '#D97706';
-  const statusBg     = allWon ? '#F0FDF4' : anyLive ? '#FEF2F2' : '#FFFBEB';
-  const statusBorder = allWon ? '#A7F3D0' : anyLive ? '#FECACA' : '#FDE68A';
-  const statusIcon   = allWon ? '✅' : anyLive ? '⚡' : '⏳';
+  const ticketStatus = allWon ? 'WON' : anyStarted ? 'STARTED' : allPending ? 'PENDING' : 'IN PROGRESS';
+  const statusColor  = allWon ? '#059669' : anyStarted ? '#7C3AED' : '#D97706';
+  const statusBg     = allWon ? '#F0FDF4' : anyStarted ? '#F5F3FF' : '#FFFBEB';
+  const statusBorder = allWon ? '#A7F3D0' : anyStarted ? '#DDD6FE' : '#FDE68A';
+  const statusIcon   = allWon ? '✅' : anyStarted ? '🏁' : '⏳';
 
   // Progress count
   const wonCount  = legStatuses.filter(st => st === 'WON').length;
-  const liveCount = legStatuses.filter(st => st === 'LIVE').length;
+  const startedCount = legStatuses.filter(st => st === 'STARTED').length;
   const total     = legStatuses.length;
 
   const LEG_CFG = {
     WON:     { bg: '#F0FDF4', border: '#A7F3D0', color: '#059669', icon: '✅', label: 'WON' },
-    LIVE:    { bg: '#FEF2F2', border: '#FECACA', color: '#EF4444', icon: '⚡ LIVE', label: 'LIVE' },
+    STARTED: { bg: '#F5F3FF', border: '#DDD6FE', color: '#7C3AED', icon: '🏁 STARTED', label: 'STARTED' },
     PENDING: { bg: '#F9FAFB', border: '#E5E7EB', color: '#9CA3AF', icon: '⏳', label: 'PENDING' },
   };
 
@@ -262,7 +262,7 @@ function TicketCard({ ticket }: { ticket: ManualTicket }) {
                 <div style={{ fontSize: 11, color: '#6B7280' }}>{s.selectionName} · {s.marketName}</div>
                 {ko && (
                   <div style={{ fontSize: 10, color: cfg.color, fontWeight: 700, marginTop: 2 }}>
-                    {st === 'PENDING' ? `Kicks off: ${ko.toLocaleString()}` : st === 'LIVE' ? `⚡ Live — ends ~${ends?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : `Finished: ${ends?.toLocaleString()}`}
+                    {st === 'PENDING' ? `Kicks off: ${ko.toLocaleString()}` : st === 'STARTED' ? `🏁 Started — wins ~${ends?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`  : `Finished: ${ends?.toLocaleString()}`}
                   </div>
                 )}
               </div>
@@ -284,7 +284,7 @@ function TicketCard({ ticket }: { ticket: ManualTicket }) {
       <div style={{ padding: '8px 14px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #F3F4F6' }}>
         <div style={{ fontSize: 12, color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: 6 }}>
           <Clock size={12} />
-          {allWon ? '🎉 All matches settled — Ticket WON!' : liveCount > 0 ? `${liveCount} match${liveCount > 1 ? 'es' : ''} live now` : `${wonCount} of ${total} matches done`}
+          {allWon ? '🎉 All matches settled — Ticket WON!' : startedCount > 0 ? `${startedCount} match${startedCount > 1 ? 'es are' : ' is'} in progress` : `${wonCount} of ${total} matches done`}
         </div>
         <span style={{ fontSize: 14, fontWeight: 900, color: '#047857' }}>{ticket.total_odds.toFixed(2)}x</span>
       </div>
