@@ -1,16 +1,12 @@
 export function getAdminAuthHeaders(): Record<string, string> {
   if (typeof window === 'undefined') return {};
   try {
-    const raw = localStorage.getItem('miraclbet_user');
-    if (!raw) return {};
-    const u = JSON.parse(raw);
-    return {
-      'X-Admin-Role': u.role || 'ADMIN',
-      'X-Admin-ID': u.id || '',
-    };
-  } catch {
-    return {};
-  }
+    const token = localStorage.getItem('miraclbet_token');
+    if (token) {
+      return { 'Authorization': `Bearer ${token}` };
+    }
+  } catch {}
+  return {};
 }
 
 export function getAdminRoleQuery(): string {

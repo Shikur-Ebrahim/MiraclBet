@@ -91,14 +91,27 @@ export default function AdminUsersPage() {
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const qRole = getAdminRoleQuery();
-      const res = await fetch(`${API}/api/v1/admin/users?t=${Date.now()}${qRole}`, {
+      let url = `${API}/api/v1/admin/users?t=${Date.now()}${getAdminRoleQuery()}`;
+      if (!isSuper) {
+        url += '&promo_filter=none';
+      } else if (promoTab === 'promo_only') {
+        url += '&promo_filter=only';
+      } else if (promoTab === 'normal_only') {
+        url += '&promo_filter=none';
+      }
+      const res = await fetch(url, {
         headers: getAdminAuthHeaders(),
       });
-      if (res.ok) setUsers(await res.json() || []);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
-  }, []);
+      if (res.ok) {
+        const data = await res.json();
+        setUsers(Array.isArray(data) ? data : []);
+      }
+    } catch (e) {
+      console.error('Failed to fetch users:', e);
+    } finally {
+      setLoading(false);
+    }
+  }, [isSuper, promoTab]);
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
