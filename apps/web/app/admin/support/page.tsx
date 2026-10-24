@@ -47,6 +47,7 @@ export default function AdminSupportPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [adminUser, setAdminUser] = useState<any>(null);
+  const [isSuper, setIsSuper] = useState(false);
 
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [loadingConversations, setLoadingConversations] = useState(true);
@@ -91,6 +92,7 @@ export default function AdminSupportPage() {
       return;
     }
     setAdminUser(u);
+    setIsSuper(u.role === 'SUPER_ADMIN' || isCurrentSuperAdmin());
   }, [router]);
 
   // Load conversations list
@@ -544,7 +546,7 @@ export default function AdminSupportPage() {
                         <div style={{ fontSize: '13px', fontWeight: 800, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {displayPhone}
                         </div>
-                        {conv.promo_code && (
+                        {isSuper && conv.promo_code && (
                           <span style={{ fontSize: '9px', fontWeight: 800, background: '#FEF3C7', color: '#92400E', padding: '1px 5px', borderRadius: '4px', flexShrink: 0, border: '1px solid #FDE68A' }}>
                             🏷️ {conv.promo_code}
                           </span>
@@ -643,7 +645,7 @@ export default function AdminSupportPage() {
                   <div>
                     <div style={{ fontSize: '14px', fontWeight: 800, color: '#111827', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                       <span>{activeUser.phone || 'User Chat'}</span>
-                      {activeUser.promo_code && (
+                      {isSuper && activeUser.promo_code && (
                         <span style={{ fontSize: '10px', fontWeight: 800, background: '#FEF3C7', color: '#92400E', padding: '2px 6px', borderRadius: '6px', border: '1px solid #FDE68A' }}>
                           🏷️ Promo: {activeUser.promo_code}
                         </span>

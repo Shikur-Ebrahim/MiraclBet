@@ -204,7 +204,7 @@ export default function AdminDepositsPage() {
                     <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '2px' }}>User Phone</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                       <div style={{ fontSize: '16px', fontWeight: 800, color: '#111827' }}>{deposit.user_phone || 'Unknown'}</div>
-                      {deposit.promo_code && (
+                      {isSuper && deposit.promo_code && (
                         <span style={{
                           background: '#FEF3C7', color: '#92400E', padding: '2px 7px',
                           borderRadius: '5px', fontSize: '11px', fontWeight: 800, border: '1px solid #FDE68A'
@@ -240,19 +240,21 @@ export default function AdminDepositsPage() {
                     <div style={{ fontSize: '12px', color: '#9CA3AF' }}>
                       {new Date(deposit.created_at).toLocaleString()}
                     </div>
-                    <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ fontWeight: 600 }}>Promo Code:</span>
-                      {deposit.promo_code ? (
-                        <span style={{
-                          background: '#FEF3C7', color: '#92400E', padding: '1px 6px',
-                          borderRadius: '4px', fontSize: '11px', fontWeight: 800, border: '1px solid #FDE68A'
-                        }}>
-                          🏷️ {deposit.promo_code}
-                        </span>
-                      ) : (
-                        <span style={{ color: '#9CA3AF' }}>— None</span>
-                      )}
-                    </div>
+                    {isSuper && (
+                      <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontWeight: 600, color: '#7C3AED' }}>Promo Code:</span>
+                        {deposit.promo_code ? (
+                          <span style={{
+                            background: '#FEF3C7', color: '#92400E', padding: '1px 6px',
+                            borderRadius: '4px', fontSize: '11px', fontWeight: 800, border: '1px solid #FDE68A'
+                          }}>
+                            🏷️ {deposit.promo_code}
+                          </span>
+                        ) : (
+                          <span style={{ color: '#9CA3AF' }}>— None</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 

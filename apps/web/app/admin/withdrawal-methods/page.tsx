@@ -51,7 +51,7 @@ export default function WithdrawalMethodsAdmin() {
 
   const fetchMethods = async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/withdrawal-methods`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443'}/api/v1/admin/withdrawal-methods`);
       if (res.ok) {
         const data = await res.json();
         setMethods(data || []);
@@ -88,7 +88,7 @@ export default function WithdrawalMethodsAdmin() {
     }
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/withdrawal-methods`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443'}/api/v1/admin/withdrawal-methods`, {
         method: 'POST',
         body: formData,
       });
@@ -114,7 +114,7 @@ export default function WithdrawalMethodsAdmin() {
     if (!confirm('Are you sure you want to delete this withdrawal method?')) return;
     
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/withdrawal-methods/${id}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443'}/api/v1/admin/withdrawal-methods/${id}`, {
         method: 'DELETE',
       });
       if (res.ok) {
@@ -131,7 +131,7 @@ export default function WithdrawalMethodsAdmin() {
 
   const toggleStatus = async (id: string, currentStatus: boolean) => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/withdrawal-methods/${id}/status`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443'}/api/v1/admin/withdrawal-methods/${id}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_active: !currentStatus }),

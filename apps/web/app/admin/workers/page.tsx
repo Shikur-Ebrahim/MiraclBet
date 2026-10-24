@@ -29,6 +29,7 @@ export default function WorkersPage() {
   const router = useRouter();
   const [users, setUsers] = useState<WorkerUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSuper, setIsSuper] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPrivs, setEditPrivs] = useState<string[]>([]);
   
@@ -40,6 +41,7 @@ export default function WorkersPage() {
     if (!saved) { router.push('/login'); return; }
     const u = JSON.parse(saved);
     if (u.role !== 'ADMIN' && u.role !== 'SUPER_ADMIN') { router.push('/'); return; }
+    setIsSuper(u.role === 'SUPER_ADMIN');
     fetchUsers();
   }, [router]);
 
@@ -192,14 +194,18 @@ export default function WorkersPage() {
                       <div style={{ fontWeight: 800, fontSize: 15, color: '#111827' }}>{u.phone}</div>
                       <div style={{ fontSize: 11, color: '#9CA3AF', fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
                         <span>ID: {u.id.slice(0, 8)}</span>
-                        <span>•</span>
-                        <span>Promo Code:</span>
-                        {u.promo_code ? (
-                          <span style={{ background: '#FEF3C7', color: '#92400E', padding: '1px 6px', borderRadius: 4, fontWeight: 800, border: '1px solid #FDE68A' }}>
-                            🏷️ {u.promo_code}
-                          </span>
-                        ) : (
-                          <span style={{ color: '#9CA3AF' }}>— None</span>
+                        {isSuper && (
+                          <>
+                            <span>•</span>
+                            <span style={{ color: '#7C3AED', fontWeight: 600 }}>Promo Code:</span>
+                            {u.promo_code ? (
+                              <span style={{ background: '#FEF3C7', color: '#92400E', padding: '1px 6px', borderRadius: 4, fontWeight: 800, border: '1px solid #FDE68A' }}>
+                                🏷️ {u.promo_code}
+                              </span>
+                            ) : (
+                              <span style={{ color: '#9CA3AF' }}>— None</span>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>

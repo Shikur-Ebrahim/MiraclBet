@@ -63,7 +63,7 @@ export default function DepositPage() {
     const userStr = localStorage.getItem('miraclbet_user');
     if (!userStr) { router.push('/login?redirect=/deposit'); return; }
     const user = JSON.parse(userStr);
-    const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    const API = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
     Promise.all([
       fetch(`${API}/api/v1/payment-methods`).then(r => r.json()),
       fetch(`${API}/api/v1/deposits/pending?user_id=${user.id}`).then(r => r.json()).catch(() => null),
@@ -110,7 +110,7 @@ export default function DepositPage() {
     formData.append('amount', amount);
     formData.append('screenshot', screenshotFile);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/deposits`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443'}/api/v1/deposits`, {
         method: 'POST', body: formData,
       });
       if (!res.ok) throw new Error('Failed to submit');

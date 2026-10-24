@@ -42,7 +42,7 @@ export function Header() {
       try {
         const u = JSON.parse(savedUser);
         if (!u?.id) return;
-        const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+        const API = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
         const res = await fetch(`${API}/api/v1/auth/me?user_id=${u.id}`);
         if (!res.ok) return;
         const data = await res.json();

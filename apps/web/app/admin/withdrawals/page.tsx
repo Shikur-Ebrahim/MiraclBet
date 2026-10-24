@@ -183,7 +183,7 @@ export default function AdminWithdrawalsPage() {
                     <div style={{ fontSize: '12px', color: '#6B7280', fontWeight: 600, letterSpacing: '0.05em' }}>USER PHONE</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                       <div style={{ fontSize: '16px', fontWeight: 800, color: '#111827' }}>{wd.user_phone}</div>
-                      {wd.promo_code && (
+                      {isSuper && wd.promo_code && (
                         <span style={{
                           background: '#FEF3C7', color: '#92400E', padding: '2px 7px',
                           borderRadius: '5px', fontSize: '11px', fontWeight: 800, border: '1px solid #FDE68A'
@@ -213,16 +213,18 @@ export default function AdminWithdrawalsPage() {
                     <span style={{ fontSize: '13px', color: '#6B7280' }}>Account No.</span>
                     <span style={{ fontSize: '14px', fontWeight: 800, color: '#3B82F6', letterSpacing: '0.5px' }}>{wd.account_number}</span>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '13px', color: '#6B7280' }}>Promo Code</span>
-                    {wd.promo_code ? (
-                      <span style={{ fontSize: '12px', fontWeight: 800, color: '#92400E', background: '#FEF3C7', padding: '1px 8px', borderRadius: '5px', border: '1px solid #FDE68A' }}>
-                        🏷️ {wd.promo_code}
-                      </span>
-                    ) : (
-                      <span style={{ fontSize: '12px', color: '#9CA3AF' }}>— None</span>
-                    )}
-                  </div>
+                  {isSuper && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '13px', color: '#7C3AED', fontWeight: 600 }}>Promo Code</span>
+                      {wd.promo_code ? (
+                        <span style={{ fontSize: '12px', fontWeight: 800, color: '#92400E', background: '#FEF3C7', padding: '1px 8px', borderRadius: '5px', border: '1px solid #FDE68A' }}>
+                          🏷️ {wd.promo_code}
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '12px', color: '#9CA3AF' }}>— None</span>
+                      )}
+                    </div>
+                  )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
                     <span style={{ fontSize: '12px', color: '#9CA3AF' }}>Requested</span>
                     <span style={{ fontSize: '12px', color: '#9CA3AF' }}>{new Date(wd.created_at).toLocaleString()}</span>

@@ -7,7 +7,7 @@ import {
   Check, CheckCheck, Loader2, ShieldAlert, Headphones
 } from 'lucide-react';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
 
 type SupportMessage = {
   id: string;

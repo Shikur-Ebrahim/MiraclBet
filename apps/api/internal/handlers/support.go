@@ -236,7 +236,7 @@ func (h *SupportHandler) UploadImage(w http.ResponseWriter, r *http.Request) {
 func (h *SupportHandler) AdminListConversations(w http.ResponseWriter, r *http.Request) {
 	isSupportSuper := IsSuperAdminRequest(r, h.db)
 	promoFilterChat := r.URL.Query().Get("promo_filter")
-	if !isSupportSuper && promoFilterChat == "" {
+	if !isSupportSuper {
 		promoFilterChat = "none"
 	}
 	// Build promo WHERE clause for support queries

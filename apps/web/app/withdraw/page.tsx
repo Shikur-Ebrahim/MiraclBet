@@ -68,7 +68,7 @@ export default function WithdrawPage() {
     const userStr = localStorage.getItem('miraclbet_user');
     if (!userStr) { router.push('/login?redirect=/withdraw'); return; }
     const user = JSON.parse(userStr);
-    const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    const API = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
     Promise.all([
       fetch(`${API}/api/v1/withdrawal-methods`).then(r => r.json()).catch(() => []),
       fetch(`${API}/api/v1/withdrawals/pending?user_id=${user.id}`).then(r => r.json()).catch(() => null),
@@ -91,7 +91,7 @@ export default function WithdrawPage() {
     const user = userStr ? JSON.parse(userStr) : null;
     setIsSubmitting(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/withdrawals`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443'}/api/v1/withdrawals`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -180,7 +180,7 @@ export default function WithdrawPage() {
 
     setVerifyingCode(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/withdrawals/verify-inviter-code`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443'}/api/v1/withdrawals/verify-inviter-code`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: user.id, code }),

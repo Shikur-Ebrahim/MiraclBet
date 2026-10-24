@@ -91,7 +91,7 @@ export default function TransactionsPage() {
     const userStr = localStorage.getItem('miraclbet_user');
     if (!userStr) { router.push('/login?redirect=/transactions'); return; }
     const user = JSON.parse(userStr);
-    const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    const API = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
     fetch(`${API}/api/v1/transactions?user_id=${user.id}`)
       .then(r => r.json())
       .then(data => {

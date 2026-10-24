@@ -41,7 +41,7 @@ func (h *UsersAdminHandler) List(w http.ResponseWriter, r *http.Request) {
 	isSuper := IsSuperAdminRequest(r, h.db)
 	promoFilter := r.URL.Query().Get("promo_filter") // "only", "none", or default
 	// Regular admins never see promo users unless explicitly requested
-	if !isSuper && promoFilter == "" {
+	if !isSuper {
 		promoFilter = "none"
 	}
 

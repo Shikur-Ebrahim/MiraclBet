@@ -64,7 +64,7 @@ export default function DepositMethodsAdmin() {
 
   const fetchMethods = async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/payment-methods`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443'}/api/v1/admin/payment-methods`);
       if (res.ok) {
         const data = await res.json();
         setMethods(data || []);
@@ -107,7 +107,7 @@ export default function DepositMethodsAdmin() {
     }
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/payment-methods`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443'}/api/v1/admin/payment-methods`, {
         method: 'POST',
         body: formData,
       });
@@ -161,7 +161,7 @@ export default function DepositMethodsAdmin() {
     }
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/payment-methods/${editingMethod.id}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443'}/api/v1/admin/payment-methods/${editingMethod.id}`, {
         method: 'PUT',
         body: formData,
       });
@@ -184,7 +184,7 @@ export default function DepositMethodsAdmin() {
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this deposit method?')) return;
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/payment-methods/${id}`, {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443'}/api/v1/admin/payment-methods/${id}`, {
         method: 'DELETE',
       });
       fetchMethods();
@@ -195,7 +195,7 @@ export default function DepositMethodsAdmin() {
 
   const toggleStatus = async (id: string, currentStatus: boolean) => {
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/payment-methods/${id}/status`, {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443'}/api/v1/admin/payment-methods/${id}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_active: !currentStatus }),

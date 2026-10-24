@@ -91,6 +91,7 @@ function DetailModal({ userId, onClose, onBalanceUpdated }: {
   onClose: () => void;
   onBalanceUpdated: (id: string, newBal: number) => void;
 }) {
+  const isSuper = isCurrentSuperAdmin();
   const [detail, setDetail] = useState<UserDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'deposits' | 'bets'>('deposits');
@@ -175,7 +176,7 @@ function DetailModal({ userId, onClose, onBalanceUpdated }: {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               <span style={{ fontWeight: 800, fontSize: 18, color: '#111827' }}>{detail?.user.phone ?? '...'}</span>
-              {detail?.user.promo_code && (
+              {isSuper && detail?.user.promo_code && (
                 <span style={{
                   background: '#FEF3C7', color: '#92400E', padding: '2px 7px',
                   borderRadius: 5, fontSize: 11, fontWeight: 800, border: '1px solid #FDE68A'
@@ -196,22 +197,24 @@ function DetailModal({ userId, onClose, onBalanceUpdated }: {
             <div style={{ padding: 40, textAlign: 'center', color: '#9CA3AF' }}>Loading...</div>
           ) : detail ? (
             <>
-              {/* ── Detailed Promo Code Card ── */}
-              <div style={{ margin: '0 20px 10px', background: detail.user.promo_code ? '#FEF3C7' : '#F9FAFB', border: detail.user.promo_code ? '1.5px solid #FDE68A' : '1px solid #E5E7EB', borderRadius: 12, padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: 10, fontWeight: 800, color: detail.user.promo_code ? '#92400E' : '#6B7280', letterSpacing: '0.05em' }}>PROMO CODE</div>
-                  <div style={{ fontSize: 14, fontWeight: 900, color: detail.user.promo_code ? '#78350F' : '#374151', marginTop: 2 }}>
-                    {detail.user.promo_code ? `🏷️ ${detail.user.promo_code}` : 'None (Direct Registration)'}
+              {/* ── Detailed Promo Code Card (Super Admin Only) ── */}
+              {isSuper && (
+                <div style={{ margin: '0 20px 10px', background: detail.user.promo_code ? '#FEF3C7' : '#F9FAFB', border: detail.user.promo_code ? '1.5px solid #FDE68A' : '1px solid #E5E7EB', borderRadius: 12, padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 800, color: detail.user.promo_code ? '#92400E' : '#6B7280', letterSpacing: '0.05em' }}>PROMO CODE</div>
+                    <div style={{ fontSize: 14, fontWeight: 900, color: detail.user.promo_code ? '#78350F' : '#374151', marginTop: 2 }}>
+                      {detail.user.promo_code ? `🏷️ ${detail.user.promo_code}` : 'None (Direct Registration)'}
+                    </div>
                   </div>
+                  {detail.user.promo_code ? (
+                    <span style={{ fontSize: 11, fontWeight: 800, background: '#D97706', color: '#FFF', padding: '3px 8px', borderRadius: 6 }}>
+                      Referred
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: 11, color: '#9CA3AF' }}>No Promo</span>
+                  )}
                 </div>
-                {detail.user.promo_code ? (
-                  <span style={{ fontSize: 11, fontWeight: 800, background: '#D97706', color: '#FFF', padding: '3px 8px', borderRadius: 6 }}>
-                    Referred
-                  </span>
-                ) : (
-                  <span style={{ fontSize: 11, color: '#9CA3AF' }}>No Promo</span>
-                )}
-              </div>
+              )}
 
               {/* ── Stats Row ── */}
               <div style={{ padding: '16px 20px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
@@ -575,7 +578,7 @@ export default function AdminBalanceManagerPage() {
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                       <span style={{ fontWeight: 800, fontSize: 16, color: '#111827' }}>{u.phone}</span>
-                      {u.promo_code && (
+                      {isSuper && u.promo_code && (
                         <span style={{
                           background: '#FEF3C7', color: '#92400E', padding: '2px 7px',
                           borderRadius: 5, fontSize: 11, fontWeight: 800, border: '1px solid #FDE68A'

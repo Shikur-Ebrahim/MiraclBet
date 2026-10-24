@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import QRCode from 'react-qr-code';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
 
 type AgentSession = { phone: string; role: string; id?: string };
 

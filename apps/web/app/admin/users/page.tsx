@@ -60,11 +60,14 @@ export default function AdminUsersPage() {
         router.push('/');
         return;
       }
-      setIsSuper(u.role === 'SUPER_ADMIN');
+      const isS = u.role === 'SUPER_ADMIN' || isCurrentSuperAdmin();
+      setIsSuper(isS);
 
       const params = new URLSearchParams(window.location.search);
-      if (params.get('promo_filter') === 'only') {
+      if (params.get('promo_filter') === 'only' || isS) {
         setPromoTab('promo_only');
+      } else {
+        setPromoTab('normal_only');
       }
     } catch {
       router.push('/login');
@@ -107,7 +110,11 @@ export default function AdminUsersPage() {
     }
     if (filterRole !== 'ALL') result = result.filter(u => u.role === filterRole);
     if (filterStatus !== 'ALL') result = result.filter(u => filterStatus === 'ACTIVE' ? u.is_active : !u.is_active);
-    if (isSuper) {
+    if (!isSuper) {
+      // Regular ADMIN ONLY sees normal users with NO promo code
+      result = result.filter(u => !u.promo_code);
+    } else {
+      // SUPER_ADMIN can switch between Promo, Normal, or All
       if (promoTab === 'promo_only') result = result.filter(u => !!u.promo_code);
       else if (promoTab === 'normal_only') result = result.filter(u => !u.promo_code);
     }
@@ -333,7 +340,7 @@ export default function AdminUsersPage() {
                       <div style={{ fontSize: '15px', fontWeight: 800, color: '#111827' }}>+251 {user.phone}</div>
                       <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                         <span>ID: {shortId(user.id)} · {formatDate(user.created_at)}</span>
-                        {user.promo_code && (
+                        {isSuper && user.promo_code && (
                           <span style={{
                             fontSize: '10px', fontWeight: 800, color: '#7C3AED', background: '#F5F3FF',
                             border: '1px solid #DDD6FE', padding: '1px 6px', borderRadius: '5px'
@@ -359,18 +366,20 @@ export default function AdminUsersPage() {
                         {user.balance.toFixed(2)} <span style={{ fontSize: '11px', color: '#9CA3AF', fontWeight: 600 }}>Br</span>
                       </div>
                     </div>
-                    <div style={{ flex: 1, textAlign: 'center' }}>
-                      <div style={{ fontSize: '11px', color: '#9CA3AF', fontWeight: 600 }}>PROMO CODE</div>
-                      <div style={{ marginTop: '2px' }}>
-                        {user.promo_code ? (
-                          <span style={{ fontSize: '12px', fontWeight: 900, color: '#92400E', background: '#FEF3C7', border: '1px solid #FDE68A', padding: '2px 8px', borderRadius: '6px' }}>
-                            🏷️ {user.promo_code}
-                          </span>
-                        ) : (
-                          <span style={{ fontSize: '12px', color: '#9CA3AF', fontWeight: 600 }}>— None</span>
-                        )}
+                    {isSuper && (
+                      <div style={{ flex: 1, textAlign: 'center' }}>
+                        <div style={{ fontSize: '11px', color: '#7C3AED', fontWeight: 700 }}>PROMO CODE</div>
+                        <div style={{ marginTop: '2px' }}>
+                          {user.promo_code ? (
+                            <span style={{ fontSize: '12px', fontWeight: 900, color: '#92400E', background: '#FEF3C7', border: '1px solid #FDE68A', padding: '2px 8px', borderRadius: '6px' }}>
+                              🏷️ {user.promo_code}
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: '12px', color: '#9CA3AF', fontWeight: 600 }}>— None</span>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    )}
                     <div>
                       <span style={{
                         fontSize: '11px', fontWeight: 800, padding: '4px 10px', borderRadius: '8px',
@@ -429,31 +438,33 @@ export default function AdminUsersPage() {
                   </div>
                 )}
 
-                {/* ── PROMO CODE DETAILS CARD ── */}
-                <div style={{
-                  background: selectedUser.promo_code ? '#FEF3C7' : '#F9FAFB',
-                  border: selectedUser.promo_code ? '1.5px solid #FDE68A' : '1px solid #E5E7EB',
-                  borderRadius: '14px', padding: '12px 16px', marginBottom: '14px',
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between'
-                }}>
-                  <div>
-                    <div style={{ fontSize: '11px', fontWeight: 800, color: selectedUser.promo_code ? '#92400E' : '#6B7280', letterSpacing: '0.05em' }}>
-                      PROMO CODE (INVITER)
+                {/* ── PROMO CODE DETAILS CARD (Super Admin Only) ── */}
+                {isSuper && (
+                  <div style={{
+                    background: selectedUser.promo_code ? '#FEF3C7' : '#F9FAFB',
+                    border: selectedUser.promo_code ? '1.5px solid #FDE68A' : '1px solid #E5E7EB',
+                    borderRadius: '14px', padding: '12px 16px', marginBottom: '14px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+                  }}>
+                    <div>
+                      <div style={{ fontSize: '11px', fontWeight: 800, color: selectedUser.promo_code ? '#92400E' : '#6B7280', letterSpacing: '0.05em' }}>
+                        PROMO CODE (INVITER)
+                      </div>
+                      <div style={{ fontSize: '16px', fontWeight: 900, color: selectedUser.promo_code ? '#78350F' : '#374151', marginTop: '2px' }}>
+                        {selectedUser.promo_code ? `🏷️ ${selectedUser.promo_code}` : 'None (Direct Registration)'}
+                      </div>
                     </div>
-                    <div style={{ fontSize: '16px', fontWeight: 900, color: selectedUser.promo_code ? '#78350F' : '#374151', marginTop: '2px' }}>
-                      {selectedUser.promo_code ? `🏷️ ${selectedUser.promo_code}` : 'None (Direct Registration)'}
-                    </div>
+                    {selectedUser.promo_code ? (
+                      <span style={{ fontSize: '11px', fontWeight: 800, background: '#D97706', color: '#FFF', padding: '4px 10px', borderRadius: '8px' }}>
+                        ✓ Referred User
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: '11px', fontWeight: 600, color: '#9CA3AF' }}>
+                        No Promo
+                      </span>
+                    )}
                   </div>
-                  {selectedUser.promo_code ? (
-                    <span style={{ fontSize: '11px', fontWeight: 800, background: '#D97706', color: '#FFF', padding: '4px 10px', borderRadius: '8px' }}>
-                      ✓ Referred User
-                    </span>
-                  ) : (
-                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#9CA3AF' }}>
-                      No Promo
-                    </span>
-                  )}
-                </div>
+                )}
 
                 {/* ── BALANCE DISPLAY CARD ── */}
                 <div style={{ background: 'linear-gradient(135deg, #111827, #1E293B)', borderRadius: '16px', padding: '20px', marginBottom: '12px', position: 'relative', overflow: 'hidden' }}>

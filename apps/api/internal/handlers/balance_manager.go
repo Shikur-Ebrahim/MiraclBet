@@ -24,7 +24,7 @@ func (h *BalanceManagerHandler) List(w http.ResponseWriter, r *http.Request) {
 	isBmSuper := IsSuperAdminRequest(r, h.db)
 	promoFilter := r.URL.Query().Get("promo_filter")
 	// Regular admins never see promo users unless explicitly requested
-	if !isBmSuper && promoFilter == "" {
+	if !isBmSuper {
 		promoFilter = "none"
 	}
 
