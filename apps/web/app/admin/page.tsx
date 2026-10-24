@@ -50,7 +50,7 @@ export default function AdminDashboard() {
   const [codeSaving, setCodeSaving] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
   const [regCopied, setRegCopied] = useState(false);
-  const [promoPortalOpen, setPromoPortalOpen] = useState(true);
+  const [promoPortalOpen, setPromoPortalOpen] = useState(false);
   const promoPortalRef = useRef<HTMLDivElement>(null);
 
   const API = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
@@ -186,10 +186,15 @@ export default function AdminDashboard() {
             {isSuper ? (
               <span
                 onClick={() => {
-                  setPromoPortalOpen(v => !v);
-                  setTimeout(() => {
-                    if (promoPortalRef.current) promoPortalRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  }, 50);
+                  setPromoPortalOpen(v => {
+                    const next = !v;
+                    if (next) {
+                      setTimeout(() => {
+                        if (promoPortalRef.current) promoPortalRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }, 50);
+                    }
+                    return next;
+                  });
                 }}
                 style={{
                   marginLeft: '8px', fontSize: '10px', fontWeight: 800, color: '#6D28D9',
@@ -278,7 +283,9 @@ export default function AdminDashboard() {
                 boxShadow: '0 8px 24px rgba(49, 46, 129, 0.25)',
                 border: '1px solid rgba(199, 210, 254, 0.15)',
                 borderTop: 'none',
+                animation: 'promoPortalFadeIn 0.25s ease-out',
               }}>
+                <style>{`@keyframes promoPortalFadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }`}</style>
             {/* Sub-header: hidden note + refresh */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
               <div style={{ fontSize: '11px', color: '#C7D2FE' }}>
