@@ -59,15 +59,15 @@ func HasAnyMatchWon(ctx context.Context, db *database.DB, bookingCode string, se
 	// 1. Check if match duration (kickoff + 105 min) has passed for each selection
 	for _, sel := range selections {
 		if sel.KickoffAt != "" {
+			// Match has a kickoff time — only expire once the match duration has passed
 			if ko, err := parseKickoff(sel.KickoffAt); err == nil {
 				endTime := ko.Add(MatchDuration)
 				if now.After(endTime) || now.Equal(endTime) {
 					return true, "At least one game on this ticket has already started."
 				}
 			}
-		}
-		if !bookingCreatedAt.IsZero() {
-			// If no kickoff time, treat as ended 105 min after booking creation
+		} else if !bookingCreatedAt.IsZero() {
+			// No kickoff time set — fallback: treat as ended 105 min after booking creation
 			if now.After(bookingCreatedAt.Add(MatchDuration)) || now.Equal(bookingCreatedAt.Add(MatchDuration)) {
 				return true, "At least one game on this ticket has already started."
 			}
