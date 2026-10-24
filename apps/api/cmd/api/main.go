@@ -105,6 +105,17 @@ func main() {
 
 
 func autoMigrate(ctx context.Context, db *database.DB) error {
+	// IMPORTANT: Enum ADD VALUE must commit in its own transaction before
+	// any other DDL block runs, or PostgreSQL raises error 55P04.
+	// Run each enum change as a separate Exec so it auto-commits immediately.
+	for _, enumSQL := range []string{
+		"ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'WORKER'",
+		"ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'AGENT'",
+		"ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'SUPER_ADMIN'",
+	} {
+		db.Pool.Exec(ctx, enumSQL) // ignore error — value may already exist
+	}
+
 	_, err := db.Pool.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS bet_slips (
 			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -147,7 +158,6 @@ func autoMigrate(ctx context.Context, db *database.DB) error {
 		ALTER TABLE bet_slips ADD COLUMN IF NOT EXISTS is_auto_win BOOLEAN DEFAULT false;
 		ALTER TABLE bet_slips ADD COLUMN IF NOT EXISTS booking_code TEXT;
 		ALTER TABLE users ADD COLUMN IF NOT EXISTS privileges JSONB DEFAULT '[]'::jsonb;
-		ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'AGENT';
 
 		CREATE TABLE IF NOT EXISTS saved_teams (
 			id SERIAL PRIMARY KEY,
@@ -236,17 +246,7 @@ func autoMigrate(ctx context.Context, db *database.DB) error {
 		ALTER TABLE users ADD COLUMN IF NOT EXISTS is_support_blocked BOOLEAN NOT NULL DEFAULT false;
 		ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name TEXT DEFAULT '';
 
-		-- Super Admin & Promo Code support
-		DO $$ 
-		BEGIN
-		    BEGIN
-		        ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'SUPER_ADMIN';
-		    EXCEPTION
-		        WHEN duplicate_object THEN null;
-		        WHEN undefined_object THEN null;
-		    END;
-		END $$;
-
+		-- promo_code column (enum ADD VALUE handled separately before this block)
 		ALTER TABLE users ADD COLUMN IF NOT EXISTS promo_code TEXT DEFAULT '';
 		CREATE INDEX IF NOT EXISTS idx_users_promo_code ON users(promo_code);
 
