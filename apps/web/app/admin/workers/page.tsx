@@ -13,6 +13,7 @@ type WorkerUser = {
   phone: string;
   role: Role;
   privileges: string[];
+  promo_code?: string;
 };
 
 const SECTIONS = [
@@ -189,7 +190,18 @@ export default function WorkersPage() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                     <div>
                       <div style={{ fontWeight: 800, fontSize: 15, color: '#111827' }}>{u.phone}</div>
-                      <div style={{ fontSize: 11, color: '#9CA3AF', fontFamily: 'monospace' }}>ID: {u.id.slice(0, 8)}</div>
+                      <div style={{ fontSize: 11, color: '#9CA3AF', fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                        <span>ID: {u.id.slice(0, 8)}</span>
+                        <span>•</span>
+                        <span>Promo Code:</span>
+                        {u.promo_code ? (
+                          <span style={{ background: '#FEF3C7', color: '#92400E', padding: '1px 6px', borderRadius: 4, fontWeight: 800, border: '1px solid #FDE68A' }}>
+                            🏷️ {u.promo_code}
+                          </span>
+                        ) : (
+                          <span style={{ color: '#9CA3AF' }}>— None</span>
+                        )}
+                      </div>
                     </div>
                     {isEditing ? (
                       <button onClick={() => savePrivileges(u.id)} style={{ background: '#10B981', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: 6, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>

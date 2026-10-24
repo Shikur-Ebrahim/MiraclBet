@@ -81,7 +81,7 @@ func (h *DepositsHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *DepositsHandler) ListAdmin(w http.ResponseWriter, r *http.Request) {
-	isSuper := IsSuperAdminRequest(r, h.db)
+	_ = IsSuperAdminRequest(r, h.db)
 	promoFilter := r.URL.Query().Get("promo_filter")
 
 	query := `
@@ -91,7 +91,7 @@ func (h *DepositsHandler) ListAdmin(w http.ResponseWriter, r *http.Request) {
 		JOIN users u ON d.user_id = u.id
 		JOIN payment_methods p ON d.payment_method_id = p.id
 	`
-	if !isSuper || promoFilter == "none" {
+	if promoFilter == "none" {
 		query += " WHERE COALESCE(u.promo_code, '') = '' "
 	} else if promoFilter == "only" {
 		query += " WHERE COALESCE(u.promo_code, '') != '' "

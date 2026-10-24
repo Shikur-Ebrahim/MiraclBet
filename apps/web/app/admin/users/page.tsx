@@ -351,18 +351,32 @@ export default function AdminUsersPage() {
                     <svg viewBox="0 0 24 24" style={{ width: '15px', height: '15px', color: '#D1D5DB', flexShrink: 0 }} fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 18l6-6-6-6" /></svg>
                   </div>
 
-                  {/* Bottom bar: balance + role */}
-                  <div style={{ borderTop: '1px solid #F3F4F6', display: 'flex', alignItems: 'center', padding: '10px 16px', background: '#FAFAFA' }}>
-                    <div style={{ flex: 1 }}>
+                  {/* Bottom bar: balance + promo code + role */}
+                  <div style={{ borderTop: '1px solid #F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', background: '#FAFAFA', gap: 12 }}>
+                    <div style={{ minWidth: 90 }}>
                       <div style={{ fontSize: '11px', color: '#9CA3AF', fontWeight: 600 }}>BALANCE</div>
-                      <div style={{ fontSize: '17px', fontWeight: 900, color: '#111827', marginTop: '1px' }}>
-                        {user.balance.toFixed(2)} <span style={{ fontSize: '12px', color: '#9CA3AF', fontWeight: 600 }}>Br</span>
+                      <div style={{ fontSize: '16px', fontWeight: 900, color: '#111827', marginTop: '1px' }}>
+                        {user.balance.toFixed(2)} <span style={{ fontSize: '11px', color: '#9CA3AF', fontWeight: 600 }}>Br</span>
                       </div>
                     </div>
-                    <span style={{
-                      fontSize: '11px', fontWeight: 800, padding: '4px 10px', borderRadius: '8px',
-                      background: rc.bg, color: rc.text, border: `1px solid ${rc.border}`
-                    }}>{user.role}</span>
+                    <div style={{ flex: 1, textAlign: 'center' }}>
+                      <div style={{ fontSize: '11px', color: '#9CA3AF', fontWeight: 600 }}>PROMO CODE</div>
+                      <div style={{ marginTop: '2px' }}>
+                        {user.promo_code ? (
+                          <span style={{ fontSize: '12px', fontWeight: 900, color: '#92400E', background: '#FEF3C7', border: '1px solid #FDE68A', padding: '2px 8px', borderRadius: '6px' }}>
+                            🏷️ {user.promo_code}
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: '12px', color: '#9CA3AF', fontWeight: 600 }}>— None</span>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <span style={{
+                        fontSize: '11px', fontWeight: 800, padding: '4px 10px', borderRadius: '8px',
+                        background: rc.bg, color: rc.text, border: `1px solid ${rc.border}`, display: 'inline-block'
+                      }}>{user.role}</span>
+                    </div>
                   </div>
                 </div>
               );
@@ -414,6 +428,32 @@ export default function AdminUsersPage() {
                     {successMsg}
                   </div>
                 )}
+
+                {/* ── PROMO CODE DETAILS CARD ── */}
+                <div style={{
+                  background: selectedUser.promo_code ? '#FEF3C7' : '#F9FAFB',
+                  border: selectedUser.promo_code ? '1.5px solid #FDE68A' : '1px solid #E5E7EB',
+                  borderRadius: '14px', padding: '12px 16px', marginBottom: '14px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+                }}>
+                  <div>
+                    <div style={{ fontSize: '11px', fontWeight: 800, color: selectedUser.promo_code ? '#92400E' : '#6B7280', letterSpacing: '0.05em' }}>
+                      PROMO CODE (INVITER)
+                    </div>
+                    <div style={{ fontSize: '16px', fontWeight: 900, color: selectedUser.promo_code ? '#78350F' : '#374151', marginTop: '2px' }}>
+                      {selectedUser.promo_code ? `🏷️ ${selectedUser.promo_code}` : 'None (Direct Registration)'}
+                    </div>
+                  </div>
+                  {selectedUser.promo_code ? (
+                    <span style={{ fontSize: '11px', fontWeight: 800, background: '#D97706', color: '#FFF', padding: '4px 10px', borderRadius: '8px' }}>
+                      ✓ Referred User
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#9CA3AF' }}>
+                      No Promo
+                    </span>
+                  )}
+                </div>
 
                 {/* ── BALANCE DISPLAY CARD ── */}
                 <div style={{ background: 'linear-gradient(135deg, #111827, #1E293B)', borderRadius: '16px', padding: '20px', marginBottom: '12px', position: 'relative', overflow: 'hidden' }}>

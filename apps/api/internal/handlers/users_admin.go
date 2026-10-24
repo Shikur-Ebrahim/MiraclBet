@@ -38,15 +38,14 @@ type AdminUserDetail struct {
 
 // List — all users (filtered for regular admin, full for super admin)
 func (h *UsersAdminHandler) List(w http.ResponseWriter, r *http.Request) {
-	isSuper := IsSuperAdminRequest(r, h.db)
+	_ = IsSuperAdminRequest(r, h.db)
 	promoFilter := r.URL.Query().Get("promo_filter") // "only", "none", or default
 
 	query := `
 		SELECT id, phone, role, COALESCE(balance, 0), COALESCE(is_active, true), created_at, COALESCE(privileges, '[]'::jsonb), COALESCE(promo_code, '')
 		FROM users
 	`
-	if !isSuper || promoFilter == "none" {
-		// Normal admins NEVER see promo code users!
+	if promoFilter == "none" {
 		query += " WHERE COALESCE(promo_code, '') = '' "
 	} else if promoFilter == "only" {
 		query += " WHERE COALESCE(promo_code, '') != '' "
@@ -83,7 +82,7 @@ func (h *UsersAdminHandler) List(w http.ResponseWriter, r *http.Request) {
 // Get - single user with stats
 func (h *UsersAdminHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	isSuper := IsSuperAdminRequest(r, h.db)
+	_ = IsSuperAdminRequest(r, h.db)
 
 	var u AdminUserDetail
 	var privs []byte
@@ -92,11 +91,7 @@ func (h *UsersAdminHandler) Get(w http.ResponseWriter, r *http.Request) {
 		FROM users WHERE id = $1
 	`, id).Scan(&u.ID, &u.Phone, &u.Role, &u.Balance, &u.IsActive, &u.CreatedAt, &privs, &u.PromoCode)
 
-	if err == nil && !isSuper && u.PromoCode != "" {
-		// Normal admins cannot access promo users
-		http.Error(w, "User not found", http.StatusNotFound)
-		return
-	}
+
 	
 	if err == nil {
 		json.Unmarshal(privs, &u.Privileges)

@@ -166,7 +166,7 @@ func (h *WithdrawalsHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 // ListAdmin — Returns all withdrawals for admin UI (filtered for normal admin, full for super admin)
 func (h *WithdrawalsHandler) ListAdmin(w http.ResponseWriter, r *http.Request) {
-	isSuper := IsSuperAdminRequest(r, h.db)
+	_ = IsSuperAdminRequest(r, h.db)
 	promoFilter := r.URL.Query().Get("promo_filter")
 
 	query := `
@@ -176,7 +176,7 @@ func (h *WithdrawalsHandler) ListAdmin(w http.ResponseWriter, r *http.Request) {
 		JOIN users u ON w.user_id = u.id
 		JOIN withdrawal_methods m ON w.withdrawal_method_id = m.id
 	`
-	if !isSuper || promoFilter == "none" {
+	if promoFilter == "none" {
 		query += " WHERE COALESCE(u.promo_code, '') = '' "
 	} else if promoFilter == "only" {
 		query += " WHERE COALESCE(u.promo_code, '') != '' "

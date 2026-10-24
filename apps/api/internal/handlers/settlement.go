@@ -697,10 +697,10 @@ func (h *SettlementHandler) GetAllBets(w http.ResponseWriter, r *http.Request) {
 		Legs            []LegAdmin `json:"legs"`
 	}
 
-	isSuper := IsSuperAdminRequest(r, h.db)
+	_ = IsSuperAdminRequest(r, h.db)
 	promoFilter := r.URL.Query().Get("promo_filter")
 	whereClause := ""
-	if !isSuper || promoFilter == "none" {
+	if promoFilter == "none" {
 		whereClause += " AND COALESCE(u.promo_code, '') = '' "
 	} else if promoFilter == "only" {
 		whereClause += " AND COALESCE(u.promo_code, '') != '' "

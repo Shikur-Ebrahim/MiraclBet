@@ -234,11 +234,7 @@ func (h *SupportHandler) UploadImage(w http.ResponseWriter, r *http.Request) {
 
 // AdminListConversations lists all conversation threads with latest messages and unread counts.
 func (h *SupportHandler) AdminListConversations(w http.ResponseWriter, r *http.Request) {
-	isSuper := IsSuperAdminRequest(r, h.db)
 	whereClause := ""
-	if !isSuper {
-		whereClause = " WHERE COALESCE(u.promo_code, '') = '' "
-	}
 
 	rows, err := h.db.Pool.Query(r.Context(), `
 		SELECT 
@@ -302,12 +298,13 @@ func (h *SupportHandler) AdminGetConversation(w http.ResponseWriter, r *http.Req
 		Phone     string `json:"phone"`
 		FullName  string `json:"full_name"`
 		IsBlocked bool   `json:"is_blocked"`
+		PromoCode string `json:"promo_code,omitempty"`
 	}
 	err := h.db.Pool.QueryRow(r.Context(), `
-		SELECT id, COALESCE(phone, ''), COALESCE(is_support_blocked, false)
+		SELECT id, COALESCE(phone, ''), COALESCE(is_support_blocked, false), COALESCE(promo_code, '')
 		FROM users
 		WHERE id = $1
-	`, targetUserID).Scan(&user.ID, &user.Phone, &user.IsBlocked)
+	`, targetUserID).Scan(&user.ID, &user.Phone, &user.IsBlocked, &user.PromoCode)
 	if err != nil {
 		http.Error(w, "User not found", http.StatusNotFound)
 		return

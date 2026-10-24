@@ -10,6 +10,7 @@ type AgentUser = {
   id: string;
   phone: string;
   role: string;
+  promo_code?: string;
 };
 
 export default function AgentsPage() {
@@ -202,9 +203,18 @@ export default function AgentsPage() {
                   </div>
                   <div>
                     <div style={{ fontWeight: 800, fontSize: 15, color: '#111827' }}>{agent.phone}</div>
-                    <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 1 }}>
+                    <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 1, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                       <span style={{ background: '#F3E8FF', color: '#9333EA', padding: '1px 7px', borderRadius: 999, fontWeight: 700, fontSize: 10 }}>AGENT</span>
-                      <span style={{ marginLeft: 6, fontFamily: 'monospace' }}>{agent.id.slice(-6).toUpperCase()}</span>
+                      <span style={{ fontFamily: 'monospace' }}>{agent.id.slice(-6).toUpperCase()}</span>
+                      <span>•</span>
+                      <span>Promo Code:</span>
+                      {agent.promo_code ? (
+                        <span style={{ background: '#FEF3C7', color: '#92400E', padding: '1px 6px', borderRadius: 4, fontWeight: 800, border: '1px solid #FDE68A' }}>
+                          🏷️ {agent.promo_code}
+                        </span>
+                      ) : (
+                        <span style={{ color: '#9CA3AF' }}>— None</span>
+                      )}
                     </div>
                   </div>
                 </div>

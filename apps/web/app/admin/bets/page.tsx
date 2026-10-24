@@ -247,6 +247,16 @@ function AdminBetTicket({ slip, onSettle }: { slip: SlipAdmin; onSettle: () => v
 
           {/* Ticket Footer */}
           <div style={{ background: '#ffffff', padding: '16px 20px', borderTop: '1px dashed #374151' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <span style={{ color: '#4B5563', fontSize: 12 }}>Promo Code (Inviter)</span>
+              {slip.promo_code ? (
+                <span style={{ fontSize: 12, fontWeight: 900, color: '#92400E', background: '#FEF3C7', border: '1px solid #FDE68A', padding: '2px 8px', borderRadius: 6 }}>
+                  🏷️ {slip.promo_code}
+                </span>
+              ) : (
+                <span style={{ fontSize: 12, color: '#9CA3AF', fontWeight: 600 }}>— None</span>
+              )}
+            </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
               <span style={{ color: '#4B5563', fontSize: 12 }}>Total Odds</span>
               <span style={{ color: '#111827', fontSize: 14, fontWeight: 800 }}>{slip.total_odds.toFixed(2)}</span>

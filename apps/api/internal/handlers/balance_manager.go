@@ -21,11 +21,11 @@ func NewBalanceManagerHandler(db *database.DB) *BalanceManagerHandler {
 // Returns all users who have at least one deposit, with their deposit totals and bet stats.
 func (h *BalanceManagerHandler) List(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	isSuper := IsSuperAdminRequest(r, h.db)
+	_ = IsSuperAdminRequest(r, h.db)
 	promoFilter := r.URL.Query().Get("promo_filter")
 
 	whereClause := "WHERE (dep.deposit_count > 0 OR dep.pending_deposits > 0)"
-	if !isSuper || promoFilter == "none" {
+	if promoFilter == "none" {
 		whereClause += " AND COALESCE(u.promo_code, '') = ''"
 	} else if promoFilter == "only" {
 		whereClause += " AND COALESCE(u.promo_code, '') != ''"
@@ -133,12 +133,13 @@ func (h *BalanceManagerHandler) UserDetail(w http.ResponseWriter, r *http.Reques
 		Balance   float64   `json:"balance"`
 		IsActive  bool      `json:"is_active"`
 		CreatedAt time.Time `json:"created_at"`
+		PromoCode string    `json:"promo_code,omitempty"`
 	}
 	var u UserInfo
 	err := h.db.Pool.QueryRow(ctx, `
-		SELECT id, phone, role::text, COALESCE(balance, 0)::float8, COALESCE(is_active, true), created_at
+		SELECT id, phone, role::text, COALESCE(balance, 0)::float8, COALESCE(is_active, true), created_at, COALESCE(promo_code, '')
 		FROM users WHERE id = $1
-	`, id).Scan(&u.ID, &u.Phone, &u.Role, &u.Balance, &u.IsActive, &u.CreatedAt)
+	`, id).Scan(&u.ID, &u.Phone, &u.Role, &u.Balance, &u.IsActive, &u.CreatedAt, &u.PromoCode)
 	if err != nil {
 		http.Error(w, "User not found", http.StatusNotFound)
 		return

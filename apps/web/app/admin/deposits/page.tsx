@@ -240,6 +240,19 @@ export default function AdminDepositsPage() {
                     <div style={{ fontSize: '12px', color: '#9CA3AF' }}>
                       {new Date(deposit.created_at).toLocaleString()}
                     </div>
+                    <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontWeight: 600 }}>Promo Code:</span>
+                      {deposit.promo_code ? (
+                        <span style={{
+                          background: '#FEF3C7', color: '#92400E', padding: '1px 6px',
+                          borderRadius: '4px', fontSize: '11px', fontWeight: 800, border: '1px solid #FDE68A'
+                        }}>
+                          🏷️ {deposit.promo_code}
+                        </span>
+                      ) : (
+                        <span style={{ color: '#9CA3AF' }}>— None</span>
+                      )}
+                    </div>
                   </div>
                 </div>
 

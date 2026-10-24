@@ -196,6 +196,23 @@ function DetailModal({ userId, onClose, onBalanceUpdated }: {
             <div style={{ padding: 40, textAlign: 'center', color: '#9CA3AF' }}>Loading...</div>
           ) : detail ? (
             <>
+              {/* ── Detailed Promo Code Card ── */}
+              <div style={{ margin: '0 20px 10px', background: detail.user.promo_code ? '#FEF3C7' : '#F9FAFB', border: detail.user.promo_code ? '1.5px solid #FDE68A' : '1px solid #E5E7EB', borderRadius: 12, padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 800, color: detail.user.promo_code ? '#92400E' : '#6B7280', letterSpacing: '0.05em' }}>PROMO CODE</div>
+                  <div style={{ fontSize: 14, fontWeight: 900, color: detail.user.promo_code ? '#78350F' : '#374151', marginTop: 2 }}>
+                    {detail.user.promo_code ? `🏷️ ${detail.user.promo_code}` : 'None (Direct Registration)'}
+                  </div>
+                </div>
+                {detail.user.promo_code ? (
+                  <span style={{ fontSize: 11, fontWeight: 800, background: '#D97706', color: '#FFF', padding: '3px 8px', borderRadius: 6 }}>
+                    Referred
+                  </span>
+                ) : (
+                  <span style={{ fontSize: 11, color: '#9CA3AF' }}>No Promo</span>
+                )}
+              </div>
+
               {/* ── Stats Row ── */}
               <div style={{ padding: '16px 20px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
                 {[
