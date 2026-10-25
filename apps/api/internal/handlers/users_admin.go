@@ -39,11 +39,8 @@ type AdminUserDetail struct {
 // List Ã¢â‚¬â€ all users (filtered for regular admin, full for super admin)
 func (h *UsersAdminHandler) List(w http.ResponseWriter, r *http.Request) {
 	isSuper := IsSuperAdminRequest(r, h.db)
-	promoFilter := r.URL.Query().Get("promo_filter") // "only", "none", or default
-	// Regular admins never see promo users; Super admin defaults to promo users exclusively
-	if !isSuper {
-		promoFilter = "none"
-	} else if promoFilter == "" {
+	promoFilter := "none"
+	if isSuper {
 		promoFilter = "only"
 	}
 

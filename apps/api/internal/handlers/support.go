@@ -235,10 +235,8 @@ func (h *SupportHandler) UploadImage(w http.ResponseWriter, r *http.Request) {
 // AdminListConversations lists all conversation threads with latest messages and unread counts.
 func (h *SupportHandler) AdminListConversations(w http.ResponseWriter, r *http.Request) {
 	isSupportSuper := IsSuperAdminRequest(r, h.db)
-	promoFilterChat := r.URL.Query().Get("promo_filter")
-	if !isSupportSuper {
-		promoFilterChat = "none"
-	} else if promoFilterChat == "" {
+	promoFilterChat := "none"
+	if isSupportSuper {
 		promoFilterChat = "only"
 	}
 	// Build promo WHERE clause for support queries

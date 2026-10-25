@@ -49,14 +49,6 @@ export default function AdminUsersPage() {
   const [filterRole, setFilterRole] = useState<'ALL' | Role>('ALL');
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
   const [isSuper, setIsSuper] = useState<boolean>(() => isCurrentSuperAdmin());
-  const [promoTab, setPromoTab] = useState<'promo_only' | 'all' | 'normal_only'>(() => {
-    if (typeof window !== 'undefined') {
-      const p = new URLSearchParams(window.location.search).get('promo_filter');
-      if (p === 'normal') return 'normal_only';
-      if (p === 'all') return 'all';
-    }
-    return isCurrentSuperAdmin() ? 'promo_only' : 'normal_only';
-  });
 
   useEffect(() => {
     try {
@@ -67,15 +59,7 @@ export default function AdminUsersPage() {
         router.push('/');
         return;
       }
-      const isS = u.role === 'SUPER_ADMIN' || isCurrentSuperAdmin();
-      setIsSuper(isS);
-
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('promo_filter') === 'only' || isS) {
-        setPromoTab('promo_only');
-      } else {
-        setPromoTab('normal_only');
-      }
+      setIsSuper(u.role === 'SUPER_ADMIN' || isCurrentSuperAdmin());
     } catch {
       router.push('/login');
     }
@@ -98,27 +82,24 @@ export default function AdminUsersPage() {
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      let url = `${API}/api/v1/admin/users?t=${Date.now()}${getAdminRoleQuery()}`;
-      if (!isSuper) {
-        url += '&promo_filter=none';
-      } else if (promoTab === 'promo_only') {
-        url += '&promo_filter=only';
-      } else if (promoTab === 'normal_only') {
-        url += '&promo_filter=none';
-      }
+      const url = `${API}/api/v1/admin/users?t=${Date.now()}${getAdminRoleQuery()}&promo_filter=${isSuper ? 'only' : 'none'}`;
       const res = await fetch(url, {
         headers: getAdminAuthHeaders(),
       });
       if (res.ok) {
         const data = await res.json();
-        setUsers(Array.isArray(data) ? data : []);
+        const rawUsers: User[] = Array.isArray(data) ? data : [];
+        const clean = isSuper
+          ? rawUsers.filter(u => Boolean(u.promo_code && u.promo_code.trim()))
+          : rawUsers.filter(u => !u.promo_code || !u.promo_code.trim());
+        setUsers(clean);
       }
     } catch (e) {
       console.error('Failed to fetch users:', e);
     } finally {
       setLoading(false);
     }
-  }, [isSuper, promoTab]);
+  }, [isSuper]);
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
@@ -130,16 +111,13 @@ export default function AdminUsersPage() {
     }
     if (filterRole !== 'ALL') result = result.filter(u => u.role === filterRole);
     if (filterStatus !== 'ALL') result = result.filter(u => filterStatus === 'ACTIVE' ? u.is_active : !u.is_active);
-    if (!isSuper) {
-      // Regular ADMIN ONLY sees normal users with NO promo code
-      result = result.filter(u => !u.promo_code);
+    if (isSuper) {
+      result = result.filter(u => Boolean(u.promo_code && u.promo_code.trim()));
     } else {
-      // SUPER_ADMIN can switch between Promo, Normal, or All
-      if (promoTab === 'promo_only') result = result.filter(u => !!u.promo_code);
-      else if (promoTab === 'normal_only') result = result.filter(u => !u.promo_code);
+      result = result.filter(u => !u.promo_code || !u.promo_code.trim());
     }
     setFiltered(result);
-  }, [search, filterRole, filterStatus, promoTab, isSuper, users]);
+  }, [search, filterRole, filterStatus, isSuper, users]);
 
   const openDetail = async (user: User) => {
     setDrawerOpen(true);
@@ -246,8 +224,21 @@ export default function AdminUsersPage() {
           <svg viewBox="0 0 24 24" style={{ width: '22px', height: '22px' }} fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M15 18l-6-6 6-6" /></svg>
         </button>
         <div style={{ flex: 1 }}>
-          <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 900, color: '#111827' }}>User Management</h1>
-          <div style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '1px' }}>{users.length} total users</div>
+          <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 900, color: '#111827', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            User Management
+            {isSuper && (
+              <span style={{
+                fontSize: '11px', fontWeight: 800, color: '#6D28D9',
+                background: '#EDE9FE', border: '1px solid #DDD6FE', padding: '2px 8px', borderRadius: '999px',
+                letterSpacing: 0.3
+              }}>
+                👑 Promo Users Only
+              </span>
+            )}
+          </h1>
+          <div style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '1px' }}>
+            {isSuper ? `${users.length} promo users` : `${users.length} total users`}
+          </div>
         </div>
         <button onClick={fetchUsers} style={{ background: '#F1F5F9', border: 'none', borderRadius: '8px', padding: '7px 12px', cursor: 'pointer', color: '#374151', fontSize: '13px', fontWeight: 600 }}>
           ↻ Refresh
@@ -280,25 +271,7 @@ export default function AdminUsersPage() {
               style={{ width: '100%', padding: '10px 12px 10px 36px', borderRadius: '10px', border: '1px solid #E5E7EB', fontSize: '14px', color: '#111827', background: '#FFF', outline: 'none', boxSizing: 'border-box' }} />
           </div>
 
-          {/* Super Admin Promo Filter Tabs */}
-          {isSuper && (
-            <div style={{ display: 'flex', gap: '6px', padding: '8px', background: '#F5F3FF', borderRadius: '10px', border: '1px solid #DDD6FE' }}>
-              {(['promo_only', 'all', 'normal_only'] as const).map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => setPromoTab(tab)}
-                  style={{
-                    flex: 1, padding: '7px 4px', borderRadius: '7px', fontSize: '11px', fontWeight: 800,
-                    background: promoTab === tab ? '#7C3AED' : 'transparent',
-                    color: promoTab === tab ? '#FFF' : '#6D28D9',
-                    border: 'none', cursor: 'pointer'
-                  }}
-                >
-                  {tab === 'promo_only' ? `👑 Promo Users (${users.filter(u => !!u.promo_code).length})` : tab === 'all' ? `All (${users.length})` : `Normal (${users.filter(u => !u.promo_code).length})`}
-                </button>
-              ))}
-            </div>
-          )}
+
 
           {/* Role filter */}
           <div style={{ display: 'flex', gap: '6px' }}>

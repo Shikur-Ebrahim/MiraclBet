@@ -393,35 +393,24 @@ export default function AdminBalanceManagerPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [isSuper, setIsSuper] = useState<boolean>(() => isCurrentSuperAdmin());
-  const [promoFilter, setPromoFilter] = useState<'only' | 'all' | 'normal'>(() => {
-    if (typeof window !== 'undefined') {
-      const p = new URLSearchParams(window.location.search).get('promo_filter');
-      if (p === 'normal') return 'normal';
-      if (p === 'all') return 'all';
-    }
-    return isCurrentSuperAdmin() ? 'only' : 'normal';
-  });
 
-  const fetchUsers = useCallback(async (currentPromoFilter: string) => {
+  const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('miraclbet_token') || '';
-      let url = `${API}/api/v1/admin/balance-manager?t=${Date.now()}${getAdminRoleQuery()}`;
-      if (!isCurrentSuperAdmin()) {
-        url += '&promo_filter=none';
-      } else if (currentPromoFilter === 'only') {
-        url += '&promo_filter=only';
-      } else if (currentPromoFilter === 'normal') {
-        url += '&promo_filter=none';
-      }
+      const isS = isCurrentSuperAdmin();
+      const url = `${API}/api/v1/admin/balance-manager?t=${Date.now()}${getAdminRoleQuery()}&promo_filter=${isS ? 'only' : 'none'}`;
 
       const res = await fetch(url, {
         headers: { 'Authorization': `Bearer ${token}`, ...getAdminAuthHeaders() },
       });
       const data = await res.json();
-      const arr = Array.isArray(data) ? data : [];
-      setUsers(arr);
-      setFiltered(arr);
+      const arr: UserRow[] = Array.isArray(data) ? data : [];
+      const clean = isS
+        ? arr.filter(u => Boolean(u.promo_code && u.promo_code.trim()))
+        : arr.filter(u => !u.promo_code || !u.promo_code.trim());
+      setUsers(clean);
+      setFiltered(clean);
     } catch {
       setUsers([]);
       setFiltered([]);
@@ -438,27 +427,8 @@ export default function AdminBalanceManagerPage() {
     if (u.role !== 'ADMIN' && u.role !== 'SUPER_ADMIN') { router.push('/admin'); return; }
     const superAdmin = u.role === 'SUPER_ADMIN' || isCurrentSuperAdmin();
     setIsSuper(superAdmin);
-
-    let initialFilter: 'only' | 'all' | 'normal' = superAdmin ? 'only' : 'normal';
-    if (typeof window !== 'undefined') {
-      const p = new URLSearchParams(window.location.search).get('promo_filter');
-      if (p === 'only') {
-        initialFilter = 'only';
-      } else if (p === 'normal') {
-        initialFilter = 'normal';
-      } else if (p === 'all') {
-        initialFilter = 'all';
-      }
-    }
-    setPromoFilter(initialFilter);
-    fetchUsers(initialFilter);
+    fetchUsers();
   }, [router, fetchUsers]);
-
-  useEffect(() => {
-    if (mounted) {
-      fetchUsers(promoFilter);
-    }
-  }, [promoFilter, mounted, fetchUsers]);
 
   useEffect(() => {
     const q = search.trim().toLowerCase();
@@ -494,55 +464,13 @@ export default function AdminBalanceManagerPage() {
             <p style={{ fontSize: 11, color: '#9CA3AF', margin: '3px 0 0' }}>{filtered.length} users with deposits</p>
           </div>
         </div>
-        <button onClick={() => fetchUsers(promoFilter)}
+        <button onClick={fetchUsers}
           style={{ background: '#F3F4F6', border: 'none', borderRadius: 8, padding: '8px 14px', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
           Refresh
         </button>
       </div>
 
       <div style={{ padding: '16px', maxWidth: 640, margin: '0 auto' }}>
-
-        {/* Super Admin Promo Filter Tabs */}
-        {isSuper && (
-          <div style={{
-            display: 'flex', gap: '8px', marginBottom: '16px', background: '#F5F3FF',
-            padding: '8px', borderRadius: '12px', border: '1px solid #DDD6FE'
-          }}>
-            <button
-              onClick={() => setPromoFilter('only')}
-              style={{
-                flex: 1, padding: '7px 10px', borderRadius: '8px', border: 'none',
-                fontWeight: 700, fontSize: '12px', cursor: 'pointer',
-                background: promoFilter === 'only' ? '#7C3AED' : 'transparent',
-                color: promoFilter === 'only' ? '#FFF' : '#6D28D9'
-              }}
-            >
-              👑 Promo Users
-            </button>
-            <button
-              onClick={() => setPromoFilter('all')}
-              style={{
-                flex: 1, padding: '7px 10px', borderRadius: '8px', border: 'none',
-                fontWeight: 700, fontSize: '12px', cursor: 'pointer',
-                background: promoFilter === 'all' ? '#111827' : 'transparent',
-                color: promoFilter === 'all' ? '#FFF' : '#6D28D9'
-              }}
-            >
-              All Users
-            </button>
-            <button
-              onClick={() => setPromoFilter('normal')}
-              style={{
-                flex: 1, padding: '7px 10px', borderRadius: '8px', border: 'none',
-                fontWeight: 700, fontSize: '12px', cursor: 'pointer',
-                background: promoFilter === 'normal' ? '#111827' : 'transparent',
-                color: promoFilter === 'normal' ? '#FFF' : '#6D28D9'
-              }}
-            >
-              Normal Only
-            </button>
-          </div>
-        )}
 
         {/* Summary cards */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>

@@ -698,11 +698,8 @@ func (h *SettlementHandler) GetAllBets(w http.ResponseWriter, r *http.Request) {
 	}
 
 	isBetsSuper := IsSuperAdminRequest(r, h.db)
-	promoFilter := r.URL.Query().Get("promo_filter")
-	// Regular admins never see promo users unless explicitly requested
-	if !isBetsSuper {
-		promoFilter = "none"
-	} else if promoFilter == "" {
+	promoFilter := "none"
+	if isBetsSuper {
 		promoFilter = "only"
 	}
 	whereClause := ""

@@ -110,7 +110,12 @@ export default function AdminSupportPage() {
       });
       if (!res.ok) return;
       const data = await res.json();
-      setConversations(Array.isArray(data) ? data : []);
+      const isS = isCurrentSuperAdmin();
+      const rawConv: ConversationSummary[] = Array.isArray(data) ? data : [];
+      const clean = isS
+        ? rawConv.filter(c => Boolean(c.promo_code && c.promo_code.trim()))
+        : rawConv.filter(c => !c.promo_code || !c.promo_code.trim());
+      setConversations(clean);
     } catch (e) {
       console.error('Failed to load conversations:', e);
     } finally {

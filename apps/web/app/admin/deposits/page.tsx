@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { getAdminAuthHeaders, getAdminRoleQuery, isCurrentSuperAdmin } from '@/lib/adminAuth';
 
@@ -22,14 +22,6 @@ export default function AdminDepositsPage() {
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [isSuper, setIsSuper] = useState<boolean>(() => isCurrentSuperAdmin());
-  const [promoFilter, setPromoFilter] = useState<'only' | 'all' | 'normal'>(() => {
-    if (typeof window !== 'undefined') {
-      const p = new URLSearchParams(window.location.search).get('promo_filter');
-      if (p === 'normal') return 'normal';
-      if (p === 'all') return 'all';
-    }
-    return isCurrentSuperAdmin() ? 'only' : 'normal';
-  });
 
   // Modal for screenshot
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -47,41 +39,34 @@ export default function AdminDepositsPage() {
     }
     const superAdmin = u.role === 'SUPER_ADMIN' || isCurrentSuperAdmin();
     setIsSuper(superAdmin);
-
-    const p = new URLSearchParams(window.location.search).get('promo_filter');
-    if (p === 'only' || (superAdmin && !p)) setPromoFilter('only');
-    else if (p === 'normal') setPromoFilter('normal');
-    else if (p === 'all') setPromoFilter('all');
   }, [router]);
 
-  useEffect(() => {
-    fetchDeposits();
-  }, [promoFilter, isSuper]);
-
-  const fetchDeposits = async () => {
+  const fetchDeposits = useCallback(async () => {
     setLoading(true);
     try {
-      let url = `${process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443'}/api/v1/admin/deposits?t=${Date.now()}${getAdminRoleQuery()}`;
-      if (!isSuper) {
-        url += '&promo_filter=none';
-      } else if (promoFilter === 'only') {
-        url += '&promo_filter=only';
-      } else if (promoFilter === 'normal') {
-        url += '&promo_filter=none';
-      }
+      const isS = isCurrentSuperAdmin();
+      const url = `${process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443'}/api/v1/admin/deposits?t=${Date.now()}${getAdminRoleQuery()}&promo_filter=${isS ? 'only' : 'none'}`;
       const res = await fetch(url, {
         headers: getAdminAuthHeaders(),
       });
       if (res.ok) {
         const data = await res.json();
-        setDeposits(Array.isArray(data) ? data : []);
+        const arr: Deposit[] = Array.isArray(data) ? data : [];
+        const clean = isS
+          ? arr.filter(d => Boolean(d.promo_code && d.promo_code.trim()))
+          : arr.filter(d => !d.promo_code || !d.promo_code.trim());
+        setDeposits(clean);
       }
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchDeposits();
+  }, [fetchDeposits, isSuper]);
 
   const handleStatusUpdate = async (id: string, status: 'accepted' | 'rejected') => {
     if (!confirm(`Are you sure you want to mark this deposit as ${status.toUpperCase()}?`)) return;
@@ -155,48 +140,6 @@ export default function AdminDepositsPage() {
 
       <div style={{ padding: '20px 16px', maxWidth: '600px', margin: '0 auto', paddingBottom: '100px' }}>
         
-        {/* Super Admin Promo Filter Tabs */}
-        {isSuper && (
-          <div style={{
-            display: 'flex', gap: '8px', marginBottom: '16px', background: '#F5F3FF',
-            padding: '8px', borderRadius: '12px', border: '1px solid #DDD6FE'
-          }}>
-            <button
-              onClick={() => setPromoFilter('only')}
-              style={{
-                flex: 1, padding: '7px 10px', borderRadius: '8px', border: 'none',
-                fontWeight: 700, fontSize: '12px', cursor: 'pointer',
-                background: promoFilter === 'only' ? '#7C3AED' : 'transparent',
-                color: promoFilter === 'only' ? '#FFF' : '#6D28D9'
-              }}
-            >
-              👑 Promo Deposits
-            </button>
-            <button
-              onClick={() => setPromoFilter('all')}
-              style={{
-                flex: 1, padding: '7px 10px', borderRadius: '8px', border: 'none',
-                fontWeight: 700, fontSize: '12px', cursor: 'pointer',
-                background: promoFilter === 'all' ? '#111827' : 'transparent',
-                color: promoFilter === 'all' ? '#FFF' : '#6D28D9'
-              }}
-            >
-              All Deposits
-            </button>
-            <button
-              onClick={() => setPromoFilter('normal')}
-              style={{
-                flex: 1, padding: '7px 10px', borderRadius: '8px', border: 'none',
-                fontWeight: 700, fontSize: '12px', cursor: 'pointer',
-                background: promoFilter === 'normal' ? '#111827' : 'transparent',
-                color: promoFilter === 'normal' ? '#FFF' : '#6D28D9'
-              }}
-            >
-              Normal Only
-            </button>
-          </div>
-        )}
-
         {loading ? (
           <div style={{ textAlign: 'center', padding: '40px', color: '#6B7280' }}>Loading...</div>
         ) : deposits.length === 0 ? (
