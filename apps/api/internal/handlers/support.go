@@ -233,18 +233,23 @@ func (h *SupportHandler) UploadImage(w http.ResponseWriter, r *http.Request) {
 // ─── ADMIN ENDPOINTS ─────────────────────────────────────────────────────────
 
 // AdminListConversations lists all conversation threads with latest messages and unread counts.
+// Super Admin sees ONLY conversations from users with their exact promo code.
 func (h *SupportHandler) AdminListConversations(w http.ResponseWriter, r *http.Request) {
-	isSupportSuper := IsSuperAdminRequest(r, h.db)
-	promoFilterChat := "none"
-	if isSupportSuper {
-		promoFilterChat = "only"
-	}
-	// Build promo WHERE clause for support queries
-	listPromoWhere := ""
-	if promoFilterChat == "none" {
-		listPromoWhere = " AND COALESCE(u.promo_code, '') = '' "
-	} else if promoFilterChat == "only" {
-		listPromoWhere = " AND COALESCE(u.promo_code, '') != '' "
+	isSuper := IsSuperAdminRequest(r, h.db)
+
+	var promoWhere string
+	var args []interface{}
+
+	if isSuper {
+		superPromo := GetSuperAdminPromoCode(r, h.db)
+		if superPromo != "" {
+			promoWhere = "AND u.promo_code = $1"
+			args = append(args, superPromo)
+		} else {
+			promoWhere = "AND COALESCE(u.promo_code, '') != ''"
+		}
+	} else {
+		promoWhere = "AND COALESCE(u.promo_code, '') = ''"
 	}
 
 	rows, err := h.db.Pool.Query(r.Context(), `
@@ -270,9 +275,9 @@ func (h *SupportHandler) AdminListConversations(w http.ResponseWriter, r *http.R
 			FROM support_messages
 			GROUP BY user_id
 		) m ON u.id = m.user_id
-		` + listPromoWhere + `
+		`+promoWhere+`
 		ORDER BY m.last_message_at DESC
-	`)
+	`, args...)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Database error: %v", err), http.StatusInternalServerError)
 		return
@@ -451,7 +456,7 @@ func (h *SupportHandler) AdminToggleBlockUser(w http.ResponseWriter, r *http.Req
 	})
 }
 
-// AdminGetUnreadCount returns total unread messages sent by users.
+// AdminGetUnreadCount returns total unread messages sent by users for this admin's promo scope.
 func (h *SupportHandler) AdminGetUnreadCount(w http.ResponseWriter, r *http.Request) {
 	isSuper := IsSuperAdminRequest(r, h.db)
 	var count int

@@ -17,21 +17,26 @@ func NewBalanceManagerHandler(db *database.DB) *BalanceManagerHandler {
 	return &BalanceManagerHandler{db: db}
 }
 
-// BalanceManagerList — GET /api/v1/admin/balance-manager
+// List — GET /api/v1/admin/balance-manager
 // Returns all users who have at least one deposit, with their deposit totals and bet stats.
+// Super Admin sees ONLY users matching their exact promo code.
 func (h *BalanceManagerHandler) List(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	isBmSuper := IsSuperAdminRequest(r, h.db)
-	promoFilter := "none"
-	if isBmSuper {
-		promoFilter = "only"
-	}
+	isSuper := IsSuperAdminRequest(r, h.db)
 
-	whereClause := "WHERE (dep.deposit_count > 0 OR dep.pending_deposits > 0)"
-	if promoFilter == "none" {
-		whereClause += " AND COALESCE(u.promo_code, '') = ''"
-	} else if promoFilter == "only" {
-		whereClause += " AND COALESCE(u.promo_code, '') != ''"
+	var whereClause string
+	var args []interface{}
+
+	if isSuper {
+		superPromo := GetSuperAdminPromoCode(r, h.db)
+		if superPromo != "" {
+			whereClause = "WHERE (dep.deposit_count > 0 OR dep.pending_deposits > 0) AND u.promo_code = $1"
+			args = append(args, superPromo)
+		} else {
+			whereClause = "WHERE (dep.deposit_count > 0 OR dep.pending_deposits > 0) AND COALESCE(u.promo_code, '') != ''"
+		}
+	} else {
+		whereClause = "WHERE (dep.deposit_count > 0 OR dep.pending_deposits > 0) AND COALESCE(u.promo_code, '') = ''"
 	}
 
 	rows, err := h.db.Pool.Query(ctx, `
@@ -74,9 +79,9 @@ func (h *BalanceManagerHandler) List(w http.ResponseWriter, r *http.Request) {
 			FROM bet_slips
 			GROUP BY user_id
 		) bs ON bs.user_id = u.id
-		` + whereClause + `
+		`+whereClause+`
 		ORDER BY dep.total_deposited DESC NULLS LAST, u.created_at DESC
-	`)
+	`, args...)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
