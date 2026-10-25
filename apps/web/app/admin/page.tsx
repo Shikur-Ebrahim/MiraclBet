@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-type UserSession = { phone: string; role: string; balance?: number; id?: string };
+type UserSession = { phone: string; role: string; balance?: number; id?: string; promo_code?: string };
 
 type PromoStats = {
   promo_code: string;
@@ -45,9 +45,6 @@ export default function AdminDashboard() {
   
   // Super Admin Promo States
   const [promoStats, setPromoStats] = useState<PromoStats | null>(null);
-  const [isEditingCode, setIsEditingCode] = useState(false);
-  const [newCodeInput, setNewCodeInput] = useState('');
-  const [codeSaving, setCodeSaving] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
   const [regCopied, setRegCopied] = useState(false);
   const [promoPortalOpen, setPromoPortalOpen] = useState(false);
@@ -55,13 +52,25 @@ export default function AdminDashboard() {
 
   const API = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
 
-  const fetchPromoStats = useCallback(async () => {
+  const fetchPromoStats = useCallback(async (parsedUser?: UserSession) => {
     try {
-      const res = await fetch(`${API}/api/v1/admin/super/promo-stats`);
+      const u = parsedUser || (() => {
+        try { return JSON.parse(localStorage.getItem('miraclbet_user') || '{}'); } catch { return {}; }
+      })();
+      const promoCode = u.promo_code || '';
+      const headers: Record<string, string> = {
+        'X-Admin-Role': 'SUPER_ADMIN',
+        'X-Admin-ID': u.id || '',
+      };
+      if (promoCode) headers['X-Admin-Promo-Code'] = promoCode;
+      const promoParam = promoCode ? `&admin_promo_code=${encodeURIComponent(promoCode)}` : '';
+      const res = await fetch(
+        `${API}/api/v1/admin/super/promo-stats?admin_role=SUPER_ADMIN&admin_id=${encodeURIComponent(u.id || '')}&admin_phone=${encodeURIComponent(u.phone || '')}${promoParam}`,
+        { headers }
+      );
       if (res.ok) {
         const data = await res.json();
         setPromoStats(data);
-        setNewCodeInput(data.promo_code || '7777');
       }
     } catch (e) {
       console.error('Failed to fetch promo stats:', e);
@@ -89,13 +98,16 @@ export default function AdminDashboard() {
     setUser(parsed);
 
     const effectiveRole = isS ? 'SUPER_ADMIN' : (parsed.role || 'ADMIN');
-    const authHeaders = {
+    const promoCode = parsed.promo_code || '';
+    const authHeaders: Record<string, string> = {
       'X-Admin-Role': effectiveRole,
       'X-Admin-ID': parsed.id || '',
     };
+    if (promoCode) authHeaders['X-Admin-Promo-Code'] = promoCode;
+    const promoParam = promoCode ? `&admin_promo_code=${encodeURIComponent(promoCode)}` : '';
 
     // Fetch pending counts (filtered based on caller role)
-    fetch(`${API}/api/v1/admin/stats/pending?admin_role=${effectiveRole}&admin_id=${parsed.id || ''}&admin_phone=${parsed.phone || ''}`, {
+    fetch(`${API}/api/v1/admin/stats/pending?admin_role=${effectiveRole}&admin_id=${parsed.id || ''}&admin_phone=${parsed.phone || ''}${promoParam}`, {
       headers: authHeaders,
     })
       .then(res => res.json())
@@ -105,7 +117,7 @@ export default function AdminDashboard() {
       .catch(console.error);
 
     // Fetch unread support messages count
-    fetch(`${API}/api/v1/admin/support/unread-count?admin_role=${effectiveRole}&admin_id=${parsed.id || ''}&admin_phone=${parsed.phone || ''}`, {
+    fetch(`${API}/api/v1/admin/support/unread-count?admin_role=${effectiveRole}&admin_id=${parsed.id || ''}&admin_phone=${parsed.phone || ''}${promoParam}`, {
       headers: authHeaders,
     })
       .then(res => res.json())
@@ -116,42 +128,15 @@ export default function AdminDashboard() {
       })
       .catch(console.error);
 
-    // If SUPER_ADMIN, also fetch promo stats
+    // If SUPER_ADMIN, also fetch promo stats (pass parsed user for promo code)
     if (isS) {
-      fetchPromoStats();
+      fetchPromoStats(parsed);
     }
   }, [router, API, fetchPromoStats]);
 
   const handleLogout = () => {
     localStorage.removeItem('miraclbet_user');
     router.push('/login');
-  };
-
-  const handleSavePromoCode = async () => {
-    const clean = newCodeInput.trim().toUpperCase();
-    if (clean.length !== 4) {
-      alert('Promo code must be exactly 4 alphanumeric characters (e.g. 7777)');
-      return;
-    }
-    setCodeSaving(true);
-    try {
-      const res = await fetch(`${API}/api/v1/admin/super/promo-code`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: clean }),
-      });
-      if (res.ok) {
-        setIsEditingCode(false);
-        fetchPromoStats();
-      } else {
-        const d = await res.json();
-        alert(d.error || 'Failed to update code');
-      }
-    } catch {
-      alert('Network error updating promo code');
-    } finally {
-      setCodeSaving(false);
-    }
   };
 
   const copyToClipboard = (text: string, type: 'main' | 'reg') => {
@@ -292,7 +277,7 @@ export default function AdminDashboard() {
                 🔒 Promo users are completely HIDDEN from normal Admins
               </div>
               <button
-                onClick={fetchPromoStats}
+                onClick={() => fetchPromoStats(user || undefined)}
                 style={{
                   background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)',
                   borderRadius: '8px', padding: '5px 10px', color: '#fff', fontSize: '11px', fontWeight: 700, cursor: 'pointer'
@@ -309,57 +294,24 @@ export default function AdminDashboard() {
             }}>
               <div>
                 <div style={{ fontSize: '10px', color: '#A5B4FC', fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
-                  4-Digit Promo Code
+                  Your Promo Code
                 </div>
-                {isEditingCode ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-                    <input
-                      type="text"
-                      maxLength={4}
-                      value={newCodeInput}
-                      onChange={(e) => setNewCodeInput(e.target.value.toUpperCase())}
-                      style={{
-                        width: '80px', padding: '4px 8px', borderRadius: '6px', border: '1.5px solid #818CF8',
-                        background: '#0F172A', color: '#fff', fontWeight: 900, fontSize: '16px', letterSpacing: '2px', textAlign: 'center'
-                      }}
-                    />
-                    <button
-                      onClick={handleSavePromoCode}
-                      disabled={codeSaving}
-                      style={{
-                        background: '#10B981', color: '#fff', border: 'none', borderRadius: '6px',
-                        padding: '6px 12px', fontSize: '11px', fontWeight: 800, cursor: 'pointer'
-                      }}
-                    >
-                      {codeSaving ? 'Saving...' : 'Save'}
-                    </button>
-                    <button
-                      onClick={() => setIsEditingCode(false)}
-                      style={{
-                        background: 'transparent', color: '#94A3B8', border: 'none', fontSize: '11px', cursor: 'pointer'
-                      }}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
-                  <div style={{ fontSize: '22px', fontWeight: 900, color: '#38BDF8', letterSpacing: '2px', lineHeight: 1.2 }}>
-                    {promoStats?.promo_code || '7777'}
-                  </div>
-                )}
+                <div style={{ fontSize: '28px', fontWeight: 900, color: '#38BDF8', letterSpacing: '4px', lineHeight: 1.2, marginTop: '2px' }}>
+                  {promoStats?.promo_code || user?.promo_code || '—'}
+                </div>
               </div>
-
-              {!isEditingCode && (
-                <button
-                  onClick={() => setIsEditingCode(true)}
-                  style={{
-                    background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)',
-                    borderRadius: '8px', padding: '6px 12px', color: '#fff', fontSize: '11px', fontWeight: 700, cursor: 'pointer'
-                  }}
-                >
-                  ✎ Change Code
-                </button>
-              )}
+              <button
+                onClick={() => {
+                  const code = promoStats?.promo_code || user?.promo_code || '';
+                  if (code) { navigator.clipboard.writeText(code); }
+                }}
+                style={{
+                  background: 'rgba(56,189,248,0.2)', border: '1px solid rgba(56,189,248,0.4)',
+                  borderRadius: '8px', padding: '6px 14px', color: '#38BDF8', fontSize: '11px', fontWeight: 800, cursor: 'pointer'
+                }}
+              >
+                📋 Copy Code
+              </button>
             </div>
 
             {/* Referral Links Section */}
@@ -372,11 +324,11 @@ export default function AdminDashboard() {
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontSize: '10px', color: '#A5B4FC', fontWeight: 700 }}>HOME LINK (AUTO-ATTACH)</div>
                   <div style={{ fontSize: '12px', color: '#E0E7FF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}>
-                    {promoStats?.referral_url || `https://www.miraclbet.com/?ref=7777`}
+                    {promoStats?.referral_url || `https://www.miraclbet.com/?ref=${user?.promo_code || ''}`}
                   </div>
                 </div>
                 <button
-                  onClick={() => copyToClipboard(promoStats?.referral_url || `https://www.miraclbet.com/?ref=7777`, 'main')}
+                  onClick={() => copyToClipboard(promoStats?.referral_url || `https://www.miraclbet.com/?ref=${user?.promo_code || ''}`, 'main')}
                   style={{
                     background: codeCopied ? '#10B981' : 'rgba(255,255,255,0.2)', border: 'none',
                     borderRadius: '7px', padding: '6px 10px', color: '#fff', fontSize: '11px', fontWeight: 800, cursor: 'pointer', flexShrink: 0
@@ -394,11 +346,11 @@ export default function AdminDashboard() {
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontSize: '10px', color: '#A5B4FC', fontWeight: 700 }}>REGISTER DIRECT LINK</div>
                   <div style={{ fontSize: '12px', color: '#E0E7FF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}>
-                    {promoStats?.register_url || `https://www.miraclbet.com/register?promo=7777`}
+                    {promoStats?.register_url || `https://www.miraclbet.com/register?promo=${user?.promo_code || ''}`}
                   </div>
                 </div>
                 <button
-                  onClick={() => copyToClipboard(promoStats?.register_url || `https://www.miraclbet.com/register?promo=7777`, 'reg')}
+                  onClick={() => copyToClipboard(promoStats?.register_url || `https://www.miraclbet.com/register?promo=${user?.promo_code || ''}`, 'reg')}
                   style={{
                     background: regCopied ? '#10B981' : 'rgba(255,255,255,0.2)', border: 'none',
                     borderRadius: '7px', padding: '6px 10px', color: '#fff', fontSize: '11px', fontWeight: 800, cursor: 'pointer', flexShrink: 0
