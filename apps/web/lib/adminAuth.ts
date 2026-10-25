@@ -17,6 +17,10 @@ export function getAdminAuthHeaders(): Record<string, string> {
         headers['X-Admin-ID'] = u.id;
         headers['X-User-ID'] = u.id;
       }
+      // Send promo code so backend can isolate per-super-admin data
+      if (u.promo_code) {
+        headers['X-Admin-Promo-Code'] = u.promo_code;
+      }
     }
   } catch {}
   return headers;
@@ -53,7 +57,8 @@ export function getAdminRoleQuery(): string {
     const u = JSON.parse(raw);
     const isSuper = isCurrentSuperAdmin();
     const effectiveRole = isSuper ? 'SUPER_ADMIN' : (u.role || 'ADMIN');
-    return `&admin_role=${encodeURIComponent(effectiveRole)}&admin_id=${encodeURIComponent(u.id || '')}&admin_phone=${encodeURIComponent(u.phone || '')}`;
+    const promoParam = u.promo_code ? `&admin_promo_code=${encodeURIComponent(u.promo_code)}` : '';
+    return `&admin_role=${encodeURIComponent(effectiveRole)}&admin_id=${encodeURIComponent(u.id || '')}&admin_phone=${encodeURIComponent(u.phone || '')}${promoParam}`;
   } catch {
     return '';
   }

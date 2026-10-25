@@ -457,12 +457,22 @@ func (h *SupportHandler) AdminGetUnreadCount(w http.ResponseWriter, r *http.Requ
 	var count int
 
 	if isSuper {
-		_ = h.db.Pool.QueryRow(r.Context(), `
-			SELECT COUNT(*) 
-			FROM support_messages sm
-			JOIN users u ON sm.user_id = u.id
-			WHERE sm.sender_role = 'USER' AND sm.is_read = false AND COALESCE(u.promo_code, '') != ''
-		`).Scan(&count)
+		superPromo := GetSuperAdminPromoCode(r, h.db)
+		if superPromo != "" {
+			_ = h.db.Pool.QueryRow(r.Context(), `
+				SELECT COUNT(*) 
+				FROM support_messages sm
+				JOIN users u ON sm.user_id = u.id
+				WHERE sm.sender_role = 'USER' AND sm.is_read = false AND u.promo_code = $1
+			`, superPromo).Scan(&count)
+		} else {
+			_ = h.db.Pool.QueryRow(r.Context(), `
+				SELECT COUNT(*) 
+				FROM support_messages sm
+				JOIN users u ON sm.user_id = u.id
+				WHERE sm.sender_role = 'USER' AND sm.is_read = false AND COALESCE(u.promo_code, '') != ''
+			`).Scan(&count)
+		}
 	} else {
 		_ = h.db.Pool.QueryRow(r.Context(), `
 			SELECT COUNT(*) 

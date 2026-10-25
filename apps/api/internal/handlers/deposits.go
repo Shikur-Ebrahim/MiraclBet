@@ -82,26 +82,47 @@ func (h *DepositsHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 func (h *DepositsHandler) ListAdmin(w http.ResponseWriter, r *http.Request) {
 	isDepositsSuper := IsSuperAdminRequest(r, h.db)
-	promoFilter := "none"
+
+	var query string
+	var args []interface{}
+
 	if isDepositsSuper {
-		promoFilter = "only"
+		superPromo := GetSuperAdminPromoCode(r, h.db)
+		if superPromo != "" {
+			query = `
+				SELECT d.id, d.user_id, d.payment_method_id, d.amount, d.screenshot_url, d.status, d.created_at,
+				       u.phone, p.provider_name, COALESCE(u.promo_code, '')
+				FROM deposits d
+				JOIN users u ON d.user_id = u.id
+				JOIN payment_methods p ON d.payment_method_id = p.id
+				WHERE u.promo_code = $1
+				ORDER BY d.created_at DESC
+			`
+			args = append(args, superPromo)
+		} else {
+			query = `
+				SELECT d.id, d.user_id, d.payment_method_id, d.amount, d.screenshot_url, d.status, d.created_at,
+				       u.phone, p.provider_name, COALESCE(u.promo_code, '')
+				FROM deposits d
+				JOIN users u ON d.user_id = u.id
+				JOIN payment_methods p ON d.payment_method_id = p.id
+				WHERE COALESCE(u.promo_code, '') != ''
+				ORDER BY d.created_at DESC
+			`
+		}
+	} else {
+		query = `
+			SELECT d.id, d.user_id, d.payment_method_id, d.amount, d.screenshot_url, d.status, d.created_at,
+			       u.phone, p.provider_name, COALESCE(u.promo_code, '')
+			FROM deposits d
+			JOIN users u ON d.user_id = u.id
+			JOIN payment_methods p ON d.payment_method_id = p.id
+			WHERE COALESCE(u.promo_code, '') = ''
+			ORDER BY d.created_at DESC
+		`
 	}
 
-	query := `
-		SELECT d.id, d.user_id, d.payment_method_id, d.amount, d.screenshot_url, d.status, d.created_at,
-		       u.phone, p.provider_name, COALESCE(u.promo_code, '')
-		FROM deposits d
-		JOIN users u ON d.user_id = u.id
-		JOIN payment_methods p ON d.payment_method_id = p.id
-	`
-	if promoFilter == "none" {
-		query += " WHERE COALESCE(u.promo_code, '') = '' "
-	} else if promoFilter == "only" {
-		query += " WHERE COALESCE(u.promo_code, '') != '' "
-	}
-	query += " ORDER BY d.created_at DESC"
-
-	rows, err := h.db.Pool.Query(r.Context(), query)
+	rows, err := h.db.Pool.Query(r.Context(), query, args...)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

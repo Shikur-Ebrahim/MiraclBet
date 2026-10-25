@@ -18,14 +18,14 @@ func NewUsersAdminHandler(db *database.DB) *UsersAdminHandler {
 }
 
 type AdminUser struct {
-	ID           string    `json:"id"`
-	Phone        string    `json:"phone"`
-	Role         string    `json:"role"`
-	Balance      float64   `json:"balance"`
-	IsActive     bool      `json:"is_active"`
-	CreatedAt    time.Time `json:"created_at"`
-	Privileges   []string  `json:"privileges"`
-	PromoCode    string    `json:"promo_code,omitempty"`
+	ID         string    `json:"id"`
+	Phone      string    `json:"phone"`
+	Role       string    `json:"role"`
+	Balance    float64   `json:"balance"`
+	IsActive   bool      `json:"is_active"`
+	CreatedAt  time.Time `json:"created_at"`
+	Privileges []string  `json:"privileges"`
+	PromoCode  string    `json:"promo_code,omitempty"`
 }
 
 type AdminUserDetail struct {
@@ -36,26 +36,42 @@ type AdminUserDetail struct {
 	WithdrawalCount  int     `json:"withdrawal_count"`
 }
 
-// List Ã¢â‚¬â€ all users (filtered for regular admin, full for super admin)
+// List — all users (filtered for regular admin; per-promo-code for super admin)
 func (h *UsersAdminHandler) List(w http.ResponseWriter, r *http.Request) {
 	isSuper := IsSuperAdminRequest(r, h.db)
-	promoFilter := "none"
+
+	var rows interface {
+		Close()
+		Next() bool
+		Scan(dest ...any) error
+	}
+	var err error
+
 	if isSuper {
-		promoFilter = "only"
+		superPromo := GetSuperAdminPromoCode(r, h.db)
+		if superPromo != "" {
+			rows, err = h.db.Pool.Query(r.Context(), `
+				SELECT id, phone, role, COALESCE(balance, 0), COALESCE(is_active, true), created_at, COALESCE(privileges, '[]'::jsonb), COALESCE(promo_code, '')
+				FROM users
+				WHERE promo_code = $1
+				ORDER BY created_at DESC
+			`, superPromo)
+		} else {
+			rows, err = h.db.Pool.Query(r.Context(), `
+				SELECT id, phone, role, COALESCE(balance, 0), COALESCE(is_active, true), created_at, COALESCE(privileges, '[]'::jsonb), COALESCE(promo_code, '')
+				FROM users
+				WHERE COALESCE(promo_code, '') != ''
+				ORDER BY created_at DESC
+			`)
+		}
+	} else {
+		rows, err = h.db.Pool.Query(r.Context(), `
+			SELECT id, phone, role, COALESCE(balance, 0), COALESCE(is_active, true), created_at, COALESCE(privileges, '[]'::jsonb), COALESCE(promo_code, '')
+			FROM users
+			WHERE COALESCE(promo_code, '') = ''
+			ORDER BY created_at DESC
+		`)
 	}
-
-	query := `
-		SELECT id, phone, role, COALESCE(balance, 0), COALESCE(is_active, true), created_at, COALESCE(privileges, '[]'::jsonb), COALESCE(promo_code, '')
-		FROM users
-	`
-	if promoFilter == "none" {
-		query += " WHERE COALESCE(promo_code, '') = '' "
-	} else if promoFilter == "only" {
-		query += " WHERE COALESCE(promo_code, '') != '' "
-	}
-	query += " ORDER BY created_at DESC"
-
-	rows, err := h.db.Pool.Query(r.Context(), query)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -71,7 +87,9 @@ func (h *UsersAdminHandler) List(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		json.Unmarshal(privs, &u.Privileges)
-		if u.Privileges == nil { u.Privileges = []string{} }
+		if u.Privileges == nil {
+			u.Privileges = []string{}
+		}
 		users = append(users, u)
 	}
 	if users == nil {
@@ -94,13 +112,13 @@ func (h *UsersAdminHandler) Get(w http.ResponseWriter, r *http.Request) {
 		FROM users WHERE id = $1
 	`, id).Scan(&u.ID, &u.Phone, &u.Role, &u.Balance, &u.IsActive, &u.CreatedAt, &privs, &u.PromoCode)
 
-
-	
 	if err == nil {
 		json.Unmarshal(privs, &u.Privileges)
-		if u.Privileges == nil { u.Privileges = []string{} }
+		if u.Privileges == nil {
+			u.Privileges = []string{}
+		}
 	}
-	
+
 	if err != nil {
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
@@ -120,7 +138,7 @@ func (h *UsersAdminHandler) Get(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(u)
 }
 
-// ToggleStatus ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â activate or deactivate user
+// ToggleStatus — activate or deactivate user
 func (h *UsersAdminHandler) ToggleStatus(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
@@ -142,7 +160,7 @@ func (h *UsersAdminHandler) ToggleStatus(w http.ResponseWriter, r *http.Request)
 	json.NewEncoder(w).Encode(map[string]bool{"is_active": req.IsActive})
 }
 
-// UpdateRole ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â set USER or ADMIN
+// UpdateRole — set USER or ADMIN
 func (h *UsersAdminHandler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
@@ -168,7 +186,7 @@ func (h *UsersAdminHandler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"role": req.Role})
 }
 
-// AdjustBalance Ã¢â‚¬â€ manually set or add to user balance
+// AdjustBalance — manually set or add to user balance
 func (h *UsersAdminHandler) AdjustBalance(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
@@ -212,30 +230,46 @@ func (h *UsersAdminHandler) GetPendingCounts(w http.ResponseWriter, r *http.Requ
 	var deposits, withdrawals int
 
 	if isSuper {
-		h.db.Pool.QueryRow(ctx, `
-			SELECT COUNT(*) 
-			FROM deposits d 
-			JOIN users u ON d.user_id = u.id 
-			WHERE d.status = 'pending' AND COALESCE(u.promo_code, '') != ''
-		`).Scan(&deposits)
-		h.db.Pool.QueryRow(ctx, `
-			SELECT COUNT(*) 
-			FROM withdrawals w 
-			JOIN users u ON w.user_id = u.id 
-			WHERE w.status = 'pending' AND COALESCE(u.promo_code, '') != ''
-		`).Scan(&withdrawals)
+		superPromo := GetSuperAdminPromoCode(r, h.db)
+		if superPromo != "" {
+			h.db.Pool.QueryRow(ctx, `
+				SELECT COUNT(*)
+				FROM deposits d
+				JOIN users u ON d.user_id = u.id
+				WHERE d.status = 'pending' AND u.promo_code = $1
+			`, superPromo).Scan(&deposits)
+			h.db.Pool.QueryRow(ctx, `
+				SELECT COUNT(*)
+				FROM withdrawals w
+				JOIN users u ON w.user_id = u.id
+				WHERE w.status = 'pending' AND u.promo_code = $1
+			`, superPromo).Scan(&withdrawals)
+		} else {
+			h.db.Pool.QueryRow(ctx, `
+				SELECT COUNT(*)
+				FROM deposits d
+				JOIN users u ON d.user_id = u.id
+				WHERE d.status = 'pending' AND COALESCE(u.promo_code, '') != ''
+			`).Scan(&deposits)
+			h.db.Pool.QueryRow(ctx, `
+				SELECT COUNT(*)
+				FROM withdrawals w
+				JOIN users u ON w.user_id = u.id
+				WHERE w.status = 'pending' AND COALESCE(u.promo_code, '') != ''
+			`).Scan(&withdrawals)
+		}
 	} else {
 		// Exclude promo users from normal admin badges
 		h.db.Pool.QueryRow(ctx, `
-			SELECT COUNT(*) 
-			FROM deposits d 
-			JOIN users u ON d.user_id = u.id 
+			SELECT COUNT(*)
+			FROM deposits d
+			JOIN users u ON d.user_id = u.id
 			WHERE d.status = 'pending' AND COALESCE(u.promo_code, '') = ''
 		`).Scan(&deposits)
 		h.db.Pool.QueryRow(ctx, `
-			SELECT COUNT(*) 
-			FROM withdrawals w 
-			JOIN users u ON w.user_id = u.id 
+			SELECT COUNT(*)
+			FROM withdrawals w
+			JOIN users u ON w.user_id = u.id
 			WHERE w.status = 'pending' AND COALESCE(u.promo_code, '') = ''
 		`).Scan(&withdrawals)
 	}
@@ -246,7 +280,6 @@ func (h *UsersAdminHandler) GetPendingCounts(w http.ResponseWriter, r *http.Requ
 		"withdrawals": withdrawals,
 	})
 }
-
 
 // UpdatePrivileges - set WORKER privileges
 func (h *UsersAdminHandler) UpdatePrivileges(w http.ResponseWriter, r *http.Request) {
@@ -270,7 +303,6 @@ func (h *UsersAdminHandler) UpdatePrivileges(w http.ResponseWriter, r *http.Requ
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{"privileges": req.Privileges})
 }
-
 
 // AssignRoleByPhone - assigns a role using a phone number directly
 func (h *UsersAdminHandler) AssignRoleByPhone(w http.ResponseWriter, r *http.Request) {

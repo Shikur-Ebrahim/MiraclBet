@@ -167,26 +167,47 @@ func (h *WithdrawalsHandler) Create(w http.ResponseWriter, r *http.Request) {
 // ListAdmin — Returns all withdrawals for admin UI (filtered for normal admin, full for super admin)
 func (h *WithdrawalsHandler) ListAdmin(w http.ResponseWriter, r *http.Request) {
 	isWdSuper := IsSuperAdminRequest(r, h.db)
-	promoFilter := "none"
+
+	var query string
+	var args []interface{}
+
 	if isWdSuper {
-		promoFilter = "only"
+		superPromo := GetSuperAdminPromoCode(r, h.db)
+		if superPromo != "" {
+			query = `
+				SELECT w.id, w.user_id, w.withdrawal_method_id, w.account_name, w.account_number, w.amount, w.status, w.created_at,
+				       u.phone, m.provider_name, COALESCE(u.promo_code, '')
+				FROM withdrawals w
+				JOIN users u ON w.user_id = u.id
+				JOIN withdrawal_methods m ON w.withdrawal_method_id = m.id
+				WHERE u.promo_code = $1
+				ORDER BY CASE WHEN w.status = 'pending' THEN 1 ELSE 2 END, w.created_at DESC
+			`
+			args = append(args, superPromo)
+		} else {
+			query = `
+				SELECT w.id, w.user_id, w.withdrawal_method_id, w.account_name, w.account_number, w.amount, w.status, w.created_at,
+				       u.phone, m.provider_name, COALESCE(u.promo_code, '')
+				FROM withdrawals w
+				JOIN users u ON w.user_id = u.id
+				JOIN withdrawal_methods m ON w.withdrawal_method_id = m.id
+				WHERE COALESCE(u.promo_code, '') != ''
+				ORDER BY CASE WHEN w.status = 'pending' THEN 1 ELSE 2 END, w.created_at DESC
+			`
+		}
+	} else {
+		query = `
+			SELECT w.id, w.user_id, w.withdrawal_method_id, w.account_name, w.account_number, w.amount, w.status, w.created_at,
+			       u.phone, m.provider_name, COALESCE(u.promo_code, '')
+			FROM withdrawals w
+			JOIN users u ON w.user_id = u.id
+			JOIN withdrawal_methods m ON w.withdrawal_method_id = m.id
+			WHERE COALESCE(u.promo_code, '') = ''
+			ORDER BY CASE WHEN w.status = 'pending' THEN 1 ELSE 2 END, w.created_at DESC
+		`
 	}
 
-	query := `
-		SELECT w.id, w.user_id, w.withdrawal_method_id, w.account_name, w.account_number, w.amount, w.status, w.created_at,
-		       u.phone, m.provider_name, COALESCE(u.promo_code, '')
-		FROM withdrawals w
-		JOIN users u ON w.user_id = u.id
-		JOIN withdrawal_methods m ON w.withdrawal_method_id = m.id
-	`
-	if promoFilter == "none" {
-		query += " WHERE COALESCE(u.promo_code, '') = '' "
-	} else if promoFilter == "only" {
-		query += " WHERE COALESCE(u.promo_code, '') != '' "
-	}
-	query += " ORDER BY CASE WHEN w.status = 'pending' THEN 1 ELSE 2 END, w.created_at DESC"
-
-	rows, err := h.db.Pool.Query(r.Context(), query)
+	rows, err := h.db.Pool.Query(r.Context(), query, args...)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

@@ -9,7 +9,7 @@ func CORS(allowedOrigins []string) func(http.Handler) http.Handler {
     return chiCors.Handler(chiCors.Options{
         AllowedOrigins:   allowedOrigins,
         AllowedMethods:   []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodOptions},
-        AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Request-ID", "X-User-ID", "X-Admin-Role", "X-Admin-ID", "X-User-Role"},
+        AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Request-ID", "X-User-ID", "X-Admin-Role", "X-Admin-ID", "X-User-Role", "X-Admin-Promo-Code", "X-Admin-Phone"},
         ExposedHeaders:   []string{"Link"},
         AllowCredentials: true,
         MaxAge:           300,

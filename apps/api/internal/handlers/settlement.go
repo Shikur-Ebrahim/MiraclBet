@@ -698,37 +698,64 @@ func (h *SettlementHandler) GetAllBets(w http.ResponseWriter, r *http.Request) {
 	}
 
 	isBetsSuper := IsSuperAdminRequest(r, h.db)
-	promoFilter := "none"
-	if isBetsSuper {
-		promoFilter = "only"
-	}
 	whereClause := ""
-	if promoFilter == "none" {
+	var filterPromo string
+
+	if isBetsSuper {
+		superPromo := GetSuperAdminPromoCode(r, h.db)
+		if superPromo != "" {
+			filterPromo = superPromo
+		} else {
+			whereClause += " AND COALESCE(u.promo_code, '') != '' "
+		}
+	} else {
 		whereClause += " AND COALESCE(u.promo_code, '') = '' "
-	} else if promoFilter == "only" {
-		whereClause += " AND COALESCE(u.promo_code, '') != '' "
 	}
 
 	var rows pgx.Rows
 	var err error
 	if statusFilter == "ALL" {
-		rows, err = h.db.Pool.Query(ctx, `
-			SELECT bs.id, bs.user_id, COALESCE(u.phone, ''), bs.stake, bs.total_odds, bs.potential_payout, bs.status, bs.created_at, COALESCE(u.promo_code, '')
-			FROM bet_slips bs
-			LEFT JOIN users u ON u.id = bs.user_id
-			WHERE 1=1 ` + whereClause + `
-			ORDER BY bs.created_at DESC
-			LIMIT 500
-		`)
+		if filterPromo != "" {
+			whereClause += " AND u.promo_code = $1 "
+			rows, err = h.db.Pool.Query(ctx, `
+				SELECT bs.id, bs.user_id, COALESCE(u.phone, ''), bs.stake, bs.total_odds, bs.potential_payout, bs.status, bs.created_at, COALESCE(u.promo_code, '')
+				FROM bet_slips bs
+				LEFT JOIN users u ON u.id = bs.user_id
+				WHERE 1=1 ` + whereClause + `
+				ORDER BY bs.created_at DESC
+				LIMIT 500
+			`, filterPromo)
+		} else {
+			rows, err = h.db.Pool.Query(ctx, `
+				SELECT bs.id, bs.user_id, COALESCE(u.phone, ''), bs.stake, bs.total_odds, bs.potential_payout, bs.status, bs.created_at, COALESCE(u.promo_code, '')
+				FROM bet_slips bs
+				LEFT JOIN users u ON u.id = bs.user_id
+				WHERE 1=1 ` + whereClause + `
+				ORDER BY bs.created_at DESC
+				LIMIT 500
+			`)
+		}
 	} else {
-		rows, err = h.db.Pool.Query(ctx, `
-			SELECT bs.id, bs.user_id, COALESCE(u.phone, ''), bs.stake, bs.total_odds, bs.potential_payout, bs.status, bs.created_at, COALESCE(u.promo_code, '')
-			FROM bet_slips bs
-			LEFT JOIN users u ON u.id = bs.user_id
-			WHERE bs.status = $1 ` + whereClause + `
-			ORDER BY bs.created_at DESC
-			LIMIT 500
-		`, statusFilter)
+		if filterPromo != "" {
+			whereClause += " AND u.promo_code = $2 "
+			rows, err = h.db.Pool.Query(ctx, `
+				SELECT bs.id, bs.user_id, COALESCE(u.phone, ''), bs.stake, bs.total_odds, bs.potential_payout, bs.status, bs.created_at, COALESCE(u.promo_code, '')
+				FROM bet_slips bs
+				LEFT JOIN users u ON u.id = bs.user_id
+				WHERE bs.status = $1 ` + whereClause + `
+				ORDER BY bs.created_at DESC
+				LIMIT 500
+			`, statusFilter, filterPromo)
+		} else {
+			rows, err = h.db.Pool.Query(ctx, `
+				SELECT bs.id, bs.user_id, COALESCE(u.phone, ''), bs.stake, bs.total_odds, bs.potential_payout, bs.status, bs.created_at, COALESCE(u.promo_code, '')
+				FROM bet_slips bs
+				LEFT JOIN users u ON u.id = bs.user_id
+				WHERE bs.status = $1 ` + whereClause + `
+				ORDER BY bs.created_at DESC
+				LIMIT 500
+			`, statusFilter)
+		}
 	}
 	if err != nil {
 		jsonError(w, err.Error(), http.StatusInternalServerError)
