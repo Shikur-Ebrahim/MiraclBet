@@ -303,7 +303,7 @@ export default function RegisterPage() {
               </div>
               {promoValid === false && promoCode.trim().length >= 3 && (
                 <p className="text-[12px] text-amber-400/90 mt-1.5 font-medium flex items-center gap-1">
-                  <span>⚠️ Unrecognized promo code. Please enter a valid Super Admin promo code, or leave blank to continue without one.</span>
+                  <span>⚠️ Unrecognized promo code. Please enter a valid promo code, or leave blank to continue without one.</span>
                 </p>
               )}
             </div>
