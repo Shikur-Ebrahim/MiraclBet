@@ -128,6 +128,8 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service, aviatorEngi
 			r.Get("/inviter-codes", inviterCodesHandler.AdminListInviterCodes)
 			r.Post("/inviter-codes", inviterCodesHandler.AdminCreateInviterCode)
 			r.Delete("/inviter-codes/{id}", inviterCodesHandler.AdminDeleteInviterCode)
+			r.Put("/inviter-codes/{id}/toggle-expired", inviterCodesHandler.AdminToggleExpiredInviterCode)
+			r.Patch("/inviter-codes/{id}/toggle-expired", inviterCodesHandler.AdminToggleExpiredInviterCode)
 
 			r.Get("/deposits", depositsHandler.ListAdmin)
 			r.Put("/deposits/{id}/status", depositsHandler.UpdateStatus)

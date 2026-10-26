@@ -11,6 +11,7 @@ interface InviterCode {
   user_id?: string;
   user_name?: string;
   is_used: boolean;
+  is_expired: boolean;
   used_at?: string;
   created_at: string;
 }
@@ -21,11 +22,14 @@ export default function AdminInviterCodesPage() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [phoneInput, setPhoneInput] = useState('');
+  const [isExpiredInput, setIsExpiredInput] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'EXPIRED' | 'USED'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [newlyGenerated, setNewlyGenerated] = useState<InviterCode | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const API = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
 
@@ -76,7 +80,7 @@ export default function AdminInviterCodesPage() {
       const res = await fetch(`${API}/api/v1/admin/inviter-codes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: cleanPhone }),
+        body: JSON.stringify({ phone: cleanPhone, is_expired: isExpiredInput }),
       });
 
       if (!res.ok) {
@@ -88,11 +92,36 @@ export default function AdminInviterCodesPage() {
       setNewlyGenerated(created);
       setCodes(prev => [created, ...prev]);
       setPhoneInput('');
-      setSuccessMsg(`Generated code ${created.code} successfully for ${cleanPhone}!`);
+      setIsExpiredInput(false);
+      setSuccessMsg(`Generated code ${created.code} successfully for ${cleanPhone}! (${created.is_expired ? 'Expired' : 'Active'})`);
     } catch (err: any) {
       setError(err.message || 'Error generating code');
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const handleToggleExpired = async (id: string, targetExpired: boolean) => {
+    setTogglingId(id);
+    try {
+      const res = await fetch(`${API}/api/v1/admin/inviter-codes/${id}/toggle-expired`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_expired: targetExpired }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to update expired status');
+      }
+
+      setCodes(prev => prev.map(c => c.id === id ? { ...c, is_expired: targetExpired } : c));
+      if (newlyGenerated && newlyGenerated.id === id) {
+        setNewlyGenerated(prev => prev ? { ...prev, is_expired: targetExpired } : null);
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error updating expired status');
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -127,7 +156,18 @@ export default function AdminInviterCodesPage() {
     }
   };
 
+  const totalCodes = codes.length;
+  const activeCodes = codes.filter(c => !c.is_used && !c.is_expired).length;
+  const expiredCodes = codes.filter(c => !c.is_used && c.is_expired).length;
+  const usedCodes = codes.filter(c => c.is_used).length;
+
   const filteredCodes = codes.filter(c => {
+    // Status filter
+    if (statusFilter === 'ACTIVE' && (c.is_used || c.is_expired)) return false;
+    if (statusFilter === 'EXPIRED' && (c.is_used || !c.is_expired)) return false;
+    if (statusFilter === 'USED' && !c.is_used) return false;
+
+    // Search query
     const q = searchQuery.toLowerCase().trim();
     if (!q) return true;
     return (
@@ -162,13 +202,21 @@ export default function AdminInviterCodesPage() {
             🎟️ Inviter Codes Management
           </div>
         </div>
-        <div style={{ fontSize: '13px', color: '#6B7280', fontWeight: 600 }}>
-          Total: <span style={{ color: '#7C3AED', fontWeight: 800 }}>{codes.length}</span> codes
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ fontSize: '12px', color: '#6B7280', fontWeight: 600 }}>
+            Total: <span style={{ color: '#7C3AED', fontWeight: 800 }}>{totalCodes}</span>
+          </div>
+          <div style={{ fontSize: '12px', color: '#16A34A', fontWeight: 700, background: '#DCFCE7', padding: '3px 8px', borderRadius: '6px' }}>
+            ● {activeCodes} Active
+          </div>
+          <div style={{ fontSize: '12px', color: '#D97706', fontWeight: 700, background: '#FEF3C7', padding: '3px 8px', borderRadius: '6px' }}>
+            ⏳ {expiredCodes} Expired
+          </div>
         </div>
       </div>
 
       {/* Main Container */}
-      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px 16px' }}>
+      <div style={{ maxWidth: '960px', margin: '0 auto', padding: '24px 16px' }}>
 
         {/* Info Banner */}
         <div style={{
@@ -181,7 +229,11 @@ export default function AdminInviterCodesPage() {
               Additional Withdrawal Rule: Inviter Code Verification
             </div>
             <div style={{ fontSize: '13px', color: '#6D28D9', lineHeight: 1.5 }}>
-              When a user reaches the required deposit history (e.g. 8,999 Br), they will be prompted to enter their unique 9-character Inviter Code to complete withdrawal verification. Enter their phone number below to generate their unique code and copy it in 1-click.
+              When a user reaches the required deposit threshold (e.g. 8,999 Br), they must enter their unique 9-character Inviter Code to complete verification.
+              <br />
+              • <b>Active (Default)</b>: User enters code → unlocks withdrawal successfully.
+              <br />
+              • <b>Expired</b>: User enters code → displays attractive green notice prompt asking them to enter a new inviter code.
             </div>
           </div>
         </div>
@@ -195,38 +247,64 @@ export default function AdminInviterCodesPage() {
             ⚡ Generate Unique Inviter Code
           </h2>
 
-          <form onSubmit={handleGenerate} style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-            <div style={{ flex: '1 1 280px' }}>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#4B5563', marginBottom: '6px' }}>
-                User Phone Number
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. 0912345678 or 0712345678"
-                value={phoneInput}
-                onChange={e => setPhoneInput(e.target.value)}
-                style={{
-                  width: '100%', padding: '11px 14px', borderRadius: '9px',
-                  border: '1.5px solid #D1D5DB', fontSize: '14px', outline: 'none',
-                  boxSizing: 'border-box',
-                }}
-              />
-            </div>
-            <div style={{ alignSelf: 'flex-end', flex: '0 0 auto' }}>
-              <button
-                type="submit"
-                disabled={generating}
-                style={{
-                  background: generating ? '#9CA3AF' : 'linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)',
-                  color: '#FFFFFF', border: 'none', borderRadius: '9px',
-                  padding: '11px 22px', fontSize: '14px', fontWeight: 800,
-                  cursor: generating ? 'not-allowed' : 'pointer',
-                  boxShadow: '0 2px 6px rgba(124, 58, 237, 0.3)',
-                  transition: 'all 0.2s',
-                }}
-              >
-                {generating ? 'Generating...' : '+ Generate Inviter Code'}
-              </button>
+          <form onSubmit={handleGenerate} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'flex-end' }}>
+              {/* Phone Input */}
+              <div style={{ flex: '1 1 280px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#4B5563', marginBottom: '6px' }}>
+                  User Phone Number
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 0912345678 or 0712345678"
+                  value={phoneInput}
+                  onChange={e => setPhoneInput(e.target.value)}
+                  style={{
+                    width: '100%', padding: '11px 14px', borderRadius: '9px',
+                    border: '1.5px solid #D1D5DB', fontSize: '14px', outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              {/* Initial Status Selector (Default: Active / Not Expired) */}
+              <div style={{ flex: '0 0 200px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#4B5563', marginBottom: '6px' }}>
+                  Initial Status
+                </label>
+                <select
+                  value={isExpiredInput ? 'expired' : 'active'}
+                  onChange={e => setIsExpiredInput(e.target.value === 'expired')}
+                  style={{
+                    width: '100%', padding: '11px 14px', borderRadius: '9px',
+                    border: '1.5px solid #D1D5DB', fontSize: '14px', outline: 'none',
+                    fontWeight: 700, boxSizing: 'border-box',
+                    background: isExpiredInput ? '#FFFBEB' : '#F0FDF4',
+                    color: isExpiredInput ? '#B45309' : '#15803D',
+                  }}
+                >
+                  <option value="active">● Active (Not Expired)</option>
+                  <option value="expired">⏳ Expired</option>
+                </select>
+              </div>
+
+              {/* Submit Button */}
+              <div style={{ flex: '0 0 auto' }}>
+                <button
+                  type="submit"
+                  disabled={generating}
+                  style={{
+                    background: generating ? '#9CA3AF' : 'linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)',
+                    color: '#FFFFFF', border: 'none', borderRadius: '9px',
+                    padding: '11px 22px', fontSize: '14px', fontWeight: 800,
+                    cursor: generating ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 2px 6px rgba(124, 58, 237, 0.3)',
+                    transition: 'all 0.2s', height: '42px',
+                  }}
+                >
+                  {generating ? 'Generating...' : '+ Generate Inviter Code'}
+                </button>
+              </div>
             </div>
           </form>
 
@@ -259,8 +337,18 @@ export default function AdminInviterCodesPage() {
               flexWrap: 'wrap', gap: '14px',
             }}>
               <div>
-                <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#6D28D9', marginBottom: '4px' }}>
-                  Newly Generated 9-Digit Inviter Code
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#6D28D9' }}>
+                    Newly Generated Inviter Code
+                  </span>
+                  <span style={{
+                    fontSize: '11px', fontWeight: 800, padding: '2px 8px', borderRadius: '999px',
+                    background: newlyGenerated.is_expired ? '#FEF3C7' : '#DCFCE7',
+                    color: newlyGenerated.is_expired ? '#B45309' : '#15803D',
+                    border: `1px solid ${newlyGenerated.is_expired ? '#FDE68A' : '#BBF7D0'}`,
+                  }}>
+                    {newlyGenerated.is_expired ? '⏳ Expired' : '● Active (Ready)'}
+                  </span>
                 </div>
                 <div style={{ fontSize: '26px', fontWeight: 900, letterSpacing: '2px', color: '#4C1D95', fontFamily: 'monospace' }}>
                   {newlyGenerated.code}
@@ -271,20 +359,36 @@ export default function AdminInviterCodesPage() {
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => handleCopy(newlyGenerated.code)}
-                style={{
-                  background: copiedCode === newlyGenerated.code ? '#10B981' : '#7C3AED',
-                  color: '#FFFFFF', border: 'none', borderRadius: '9px',
-                  padding: '12px 20px', fontSize: '14px', fontWeight: 800,
-                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
-                  boxShadow: '0 2px 8px rgba(124, 58, 237, 0.25)',
-                  transition: 'background 0.2s',
-                }}
-              >
-                {copiedCode === newlyGenerated.code ? '✓ Copied to Clipboard!' : '📋 Copy Inviter Code'}
-              </button>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => handleToggleExpired(newlyGenerated.id, !newlyGenerated.is_expired)}
+                  disabled={togglingId === newlyGenerated.id}
+                  style={{
+                    background: newlyGenerated.is_expired ? '#EFF6FF' : '#FFFBEB',
+                    color: newlyGenerated.is_expired ? '#2563EB' : '#D97706',
+                    border: `1.5px solid ${newlyGenerated.is_expired ? '#BFDBFE' : '#FDE68A'}`,
+                    borderRadius: '9px', padding: '12px 16px', fontSize: '13px', fontWeight: 800,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {newlyGenerated.is_expired ? '✓ Set Active' : '⏳ Set Expired'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleCopy(newlyGenerated.code)}
+                  style={{
+                    background: copiedCode === newlyGenerated.code ? '#10B981' : '#7C3AED',
+                    color: '#FFFFFF', border: 'none', borderRadius: '9px',
+                    padding: '12px 20px', fontSize: '14px', fontWeight: 800,
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
+                    boxShadow: '0 2px 8px rgba(124, 58, 237, 0.25)',
+                    transition: 'background 0.2s',
+                  }}
+                >
+                  {copiedCode === newlyGenerated.code ? '✓ Copied!' : '📋 Copy Code'}
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -294,15 +398,40 @@ export default function AdminInviterCodesPage() {
           background: '#FFFFFF', borderRadius: '14px', border: '1px solid #E5E7EB',
           boxShadow: '0 2px 8px rgba(0,0,0,0.04)', overflow: 'hidden',
         }}>
-          {/* Table Header Controls */}
+          {/* Table Header Controls + Filter Tabs */}
           <div style={{
             padding: '16px 20px', borderBottom: '1px solid #E5E7EB',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             flexWrap: 'wrap', gap: '12px',
           }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#111827', margin: 0 }}>
-              Inviter Codes History
-            </h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#111827', margin: 0 }}>
+                Inviter Codes History
+              </h3>
+              {/* Filter Pills */}
+              <div style={{ display: 'flex', gap: '4px', background: '#F3F4F6', padding: '3px', borderRadius: '8px' }}>
+                {(['ALL', 'ACTIVE', 'EXPIRED', 'USED'] as const).map(tab => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setStatusFilter(tab)}
+                    style={{
+                      background: statusFilter === tab ? '#FFFFFF' : 'transparent',
+                      color: statusFilter === tab ? '#111827' : '#6B7280',
+                      border: 'none', borderRadius: '6px', padding: '4px 10px',
+                      fontSize: '11px', fontWeight: 700, cursor: 'pointer',
+                      boxShadow: statusFilter === tab ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                    }}
+                  >
+                    {tab === 'ALL' && `All (${totalCodes})`}
+                    {tab === 'ACTIVE' && `Active (${activeCodes})`}
+                    {tab === 'EXPIRED' && `Expired (${expiredCodes})`}
+                    {tab === 'USED' && `Used (${usedCodes})`}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <input
               type="text"
               placeholder="Search by phone, name, or code..."
@@ -321,7 +450,7 @@ export default function AdminInviterCodesPage() {
             </div>
           ) : filteredCodes.length === 0 ? (
             <div style={{ padding: '40px', textAlign: 'center', color: '#9CA3AF', fontSize: '14px' }}>
-              {searchQuery ? 'No matching codes found.' : 'No inviter codes generated yet.'}
+              {searchQuery ? 'No matching codes found.' : 'No inviter codes found for this filter.'}
             </div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
@@ -395,6 +524,15 @@ export default function AdminInviterCodesPage() {
                           }}>
                             ✓ Verified & Used
                           </span>
+                        ) : item.is_expired ? (
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '4px',
+                            background: '#FEF2F2', color: '#DC2626', fontSize: '11px',
+                            fontWeight: 700, padding: '3px 8px', borderRadius: '999px',
+                            border: '1px solid #FECACA',
+                          }}>
+                            ⏳ Expired
+                          </span>
                         ) : (
                           <span style={{
                             display: 'inline-flex', alignItems: 'center', gap: '4px',
@@ -414,17 +552,40 @@ export default function AdminInviterCodesPage() {
 
                       {/* Actions */}
                       <td style={{ padding: '12px 18px', textAlign: 'right' }}>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(item.id, item.code)}
-                          style={{
-                            background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA',
-                            borderRadius: '6px', padding: '5px 10px', fontSize: '11px',
-                            fontWeight: 700, cursor: 'pointer',
-                          }}
-                        >
-                          Delete
-                        </button>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          {!item.is_used && (
+                            <button
+                              type="button"
+                              onClick={() => handleToggleExpired(item.id, !item.is_expired)}
+                              disabled={togglingId === item.id}
+                              style={{
+                                background: item.is_expired ? '#F0FDF4' : '#FFFBEB',
+                                color: item.is_expired ? '#16A34A' : '#D97706',
+                                border: `1px solid ${item.is_expired ? '#BBF7D0' : '#FDE68A'}`,
+                                borderRadius: '6px', padding: '5px 10px', fontSize: '11px',
+                                fontWeight: 700, cursor: 'pointer',
+                              }}
+                            >
+                              {togglingId === item.id
+                                ? 'Updating...'
+                                : item.is_expired
+                                ? '✓ Set Active'
+                                : '⏳ Set Expired'}
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(item.id, item.code)}
+                            style={{
+                              background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA',
+                              borderRadius: '6px', padding: '5px 10px', fontSize: '11px',
+                              fontWeight: 700, cursor: 'pointer',
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

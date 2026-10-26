@@ -28,6 +28,7 @@ type InviterCodeRow struct {
 	UserID    *string    `json:"user_id,omitempty"`
 	UserName  *string    `json:"user_name,omitempty"`
 	IsUsed    bool       `json:"is_used"`
+	IsExpired bool       `json:"is_expired"`
 	UsedAt    *time.Time `json:"used_at,omitempty"`
 	CreatedAt time.Time  `json:"created_at"`
 }
@@ -66,7 +67,8 @@ func generateInviterCode() (string, error) {
 // AdminCreateInviterCode - POST /api/v1/admin/inviter-codes
 func (h *InviterCodesHandler) AdminCreateInviterCode(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Phone string `json:"phone"`
+		Phone     string `json:"phone"`
+		IsExpired bool   `json:"is_expired"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
@@ -125,10 +127,10 @@ func (h *InviterCodesHandler) AdminCreateInviterCode(w http.ResponseWriter, r *h
 	var insertedID string
 	var createdAt time.Time
 	err := h.db.Pool.QueryRow(r.Context(), `
-		INSERT INTO inviter_codes (phone, code, user_id)
-		VALUES ($1, $2, $3)
+		INSERT INTO inviter_codes (phone, code, user_id, is_expired)
+		VALUES ($1, $2, $3, $4)
 		RETURNING id, created_at
-	`, normPhone, code, matchedUserID).Scan(&insertedID, &createdAt)
+	`, normPhone, code, matchedUserID, req.IsExpired).Scan(&insertedID, &createdAt)
 	if err != nil {
 		http.Error(w, "Failed to save inviter code: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -143,6 +145,7 @@ func (h *InviterCodesHandler) AdminCreateInviterCode(w http.ResponseWriter, r *h
 		UserID:    matchedUserID,
 		UserName:  matchedUserName,
 		IsUsed:    false,
+		IsExpired: req.IsExpired,
 		CreatedAt: createdAt,
 	})
 }
@@ -151,7 +154,7 @@ func (h *InviterCodesHandler) AdminCreateInviterCode(w http.ResponseWriter, r *h
 func (h *InviterCodesHandler) AdminListInviterCodes(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.db.Pool.Query(r.Context(), `
 		SELECT 
-			ic.id, ic.phone, ic.code, ic.user_id, u.full_name, ic.is_used, ic.used_at, ic.created_at
+			ic.id, ic.phone, ic.code, ic.user_id, u.full_name, ic.is_used, ic.used_at, ic.created_at, COALESCE(ic.is_expired, false)
 		FROM inviter_codes ic
 		LEFT JOIN users u ON ic.user_id = u.id
 		ORDER BY ic.created_at DESC
@@ -168,7 +171,7 @@ func (h *InviterCodesHandler) AdminListInviterCodes(w http.ResponseWriter, r *ht
 		var rRow InviterCodeRow
 		if err := rows.Scan(
 			&rRow.ID, &rRow.Phone, &rRow.Code, &rRow.UserID, &rRow.UserName,
-			&rRow.IsUsed, &rRow.UsedAt, &rRow.CreatedAt,
+			&rRow.IsUsed, &rRow.UsedAt, &rRow.CreatedAt, &rRow.IsExpired,
 		); err == nil {
 			list = append(list, rRow)
 		}
@@ -197,6 +200,44 @@ func (h *InviterCodesHandler) AdminDeleteInviterCode(w http.ResponseWriter, r *h
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+
+
+// AdminToggleExpiredInviterCode - PUT /api/v1/admin/inviter-codes/{id}/toggle-expired
+func (h *InviterCodesHandler) AdminToggleExpiredInviterCode(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		http.Error(w, "id required", http.StatusBadRequest)
+		return
+	}
+
+	var req struct {
+		IsExpired *bool `json:"is_expired"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+
+	var newStatus bool
+	if req.IsExpired != nil {
+		newStatus = *req.IsExpired
+		_, err := h.db.Pool.Exec(r.Context(), "UPDATE inviter_codes SET is_expired = $1 WHERE id = $2", newStatus, id)
+		if err != nil {
+			http.Error(w, "Failed to update expired status: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+	} else {
+		err := h.db.Pool.QueryRow(r.Context(), "UPDATE inviter_codes SET is_expired = NOT COALESCE(is_expired, false) WHERE id = $1 RETURNING is_expired", id).Scan(&newStatus)
+		if err != nil {
+			http.Error(w, "Failed to toggle expired status: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":    true,
+		"id":         id,
+		"is_expired": newStatus,
+	})
 }
 
 // VerifyInviterCode - POST /api/v1/withdrawals/verify-inviter-code
@@ -259,8 +300,9 @@ func (h *InviterCodesHandler) VerifyInviterCode(w http.ResponseWriter, r *http.R
 	// Match on: user_id link OR normalised phone == stored phone OR RIGHT match as fallback.
 	var codeID string
 	var isUsed bool
+	var isExpired bool
 	err = h.db.Pool.QueryRow(ctx, `
-		SELECT id, is_used
+		SELECT id, is_used, COALESCE(is_expired, false)
 		FROM inviter_codes
 		WHERE UPPER(code) = $1
 		  AND (
@@ -271,14 +313,37 @@ func (h *InviterCodesHandler) VerifyInviterCode(w http.ResponseWriter, r *http.R
 		  )
 		ORDER BY created_at DESC
 		LIMIT 1
-	`, req.Code, req.UserID, normUserPhone, userPhone).Scan(&codeID, &isUsed)
+	`, req.Code, req.UserID, normUserPhone, userPhone).Scan(&codeID, &isUsed, &isExpired)
 
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"success": false,
-			"error":   fmt.Sprintf("Invalid Inviter Code. Please enter the exact code provided for your phone number (%s).", userPhone),
+			"success":    false,
+			"is_expired": false,
+			"error":      fmt.Sprintf("Invalid Inviter Code. Please enter the exact code provided for your phone number (%s).", userPhone),
+		})
+		return
+	}
+
+	if isExpired {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success":    false,
+			"is_expired": true,
+			"error":      "This code is expired. Please enter the other new inviter code to proceed to withdraw.",
+		})
+		return
+	}
+
+	if isUsed {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success":    false,
+			"is_expired": false,
+			"error":      "This inviter code has already been used.",
 		})
 		return
 	}

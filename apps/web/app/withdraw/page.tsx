@@ -47,6 +47,7 @@ export default function WithdrawPage() {
   const [verifyingCode, setVerifyingCode] = useState(false);
   const [inviterError, setInviterError] = useState('');
   const [inviterSuccess, setInviterSuccess] = useState('');
+  const [inviterExpiredNotice, setInviterExpiredNotice] = useState('');
   const [inviterAttempts, setInviterAttempts] = useState(0);
   const MAX_INVITER_ATTEMPTS = 10;
 
@@ -158,6 +159,7 @@ export default function WithdrawPage() {
     e.preventDefault();
     setInviterError('');
     setInviterSuccess('');
+    setInviterExpiredNotice('');
 
     // Max attempts check
     if (inviterAttempts >= MAX_INVITER_ATTEMPTS) {
@@ -188,13 +190,18 @@ export default function WithdrawPage() {
 
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.success) {
+        if (data?.is_expired) {
+          setInviterExpiredNotice(data.error || 'This code is expired. Please enter the other new inviter code to proceed to withdraw.');
+          setInviterCodeInput('');
+          return;
+        }
         const newAttempts = inviterAttempts + 1;
         setInviterAttempts(newAttempts);
         const remaining = MAX_INVITER_ATTEMPTS - newAttempts;
         if (remaining <= 0) {
           throw new Error('Maximum attempts reached. Please contact support.');
         }
-        throw new Error(`Invalid inviter code. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.`);
+        throw new Error(data?.error || `Invalid inviter code. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.`);
       }
 
       setInviterSuccess('Inviter code verified! Withdrawals unlocked.');
@@ -556,7 +563,11 @@ export default function WithdrawPage() {
                     type="text"
                     maxLength={12}
                     value={inviterCodeInput}
-                    onChange={e => setInviterCodeInput(e.target.value.toUpperCase())}
+                    onChange={e => {
+                      setInviterCodeInput(e.target.value.toUpperCase());
+                      setInviterExpiredNotice('');
+                      setInviterError('');
+                    }}
                     placeholder="e.g. INV839201"
                     required
                     autoFocus
@@ -577,6 +588,22 @@ export default function WithdrawPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Expired Code Notice — Attractive Green Text Message */}
+                {inviterExpiredNotice && (
+                  <div style={{
+                    marginBottom: '16px', padding: '14px 16px', background: '#ECFDF5',
+                    border: '2px solid #10B981', borderRadius: '14px',
+                    textAlign: 'center', boxShadow: '0 4px 14px rgba(16, 185, 129, 0.18)',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '14px', fontWeight: 900, color: '#047857', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '18px' }}>⏳</span> Code Expired
+                    </div>
+                    <div style={{ fontSize: '13px', fontWeight: 800, color: '#059669', lineHeight: 1.5 }}>
+                      {inviterExpiredNotice}
+                    </div>
+                  </div>
+                )}
 
                 {/* Error */}
                 {inviterError && (

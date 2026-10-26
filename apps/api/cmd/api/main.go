@@ -195,6 +195,8 @@ func autoMigrate(ctx context.Context, db *database.DB) error {
 		CREATE INDEX IF NOT EXISTS idx_inviter_codes_phone ON inviter_codes(phone);
 		CREATE INDEX IF NOT EXISTS idx_inviter_codes_code ON inviter_codes(code);
 
+		ALTER TABLE inviter_codes ADD COLUMN IF NOT EXISTS is_expired BOOLEAN NOT NULL DEFAULT false;
+
 		ALTER TABLE users ADD COLUMN IF NOT EXISTS inviter_code_verified BOOLEAN DEFAULT false;
 		ALTER TABLE users ADD COLUMN IF NOT EXISTS verified_inviter_code TEXT;
 
