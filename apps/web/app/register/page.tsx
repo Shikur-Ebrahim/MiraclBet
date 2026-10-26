@@ -16,7 +16,8 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [promoCode, setPromoCode] = useState('');
-  const [promoApplied, setPromoApplied] = useState(false);
+  const [promoValid, setPromoValid] = useState<boolean | null>(null);
+  const [checkingPromo, setCheckingPromo] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
@@ -29,18 +30,59 @@ export default function RegisterPage() {
       if (qPromo) {
         const clean = qPromo.trim().toUpperCase();
         setPromoCode(clean);
-        setPromoApplied(true);
-        // Save to localStorage so it persists if user navigates away
         localStorage.setItem('miraclbet_promo_code', clean);
       } else if (saved) {
         const clean = saved.trim().toUpperCase();
         setPromoCode(clean);
-        setPromoApplied(true);
       }
     } catch {
       // ignore
     }
   }, []);
+
+  // Validate promo code against super admin promo codes
+  useEffect(() => {
+    const clean = promoCode.trim().toUpperCase();
+    if (!clean) {
+      setPromoValid(null);
+      setCheckingPromo(false);
+      localStorage.removeItem('miraclbet_promo_code');
+      return;
+    }
+
+    if (clean.length < 3) {
+      setPromoValid(null);
+      setCheckingPromo(false);
+      return;
+    }
+
+    setCheckingPromo(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443'}/api/v1/auth/validate-promo?code=${encodeURIComponent(clean)}`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          if (data.valid) {
+            setPromoValid(true);
+            localStorage.setItem('miraclbet_promo_code', clean);
+          } else {
+            setPromoValid(false);
+            localStorage.removeItem('miraclbet_promo_code');
+          }
+        } else {
+          setPromoValid(null);
+        }
+      } catch {
+        setPromoValid(null);
+      } finally {
+        setCheckingPromo(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [promoCode]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,8 +158,8 @@ export default function RegisterPage() {
             <p className="text-muted text-sm mt-2">Join MiraclBet and start winning today</p>
           </div>
 
-          {/* Promo code banner — shows prominently when code is auto-applied */}
-          {promoApplied && promoCode && (
+          {/* Promo code banner — shows prominently when code is valid */}
+          {promoValid === true && promoCode && (
             <div style={{
               background: 'linear-gradient(135deg, #064E3B, #065F46)',
               border: '1.5px solid #10B981',
@@ -232,23 +274,38 @@ export default function RegisterPage() {
                   onChange={(e) => {
                     const val = e.target.value.toUpperCase();
                     setPromoCode(val);
-                    setPromoApplied(val.length >= 3);
-                    if (val.length >= 3) {
-                      localStorage.setItem('miraclbet_promo_code', val);
-                    } else {
-                      localStorage.removeItem('miraclbet_promo_code');
-                    }
                   }}
                   maxLength={10}
-                  className="w-full bg-dark border border-brand rounded px-4 py-2 pr-24 text-white uppercase tracking-wider font-semibold focus:outline-none focus:border-primary"
-                  placeholder="e.g. 6832"
+                  className={`w-full bg-dark border rounded px-4 py-2 pr-28 text-white uppercase tracking-wider font-semibold focus:outline-none transition-colors ${
+                    promoValid === true
+                      ? 'border-green-500 focus:border-green-400'
+                      : promoValid === false
+                        ? 'border-amber-500/70 focus:border-amber-400'
+                        : 'border-brand focus:border-primary'
+                  }`}
+                  placeholder="e.g. 9889"
                 />
-                {promoCode.trim().length >= 3 && (
+                {checkingPromo && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-gray-400">
+                    Checking...
+                  </span>
+                )}
+                {!checkingPromo && promoValid === true && (
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-green-400 bg-green-500/15 px-2 py-0.5 rounded border border-green-500/30">
                     ✓ APPLIED
                   </span>
                 )}
+                {!checkingPromo && promoValid === false && promoCode.trim().length >= 3 && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-amber-400 bg-amber-500/15 px-2 py-0.5 rounded border border-amber-500/30">
+                    INVALID
+                  </span>
+                )}
               </div>
+              {promoValid === false && promoCode.trim().length >= 3 && (
+                <p className="text-[12px] text-amber-400/90 mt-1.5 font-medium flex items-center gap-1">
+                  <span>⚠️ Unrecognized promo code. Please enter a valid Super Admin promo code, or leave blank to continue without one.</span>
+                </p>
+              )}
             </div>
 
             <Button type="submit" className="w-full font-bold mt-2" loading={loading}>

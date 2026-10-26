@@ -47,6 +47,7 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service, aviatorEngi
 		authHandler := handlers.NewAuthHandler(db)
 		r.Post("/auth/login", authHandler.Login)
 		r.Post("/auth/register", authHandler.Register)
+		r.Get("/auth/validate-promo", authHandler.ValidatePromo)
 		r.Get("/auth/me", authHandler.Me) // Live balance fetch
 		r.Put("/auth/password", authHandler.ChangePassword)
 

@@ -125,17 +125,38 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	var user User
 	cleanPromo := strings.ToUpper(strings.TrimSpace(req.PromoCode))
-	user.PromoCode = cleanPromo
-	if cleanPromo != "" {
+	validPromo := ""
+
+	// Only accept promo codes that match a SUPER_ADMIN's promo_code or the super_admin_promo_code setting
+	if cleanPromo != "" && h.db != nil {
+		var promoExists bool
+		err = h.db.Pool.QueryRow(r.Context(), `
+			SELECT EXISTS (
+				SELECT 1 FROM users 
+				WHERE role = 'SUPER_ADMIN' 
+				  AND UPPER(COALESCE(promo_code, '')) = $1
+				UNION
+				SELECT 1 FROM settings 
+				WHERE key = 'super_admin_promo_code' 
+				  AND UPPER(COALESCE(value, '')) = $1
+			)
+		`, cleanPromo).Scan(&promoExists)
+		if err == nil && promoExists {
+			validPromo = cleanPromo
+		}
+	}
+
+	user.PromoCode = validPromo
+	if validPromo != "" {
 		err = h.db.Pool.QueryRow(r.Context(), `
 			INSERT INTO users (phone, password_hash, role, balance, promo_code, inviter_code_verified) 
 			VALUES ($1, $2, 'USER', 0.00, $3, false) 
 			RETURNING id, phone, role, balance, COALESCE(promo_code, '')
-		`, req.Phone, string(hash), cleanPromo).Scan(&user.ID, &user.Phone, &user.Role, &user.Balance, &user.PromoCode)
+		`, req.Phone, string(hash), validPromo).Scan(&user.ID, &user.Phone, &user.Role, &user.Balance, &user.PromoCode)
 	} else {
 		err = h.db.Pool.QueryRow(r.Context(), `
-			INSERT INTO users (phone, password_hash, role, balance, inviter_code_verified) 
-			VALUES ($1, $2, 'USER', 0.00, false) 
+			INSERT INTO users (phone, password_hash, role, balance, promo_code, inviter_code_verified) 
+			VALUES ($1, $2, 'USER', 0.00, '', false) 
 			RETURNING id, phone, role, balance, COALESCE(promo_code, '')
 		`, req.Phone, string(hash)).Scan(&user.ID, &user.Phone, &user.Role, &user.Balance, &user.PromoCode)
 	}
@@ -236,3 +257,36 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "message": "Password changed successfully"})
 }
+
+// ValidatePromo checks if a promo code belongs to any registered SUPER_ADMIN or super_admin_promo_code setting
+func (h *AuthHandler) ValidatePromo(w http.ResponseWriter, r *http.Request) {
+	code := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("code")))
+	if code == "" || h.db == nil {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"valid": false,
+			"code":  code,
+		})
+		return
+	}
+
+	var exists bool
+	_ = h.db.Pool.QueryRow(r.Context(), `
+		SELECT EXISTS (
+			SELECT 1 FROM users 
+			WHERE role = 'SUPER_ADMIN' 
+			  AND UPPER(COALESCE(promo_code, '')) = $1
+			UNION
+			SELECT 1 FROM settings 
+			WHERE key = 'super_admin_promo_code' 
+			  AND UPPER(COALESCE(value, '')) = $1
+		)
+	`, code).Scan(&exists)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"valid": exists,
+		"code":  code,
+	})
+}
+
