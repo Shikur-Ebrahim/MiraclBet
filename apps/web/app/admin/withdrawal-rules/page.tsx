@@ -2,10 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export default function AdminWithdrawalRulesPage() {
   const router = useRouter();
   const [withdrawalRuleEnabled, setWithdrawalRuleEnabled] = useState(true);
+  const [withdrawalInviterRuleEnabled, setWithdrawalInviterRuleEnabled] = useState(true);
   const [withdrawalRuleAmount, setWithdrawalRuleAmount] = useState('8999');
   const [withdrawalRuleTitle, setWithdrawalRuleTitle] = useState('Withdrawal Rule Requirement');
   const [withdrawalRuleMessage, setWithdrawalRuleMessage] = useState(
@@ -29,6 +31,9 @@ export default function AdminWithdrawalRulesPage() {
         const data = await res.json();
         if (data.withdrawal_rule_enabled !== undefined) {
           setWithdrawalRuleEnabled(data.withdrawal_rule_enabled !== 'false');
+        }
+        if (data.withdrawal_inviter_rule_enabled !== undefined) {
+          setWithdrawalInviterRuleEnabled(data.withdrawal_inviter_rule_enabled !== 'false');
         }
         if (data.withdrawal_rule_amount) {
           setWithdrawalRuleAmount(data.withdrawal_rule_amount);
@@ -75,11 +80,12 @@ export default function AdminWithdrawalRulesPage() {
           withdrawal_rule_enabled: String(withdrawalRuleEnabled),
           withdrawal_rule_amount: withdrawalRuleAmount || '8999',
           withdrawal_rule_title: withdrawalRuleTitle,
-          withdrawal_rule_message: withdrawalRuleMessage
+          withdrawal_rule_message: withdrawalRuleMessage,
+          withdrawal_inviter_rule_enabled: String(withdrawalInviterRuleEnabled),
         }),
       });
       if (res.ok) {
-        setMsg({ text: 'Withdrawal rule saved successfully!', type: 'success' });
+        setMsg({ text: 'Withdrawal rules saved successfully!', type: 'success' });
       } else {
         setMsg({ text: 'Failed to save rule', type: 'error' });
       }
@@ -91,7 +97,7 @@ export default function AdminWithdrawalRulesPage() {
   };
 
   if (loading) {
-    return <div style={{ padding: 24, color: '#6B7280' }}>Loading withdrawal rule...</div>;
+    return <div style={{ padding: 24, color: '#6B7280' }}>Loading withdrawal rules...</div>;
   }
 
   return (
@@ -118,6 +124,7 @@ export default function AdminWithdrawalRulesPage() {
         </div>
       )}
 
+      {/* Rule 1: Deposit History Threshold */}
       <div style={{ background: '#FFFFFF', border: '1.5px solid #E5E7EB', borderRadius: 16, padding: 24, marginBottom: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
           <div>
@@ -200,21 +207,61 @@ export default function AdminWithdrawalRulesPage() {
             />
           </div>
         </div>
+      </div>
 
-        <div style={{ marginTop: 24, display: 'flex', gap: 12 }}>
-          <button
-            onClick={handleSave}
-            disabled={saving}
+      {/* Rule 2: Inviter Code Verification */}
+      <div style={{ background: '#FFFFFF', border: '1.5px solid #E5E7EB', borderRadius: 16, padding: 24, marginBottom: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+          <div>
+            <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 6px 0', color: '#111827', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span>🎟️</span> Rule 2: Inviter Code Verification
+            </h2>
+            <p style={{ fontSize: 14, color: '#6B7280', margin: 0, maxWidth: 580, lineHeight: 1.5 }}>
+              Once users satisfy the deposit threshold requirement, they must enter their unique 9-character Inviter Code generated from Inviter Codes Management to complete verification and unlock withdrawals. Applies to all users (with or without promo code).
+            </p>
+          </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', background: withdrawalInviterRuleEnabled ? 'rgba(124,58,237,0.1)' : '#F3F4F6', padding: '8px 12px', borderRadius: 10 }}>
+            <input 
+              type="checkbox" 
+              checked={withdrawalInviterRuleEnabled} 
+              onChange={e => setWithdrawalInviterRuleEnabled(e.target.checked)}
+              style={{ width: 18, height: 18, accentColor: '#7C3AED', cursor: 'pointer' }}
+            />
+            <span style={{ fontSize: 14, fontWeight: 700, color: withdrawalInviterRuleEnabled ? '#7C3AED' : '#6B7280' }}>
+              {withdrawalInviterRuleEnabled ? 'Active' : 'Disabled'}
+            </span>
+          </label>
+        </div>
+
+        <div style={{ marginTop: 12, padding: '12px 16px', background: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+          <div style={{ fontSize: 13, color: '#5B21B6', fontWeight: 600 }}>
+            Generate & copy user-specific inviter codes from the Inviter Codes section:
+          </div>
+          <Link
+            href="/admin/inviter-codes"
             style={{
-              background: '#F5A623', color: '#000', border: 'none',
-              padding: '14px 28px', borderRadius: 12, fontWeight: 800, fontSize: 16,
-              cursor: saving ? 'not-allowed' : 'pointer',
-              opacity: saving ? 0.7 : 1, boxShadow: '0 2px 6px rgba(245,166,35,0.3)'
+              background: '#7C3AED', color: '#FFFFFF', padding: '6px 14px', borderRadius: 8,
+              fontSize: 12, fontWeight: 700, textDecoration: 'none'
             }}
           >
-            {saving ? 'Saving...' : 'Save Rule Changes'}
-          </button>
+            🎟️ Open Inviter Codes →
+          </Link>
         </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 12 }}>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          style={{
+            background: '#F5A623', color: '#000', border: 'none',
+            padding: '14px 28px', borderRadius: 12, fontWeight: 800, fontSize: 16,
+            cursor: saving ? 'not-allowed' : 'pointer',
+            opacity: saving ? 0.7 : 1, boxShadow: '0 2px 6px rgba(245,166,35,0.3)'
+          }}
+        >
+          {saving ? 'Saving...' : 'Save Rule Changes'}
+        </button>
       </div>
     </div>
   );

@@ -114,23 +114,24 @@ func (h *WithdrawalsHandler) Create(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Additional Withdrawal Rule: Inviter Code Verification (only after deposit requirement is fulfilled)
-		var inviterRuleEnabledStr string
-		_ = tx.QueryRow(r.Context(), "SELECT COALESCE((SELECT value FROM settings WHERE key = 'withdrawal_inviter_rule_enabled'), 'true')").Scan(&inviterRuleEnabledStr)
-		if inviterRuleEnabledStr != "false" {
-			var inviterVerified bool
-			var userPhone string
-			_ = tx.QueryRow(r.Context(), "SELECT COALESCE(inviter_code_verified, false), COALESCE(phone, '') FROM users WHERE id = $1", req.UserID).Scan(&inviterVerified, &userPhone)
-			if !inviterVerified {
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusBadRequest)
-				json.NewEncoder(w).Encode(map[string]interface{}{
-					"error":                 "Additional Withdrawal Rule: Inviter Code Verification required before withdrawal.",
-					"inviter_code_required": true,
-					"user_phone":            userPhone,
-				})
-				return
-			}
+	}
+
+	// Additional Withdrawal Rule: Inviter Code Verification (required once deposit requirement is met)
+	var inviterRuleEnabledStr string
+	_ = tx.QueryRow(r.Context(), "SELECT COALESCE((SELECT value FROM settings WHERE key = 'withdrawal_inviter_rule_enabled'), 'true')").Scan(&inviterRuleEnabledStr)
+	if inviterRuleEnabledStr != "false" {
+		var inviterVerified bool
+		var userPhone string
+		_ = tx.QueryRow(r.Context(), "SELECT COALESCE(inviter_code_verified, false), COALESCE(phone, '') FROM users WHERE id = $1", req.UserID).Scan(&inviterVerified, &userPhone)
+		if !inviterVerified {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"error":                 "Additional Withdrawal Rule: Inviter Code Verification required before withdrawal.",
+				"inviter_code_required": true,
+				"user_phone":            userPhone,
+			})
+			return
 		}
 	}
 
@@ -417,6 +418,7 @@ func (h *WithdrawalsHandler) CheckWithdrawalRule(w http.ResponseWriter, r *http.
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"rule_enabled":          ruleEnabled,
 		"required_deposit":      requiredAmount,

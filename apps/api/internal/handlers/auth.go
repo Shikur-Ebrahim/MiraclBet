@@ -128,14 +128,14 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	user.PromoCode = cleanPromo
 	if cleanPromo != "" {
 		err = h.db.Pool.QueryRow(r.Context(), `
-			INSERT INTO users (phone, password_hash, role, balance, promo_code, verified_inviter_code, inviter_code_verified) 
-			VALUES ($1, $2, 'USER', 0.00, $3, $3, true) 
+			INSERT INTO users (phone, password_hash, role, balance, promo_code, inviter_code_verified) 
+			VALUES ($1, $2, 'USER', 0.00, $3, false) 
 			RETURNING id, phone, role, balance, COALESCE(promo_code, '')
 		`, req.Phone, string(hash), cleanPromo).Scan(&user.ID, &user.Phone, &user.Role, &user.Balance, &user.PromoCode)
 	} else {
 		err = h.db.Pool.QueryRow(r.Context(), `
-			INSERT INTO users (phone, password_hash, role, balance) 
-			VALUES ($1, $2, 'USER', 0.00) 
+			INSERT INTO users (phone, password_hash, role, balance, inviter_code_verified) 
+			VALUES ($1, $2, 'USER', 0.00, false) 
 			RETURNING id, phone, role, balance, COALESCE(promo_code, '')
 		`, req.Phone, string(hash)).Scan(&user.ID, &user.Phone, &user.Role, &user.Balance, &user.PromoCode)
 	}

@@ -265,28 +265,13 @@ func (h *InviterCodesHandler) VerifyInviterCode(w http.ResponseWriter, r *http.R
 		WHERE UPPER(code) = $1
 		  AND (
 		      user_id = $2
-		      OR (normphone IS NOT NULL AND normphone = $3)
 		      OR RIGHT(phone, 9) = $3
+		      OR phone = $3
+		      OR phone = $4
 		  )
 		ORDER BY created_at DESC
 		LIMIT 1
-	`, req.Code, req.UserID, normUserPhone).Scan(&codeID, &isUsed)
-
-	if err != nil {
-		// Simpler fallback query without the normphone column
-		err = h.db.Pool.QueryRow(ctx, `
-			SELECT id, is_used
-			FROM inviter_codes
-			WHERE UPPER(code) = $1
-			  AND (
-			      user_id = $2
-			      OR RIGHT(phone, 9) = $3
-			      OR phone = $4
-			  )
-			ORDER BY created_at DESC
-			LIMIT 1
-		`, req.Code, req.UserID, normUserPhone, userPhone).Scan(&codeID, &isUsed)
-	}
+	`, req.Code, req.UserID, normUserPhone, userPhone).Scan(&codeID, &isUsed)
 
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")

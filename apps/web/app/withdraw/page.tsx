@@ -72,7 +72,7 @@ export default function WithdrawPage() {
     Promise.all([
       fetch(`${API}/api/v1/withdrawal-methods`).then(r => r.json()).catch(() => []),
       fetch(`${API}/api/v1/withdrawals/pending?user_id=${user.id}`).then(r => r.json()).catch(() => null),
-      fetch(`${API}/api/v1/withdrawals/rule-check?user_id=${user.id}`).then(r => r.json()).catch(() => null),
+      fetch(`${API}/api/v1/withdrawals/rule-check?user_id=${user.id}&_t=${Date.now()}`, { cache: 'no-store' }).then(r => r.json()).catch(() => null),
       fetch(`${API}/api/v1/settings`).then(r => r.json()).catch(() => ({})),
     ]).then(([methodsData, pendingData, ruleData, settingsData]) => {
       const active = (Array.isArray(methodsData) ? methodsData : []).filter((m: WithdrawalMethod) => m.is_active);

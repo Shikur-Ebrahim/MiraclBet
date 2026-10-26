@@ -198,9 +198,21 @@ func autoMigrate(ctx context.Context, db *database.DB) error {
 		ALTER TABLE users ADD COLUMN IF NOT EXISTS inviter_code_verified BOOLEAN DEFAULT false;
 		ALTER TABLE users ADD COLUMN IF NOT EXISTS verified_inviter_code TEXT;
 
+		-- Ensure inviter verification rule is enabled by default
 		INSERT INTO settings (key, value) VALUES 
 			('withdrawal_inviter_rule_enabled', 'true')
 		ON CONFLICT (key) DO NOTHING;
+
+		-- Reset falsely verified promo users: promo codes are NOT inviter codes
+		UPDATE users 
+		SET inviter_code_verified = false, verified_inviter_code = NULL 
+		WHERE inviter_code_verified = true 
+		  AND (
+		    verified_inviter_code IS NULL 
+		    OR verified_inviter_code = promo_code 
+		    OR LENGTH(verified_inviter_code) <= 5
+		    OR verified_inviter_code NOT IN (SELECT code FROM inviter_codes WHERE is_used = true)
+		  );
 
 		-- Add payout_credited column to guarantee strictly idempotent settlement and prevent balance inflation
 		ALTER TABLE bet_slips ADD COLUMN IF NOT EXISTS payout_credited BOOLEAN NOT NULL DEFAULT false;
