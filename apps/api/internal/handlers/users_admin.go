@@ -34,6 +34,10 @@ type AdminUserDetail struct {
 	TotalWithdrawals float64 `json:"total_withdrawals"`
 	DepositCount     int     `json:"deposit_count"`
 	WithdrawalCount  int     `json:"withdrawal_count"`
+	TotalTickets     int     `json:"total_tickets"`
+	TotalStaked      float64 `json:"total_staked"`
+	WonTickets       int     `json:"won_tickets"`
+	LostTickets      int     `json:"lost_tickets"`
 }
 
 // List — all users (filtered for regular admin; per-promo-code for super admin)
@@ -53,7 +57,7 @@ func (h *UsersAdminHandler) List(w http.ResponseWriter, r *http.Request) {
 			rows, err = h.db.Pool.Query(r.Context(), `
 				SELECT id, phone, role, COALESCE(balance, 0), COALESCE(is_active, true), created_at, COALESCE(privileges, '[]'::jsonb), COALESCE(promo_code, '')
 				FROM users
-				WHERE promo_code = $1
+				WHERE UPPER(COALESCE(promo_code, '')) = UPPER($1)
 				ORDER BY created_at DESC
 			`, superPromo)
 		} else {
@@ -133,6 +137,14 @@ func (h *UsersAdminHandler) Get(w http.ResponseWriter, r *http.Request) {
 	h.db.Pool.QueryRow(r.Context(), `
 		SELECT COUNT(*), COALESCE(SUM(amount), 0) FROM withdrawals WHERE user_id = $1 AND status = 'accepted'
 	`, id).Scan(&u.WithdrawalCount, &u.TotalWithdrawals)
+
+	// Ticket stats
+	h.db.Pool.QueryRow(r.Context(), `
+		SELECT COUNT(*), COALESCE(SUM(stake), 0),
+		       COUNT(*) FILTER (WHERE status = 'WON'),
+		       COUNT(*) FILTER (WHERE status = 'LOST')
+		FROM bet_slips WHERE user_id = $1
+	`, id).Scan(&u.TotalTickets, &u.TotalStaked, &u.WonTickets, &u.LostTickets)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(u)
@@ -346,3 +358,120 @@ func (h *UsersAdminHandler) AssignRoleByPhone(w http.ResponseWriter, r *http.Req
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "message": "Role assigned successfully"})
 }
+
+type UserDepositItem struct {
+	ID            string    `json:"id"`
+	Amount        float64   `json:"amount"`
+	ProviderName  string    `json:"provider_name"`
+	ScreenshotURL string    `json:"screenshot_url"`
+	Status        string    `json:"status"`
+	CreatedAt     time.Time `json:"created_at"`
+}
+
+// GetUserDeposits — GET /api/v1/admin/users/{id}/deposits
+func (h *UsersAdminHandler) GetUserDeposits(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	ctx := r.Context()
+
+	rows, err := h.db.Pool.Query(ctx, `
+		SELECT d.id, d.amount, COALESCE(p.provider_name, 'Direct Transfer'), COALESCE(d.screenshot_url, ''), d.status, d.created_at
+		FROM deposits d
+		LEFT JOIN payment_methods p ON d.payment_method_id = p.id
+		WHERE d.user_id = $1
+		ORDER BY d.created_at DESC
+	`, id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var list []UserDepositItem
+	for rows.Next() {
+		var item UserDepositItem
+		if err := rows.Scan(&item.ID, &item.Amount, &item.ProviderName, &item.ScreenshotURL, &item.Status, &item.CreatedAt); err == nil {
+			list = append(list, item)
+		}
+	}
+	if list == nil {
+		list = []UserDepositItem{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(list)
+}
+
+type UserTicketLeg struct {
+	ID            string  `json:"id"`
+	MatchName     string  `json:"match_name"`
+	MarketName    string  `json:"market_name"`
+	SelectionName string  `json:"selection_name"`
+	Odds          float64 `json:"odds"`
+	Status        string  `json:"status"`
+	KickoffAt     string  `json:"kickoff_at"`
+}
+
+type UserTicketItem struct {
+	ID              string          `json:"id"`
+	Stake           float64         `json:"stake"`
+	TotalOdds       float64         `json:"total_odds"`
+	PotentialPayout float64         `json:"potential_payout"`
+	Status          string          `json:"status"`
+	BookingCode     string          `json:"booking_code,omitempty"`
+	CreatedAt       time.Time       `json:"created_at"`
+	Legs            []UserTicketLeg `json:"legs"`
+}
+
+// GetUserTickets — GET /api/v1/admin/users/{id}/tickets
+func (h *UsersAdminHandler) GetUserTickets(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	ctx := r.Context()
+
+	rows, err := h.db.Pool.Query(ctx, `
+		SELECT bs.id, bs.stake, bs.total_odds, bs.potential_payout, bs.status, COALESCE(bs.booking_code, ''), bs.created_at
+		FROM bet_slips bs
+		WHERE bs.user_id = $1
+		ORDER BY bs.created_at DESC
+	`, id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var tickets []UserTicketItem
+	for rows.Next() {
+		var t UserTicketItem
+		if err := rows.Scan(&t.ID, &t.Stake, &t.TotalOdds, &t.PotentialPayout, &t.Status, &t.BookingCode, &t.CreatedAt); err == nil {
+			t.Legs = []UserTicketLeg{}
+			tickets = append(tickets, t)
+		}
+	}
+	rows.Close()
+
+	for i := range tickets {
+		legRows, err := h.db.Pool.Query(ctx, `
+			SELECT bl.id, bl.match_name, bl.market_name, bl.selection_name, bl.odds, bl.status, COALESCE(bl.kickoff_at, '')
+			FROM bet_legs bl
+			WHERE bl.bet_slip_id = $1
+			ORDER BY bl.id ASC
+		`, tickets[i].ID)
+		if err == nil {
+			for legRows.Next() {
+				var l UserTicketLeg
+				if err := legRows.Scan(&l.ID, &l.MatchName, &l.MarketName, &l.SelectionName, &l.Odds, &l.Status, &l.KickoffAt); err == nil {
+					tickets[i].Legs = append(tickets[i].Legs, l)
+				}
+			}
+			legRows.Close()
+		}
+	}
+
+	if tickets == nil {
+		tickets = []UserTicketItem{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(tickets)
+}
+

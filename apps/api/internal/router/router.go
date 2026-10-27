@@ -148,6 +148,8 @@ func New(cfg *config.Config, db *database.DB, r2 *storage.R2Service, aviatorEngi
 			r.Get("/teams", savedTeamsHandler.ListTeams)
 			r.Post("/users/assign-role", usersAdminHandler.AssignRoleByPhone)
 			r.Get("/users/{id}", usersAdminHandler.Get)
+			r.Get("/users/{id}/deposits", usersAdminHandler.GetUserDeposits)
+			r.Get("/users/{id}/tickets", usersAdminHandler.GetUserTickets)
 			r.Put("/users/{id}/status", usersAdminHandler.ToggleStatus)
 			r.Put("/users/{id}/role", usersAdminHandler.UpdateRole)
 			r.Put("/users/{id}/privileges", usersAdminHandler.UpdatePrivileges)
