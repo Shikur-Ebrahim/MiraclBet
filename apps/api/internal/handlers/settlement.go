@@ -7,6 +7,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -508,6 +509,7 @@ func (h *SettlementHandler) determineLegStatus(marketName, selectionName, select
 	selIDUpper := strings.ToUpper(strings.TrimSpace(selectionID))
 	homeLower := strings.ToLower(strings.TrimSpace(homeTeam))
 	awayLower := strings.ToLower(strings.TrimSpace(awayTeam))
+	totalGoals := scoreHome + scoreAway
 
 	// 1. DOUBLE CHANCE
 	isDoubleChance := strings.Contains(marketLower, "double chance") ||
@@ -558,7 +560,7 @@ func (h *SettlementHandler) determineLegStatus(marketName, selectionName, select
 	}
 
 	// 2. MATCH WINNER / 1X2 / FULL TIME RESULT
-	if strings.Contains(marketLower, "winner") || strings.Contains(marketLower, "1x2") || marketLower == "" {
+	if strings.Contains(marketLower, "winner") || strings.Contains(marketLower, "1x2") || strings.Contains(marketLower, "full time") || marketLower == "" {
 		// Draw
 		if strings.HasSuffix(selIDUpper, "-X") || selNameLower == "draw" || selNameLower == "x" || selNameLower == "tie" {
 			if scoreHome == scoreAway {
@@ -602,32 +604,39 @@ func (h *SettlementHandler) determineLegStatus(marketName, selectionName, select
 		}
 	}
 
-	totalGoals := scoreHome + scoreAway
-
-	// 4. OVER / UNDER GOALS
+	// 4. OVER / UNDER GOALS (Match Total or Team Total)
 	if strings.Contains(marketLower, "over") || strings.Contains(marketLower, "under") ||
 		strings.Contains(marketLower, "goals") || strings.Contains(marketLower, "total") ||
 		strings.Contains(selNameLower, "over") || strings.Contains(selNameLower, "under") {
 
+		isHomeTotal := strings.Contains(marketLower, "home") && !strings.Contains(marketLower, "away")
+		isAwayTotal := strings.Contains(marketLower, "away") && !strings.Contains(marketLower, "home")
+
+		goalsToCheck := float64(totalGoals)
+		if isHomeTotal {
+			goalsToCheck = float64(scoreHome)
+		} else if isAwayTotal {
+			goalsToCheck = float64(scoreAway)
+		}
+
+		// Extract threshold dynamically (0.5, 1.5, 2.5, 3.5, 4.5, 5.5...)
 		threshold := 2.5
-		if strings.Contains(selNameLower, "0.5") || strings.Contains(marketLower, "0.5") {
-			threshold = 0.5
-		} else if strings.Contains(selNameLower, "1.5") || strings.Contains(marketLower, "1.5") {
-			threshold = 1.5
-		} else if strings.Contains(selNameLower, "3.5") || strings.Contains(marketLower, "3.5") {
-			threshold = 3.5
-		} else if strings.Contains(selNameLower, "4.5") || strings.Contains(marketLower, "4.5") {
-			threshold = 4.5
+		for _, token := range strings.Fields(strings.ReplaceAll(selNameLower, ",", ".")) {
+			tokenClean := strings.Trim(token, "()[]{}abcdefghijklmnopqrstuvwxyz")
+			if f, err := strconv.ParseFloat(tokenClean, 64); err == nil {
+				threshold = f
+				break
+			}
 		}
 
 		if strings.Contains(selNameLower, "over") {
-			if float64(totalGoals) > threshold {
+			if goalsToCheck > threshold {
 				return "WON"
 			}
 			return "LOST"
 		}
 		if strings.Contains(selNameLower, "under") {
-			if float64(totalGoals) < threshold {
+			if goalsToCheck < threshold {
 				return "WON"
 			}
 			return "LOST"
@@ -653,24 +662,105 @@ func (h *SettlementHandler) determineLegStatus(marketName, selectionName, select
 		}
 	}
 
-	// 6. CORRECT SCORE
-	if strings.Contains(marketLower, "correct score") || strings.Contains(marketLower, "exact score") {
+	// 6. CORRECT SCORE / EXACT SCORE
+	if strings.Contains(marketLower, "correct score") || strings.Contains(marketLower, "exact score") || strings.Contains(marketLower, "score") {
 		clean := strings.ReplaceAll(selNameLower, " ", "")
 		clean = strings.ReplaceAll(clean, ":", "-")
 		expected := fmt.Sprintf("%d-%d", scoreHome, scoreAway)
 		if clean == expected {
 			return "WON"
 		}
-		return "LOST"
+		// If it has digits and hyphen (like "2-0")
+		if strings.Contains(clean, "-") {
+			return "LOST"
+		}
 	}
 
-	// Half-Time Result — requires HT score, VOID if unknown
-	if strings.Contains(marketLower, "half") {
+	// 7. ODD / EVEN GOALS
+	if strings.Contains(marketLower, "odd/even") || strings.Contains(marketLower, "odd or even") ||
+		selNameLower == "odd" || selNameLower == "even" {
+		isEven := (totalGoals % 2) == 0
+		if selNameLower == "even" {
+			if isEven {
+				return "WON"
+			}
+			return "LOST"
+		}
+		if selNameLower == "odd" {
+			if !isEven {
+				return "WON"
+			}
+			return "LOST"
+		}
+	}
+
+	// 8. CLEAN SHEET
+	if strings.Contains(marketLower, "clean sheet") {
+		isHome := strings.Contains(marketLower, "home") || (homeLower != "" && strings.Contains(marketLower, homeLower))
+		isAway := strings.Contains(marketLower, "away") || (awayLower != "" && strings.Contains(marketLower, awayLower))
+		if isHome {
+			if selNameLower == "yes" {
+				if scoreAway == 0 { return "WON" }
+				return "LOST"
+			}
+			if selNameLower == "no" {
+				if scoreAway > 0 { return "WON" }
+				return "LOST"
+			}
+		}
+		if isAway {
+			if selNameLower == "yes" {
+				if scoreHome == 0 { return "WON" }
+				return "LOST"
+			}
+			if selNameLower == "no" {
+				if scoreHome > 0 { return "WON" }
+				return "LOST"
+			}
+		}
+	}
+
+	// 9. HANDICAP
+	if strings.Contains(marketLower, "handicap") {
+		isHome := strings.Contains(selNameLower, "home") || (homeLower != "" && strings.Contains(selNameLower, homeLower)) || strings.HasPrefix(selIDUpper, "-1")
+		isAway := strings.Contains(selNameLower, "away") || (awayLower != "" && strings.Contains(selNameLower, awayLower)) || strings.HasPrefix(selIDUpper, "-2")
+
+		var handicap float64
+		for _, token := range strings.Fields(selNameLower) {
+			tokenClean := strings.Trim(token, "()[]{}abcdefghijklmnopqrstuvwxyz")
+			if f, err := strconv.ParseFloat(tokenClean, 64); err == nil && (strings.HasPrefix(token, "+") || strings.HasPrefix(token, "-")) {
+			handicap = f
+			break
+			}
+		}
+
+		if isHome {
+			adjScore := float64(scoreHome) + handicap
+			if adjScore > float64(scoreAway) {
+				return "WON"
+			} else if adjScore == float64(scoreAway) {
+				return "VOID"
+			}
+			return "LOST"
+		}
+		if isAway {
+			adjScore := float64(scoreAway) + handicap
+			if adjScore > float64(scoreHome) {
+				return "WON"
+			} else if adjScore == float64(scoreHome) {
+				return "VOID"
+			}
+			return "LOST"
+		}
+	}
+
+	// Half-Time, Corners, Cards, or non-fulltime stats — VOID so user is never unfairly penalized
+	if strings.Contains(marketLower, "half") || strings.Contains(marketLower, "corner") || strings.Contains(marketLower, "card") {
 		return "VOID"
 	}
 
-	log.Printf("[auto-settle] unknown market '%s' (sel: '%s'), defaulting to LOST", marketName, selectionName)
-	return "LOST"
+	log.Printf("[auto-settle] unsupported market '%s' (sel: '%s') for %s — treating as VOID", marketName, selectionName, matchName)
+	return "VOID"
 }
 
 type SettleLegRequest struct {
