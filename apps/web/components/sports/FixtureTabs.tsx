@@ -250,7 +250,7 @@ function MatchRow({ fix }: { fix: Fixture }) {
       filtered.push({
         fixtureId: fix.id,
         matchName: `${fix.home_team} vs ${fix.away_team}`,
-        marketName: 'Match Winner',
+        marketName: (label === '1X' || label === 'X2' || label === '12') ? 'Double Chance' : 'Match Winner',
         selectionId: selId,
         selectionName,
         odds: parseFloat(val),

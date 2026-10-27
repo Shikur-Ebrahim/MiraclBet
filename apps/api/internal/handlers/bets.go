@@ -254,32 +254,57 @@ func (h *BetsHandler) ListMyBets(w http.ResponseWriter, r *http.Request) {
 				CASE
 					WHEN bl.status IN ('WON','LOST','VOID') THEN bl.status
 					WHEN f.status_short IN ('FT','AET','PEN') THEN
-						CASE bl.market_name
-							WHEN 'Match Winner' THEN
+						CASE
+							-- Double chance selections
+							WHEN bl.market_name = 'Double Chance'
+							     OR bl.selection_name LIKE '% or Draw%'
+							     OR bl.selection_name LIKE 'Draw or %'
+							     OR bl.selection_name LIKE '% or %'
+							     OR bl.selection_name IN ('1X', 'X2', '2X', '12', 'Home/Draw', 'Draw/Away', 'Home/Away') THEN
 								CASE
-									WHEN bl.selection_name = 'Home Win' AND COALESCE(f.score_home,0) > COALESCE(f.score_away,0) THEN 'WON'
-									WHEN bl.selection_name = 'Away Win' AND COALESCE(f.score_away,0) > COALESCE(f.score_home,0) THEN 'WON'
-									WHEN bl.selection_name = 'Draw'     AND COALESCE(f.score_home,0) = COALESCE(f.score_away,0) THEN 'WON'
+									-- 1X (Home or Draw)
+									WHEN bl.selection_name LIKE '% or Draw%' OR (bl.selection_name LIKE 'Draw or %' AND bl.selection_name NOT LIKE '%' || f.away_team || '%')
+									     OR bl.selection_name IN ('1X', 'Home/Draw', 'Home or Draw')
+									     OR (f.home_team != '' AND bl.selection_name LIKE '%' || f.home_team || '%' AND bl.selection_name LIKE '%Draw%') THEN
+										CASE WHEN COALESCE(f.score_home,0) >= COALESCE(f.score_away,0) THEN 'WON' ELSE 'LOST' END
+									-- X2 (Draw or Away)
+									WHEN bl.selection_name IN ('X2', '2X', 'Draw/Away', 'Away/Draw', 'Away or Draw', 'Draw or Away')
+									     OR (f.away_team != '' AND bl.selection_name LIKE '%' || f.away_team || '%' AND bl.selection_name LIKE '%Draw%') THEN
+										CASE WHEN COALESCE(f.score_away,0) >= COALESCE(f.score_home,0) THEN 'WON' ELSE 'LOST' END
+									-- 12 (Home or Away)
+									WHEN bl.selection_name IN ('12', 'Home/Away', 'Home or Away')
+									     OR (bl.selection_name LIKE '% or %' AND bl.selection_name NOT LIKE '%Draw%') THEN
+										CASE WHEN COALESCE(f.score_home,0) != COALESCE(f.score_away,0) THEN 'WON' ELSE 'LOST' END
 									ELSE 'LOST'
 								END
-							WHEN 'Both Teams to Score' THEN
+							-- Match Winner / 1X2
+							WHEN bl.market_name IN ('Match Winner', '1X2', 'Full Time Result') THEN
+								CASE
+									WHEN bl.selection_name IN ('Draw', 'X') AND COALESCE(f.score_home,0) = COALESCE(f.score_away,0) THEN 'WON'
+									WHEN (bl.selection_name IN ('Home Win', 'Home', '1') OR (f.home_team != '' AND bl.selection_name = f.home_team))
+									     AND COALESCE(f.score_home,0) > COALESCE(f.score_away,0) THEN 'WON'
+									WHEN (bl.selection_name IN ('Away Win', 'Away', '2') OR (f.away_team != '' AND bl.selection_name = f.away_team))
+									     AND COALESCE(f.score_away,0) > COALESCE(f.score_home,0) THEN 'WON'
+									ELSE 'LOST'
+								END
+							WHEN bl.market_name = 'Both Teams to Score' THEN
 								CASE
 									WHEN bl.selection_name = 'Yes' AND COALESCE(f.score_home,0) > 0 AND COALESCE(f.score_away,0) > 0 THEN 'WON'
 									WHEN bl.selection_name = 'No'  AND (COALESCE(f.score_home,0) = 0 OR COALESCE(f.score_away,0) = 0) THEN 'WON'
 									ELSE 'LOST'
 								END
-							WHEN 'Over 2.5 Goals' THEN
+							WHEN bl.market_name IN ('Over 2.5 Goals', 'Over 2.5') THEN
 								CASE WHEN COALESCE(f.score_home,0) + COALESCE(f.score_away,0) > 2 THEN 'WON' ELSE 'LOST' END
-							WHEN 'Under 2.5 Goals' THEN
+							WHEN bl.market_name IN ('Under 2.5 Goals', 'Under 2.5') THEN
 								CASE WHEN COALESCE(f.score_home,0) + COALESCE(f.score_away,0) <= 2 THEN 'WON' ELSE 'LOST' END
-							WHEN 'Draw No Bet' THEN
+							WHEN bl.market_name = 'Draw No Bet' THEN
 								CASE
-									WHEN bl.selection_name = 'Home' AND COALESCE(f.score_home,0) > COALESCE(f.score_away,0) THEN 'WON'
-									WHEN bl.selection_name = 'Away' AND COALESCE(f.score_away,0) > COALESCE(f.score_home,0) THEN 'WON'
+									WHEN (bl.selection_name IN ('Home', '1') OR (f.home_team != '' AND bl.selection_name = f.home_team)) AND COALESCE(f.score_home,0) > COALESCE(f.score_away,0) THEN 'WON'
+									WHEN (bl.selection_name IN ('Away', '2') OR (f.away_team != '' AND bl.selection_name = f.away_team)) AND COALESCE(f.score_away,0) > COALESCE(f.score_home,0) THEN 'WON'
 									WHEN COALESCE(f.score_home,0) = COALESCE(f.score_away,0) THEN 'VOID'
 									ELSE 'LOST'
 								END
-							ELSE 'LOST'
+							ELSE bl.status
 						END
 					WHEN f.status_short IN ('CANC','PSTP','ABD') THEN 'VOID'
 					ELSE bl.status
@@ -442,32 +467,57 @@ func (h *BetsHandler) CheckBet(w http.ResponseWriter, r *http.Request) {
 			CASE
 				WHEN bl.status IN ('WON','LOST','VOID') THEN bl.status
 				WHEN f.status_short IN ('FT','AET','PEN') THEN
-					CASE bl.market_name
-						WHEN 'Match Winner' THEN
+					CASE
+						-- Double chance selections
+						WHEN bl.market_name = 'Double Chance'
+						     OR bl.selection_name LIKE '% or Draw%'
+						     OR bl.selection_name LIKE 'Draw or %'
+						     OR bl.selection_name LIKE '% or %'
+						     OR bl.selection_name IN ('1X', 'X2', '2X', '12', 'Home/Draw', 'Draw/Away', 'Home/Away') THEN
 							CASE
-								WHEN bl.selection_name = 'Home Win' AND COALESCE(f.score_home,0) > COALESCE(f.score_away,0) THEN 'WON'
-								WHEN bl.selection_name = 'Away Win' AND COALESCE(f.score_away,0) > COALESCE(f.score_home,0) THEN 'WON'
-								WHEN bl.selection_name = 'Draw'     AND COALESCE(f.score_home,0) = COALESCE(f.score_away,0) THEN 'WON'
+								-- 1X (Home or Draw)
+								WHEN bl.selection_name LIKE '% or Draw%' OR (bl.selection_name LIKE 'Draw or %' AND bl.selection_name NOT LIKE '%' || f.away_team || '%')
+								     OR bl.selection_name IN ('1X', 'Home/Draw', 'Home or Draw')
+								     OR (f.home_team != '' AND bl.selection_name LIKE '%' || f.home_team || '%' AND bl.selection_name LIKE '%Draw%') THEN
+									CASE WHEN COALESCE(f.score_home,0) >= COALESCE(f.score_away,0) THEN 'WON' ELSE 'LOST' END
+								-- X2 (Draw or Away)
+								WHEN bl.selection_name IN ('X2', '2X', 'Draw/Away', 'Away/Draw', 'Away or Draw', 'Draw or Away')
+								     OR (f.away_team != '' AND bl.selection_name LIKE '%' || f.away_team || '%' AND bl.selection_name LIKE '%Draw%') THEN
+									CASE WHEN COALESCE(f.score_away,0) >= COALESCE(f.score_home,0) THEN 'WON' ELSE 'LOST' END
+								-- 12 (Home or Away)
+								WHEN bl.selection_name IN ('12', 'Home/Away', 'Home or Away')
+								     OR (bl.selection_name LIKE '% or %' AND bl.selection_name NOT LIKE '%Draw%') THEN
+									CASE WHEN COALESCE(f.score_home,0) != COALESCE(f.score_away,0) THEN 'WON' ELSE 'LOST' END
 								ELSE 'LOST'
 							END
-						WHEN 'Both Teams to Score' THEN
+						-- Match Winner / 1X2
+						WHEN bl.market_name IN ('Match Winner', '1X2', 'Full Time Result') THEN
+							CASE
+								WHEN bl.selection_name IN ('Draw', 'X') AND COALESCE(f.score_home,0) = COALESCE(f.score_away,0) THEN 'WON'
+								WHEN (bl.selection_name IN ('Home Win', 'Home', '1') OR (f.home_team != '' AND bl.selection_name = f.home_team))
+								     AND COALESCE(f.score_home,0) > COALESCE(f.score_away,0) THEN 'WON'
+								WHEN (bl.selection_name IN ('Away Win', 'Away', '2') OR (f.away_team != '' AND bl.selection_name = f.away_team))
+								     AND COALESCE(f.score_away,0) > COALESCE(f.score_home,0) THEN 'WON'
+								ELSE 'LOST'
+							END
+						WHEN bl.market_name = 'Both Teams to Score' THEN
 							CASE
 								WHEN bl.selection_name = 'Yes' AND COALESCE(f.score_home,0) > 0 AND COALESCE(f.score_away,0) > 0 THEN 'WON'
 								WHEN bl.selection_name = 'No'  AND (COALESCE(f.score_home,0) = 0 OR COALESCE(f.score_away,0) = 0) THEN 'WON'
 								ELSE 'LOST'
 							END
-						WHEN 'Over 2.5 Goals' THEN
+						WHEN bl.market_name IN ('Over 2.5 Goals', 'Over 2.5') THEN
 							CASE WHEN COALESCE(f.score_home,0) + COALESCE(f.score_away,0) > 2 THEN 'WON' ELSE 'LOST' END
-						WHEN 'Under 2.5 Goals' THEN
+						WHEN bl.market_name IN ('Under 2.5 Goals', 'Under 2.5') THEN
 							CASE WHEN COALESCE(f.score_home,0) + COALESCE(f.score_away,0) <= 2 THEN 'WON' ELSE 'LOST' END
-						WHEN 'Draw No Bet' THEN
+						WHEN bl.market_name = 'Draw No Bet' THEN
 							CASE
-								WHEN bl.selection_name = 'Home' AND COALESCE(f.score_home,0) > COALESCE(f.score_away,0) THEN 'WON'
-								WHEN bl.selection_name = 'Away' AND COALESCE(f.score_away,0) > COALESCE(f.score_home,0) THEN 'WON'
+								WHEN (bl.selection_name IN ('Home', '1') OR (f.home_team != '' AND bl.selection_name = f.home_team)) AND COALESCE(f.score_home,0) > COALESCE(f.score_away,0) THEN 'WON'
+								WHEN (bl.selection_name IN ('Away', '2') OR (f.away_team != '' AND bl.selection_name = f.away_team)) AND COALESCE(f.score_away,0) > COALESCE(f.score_home,0) THEN 'WON'
 								WHEN COALESCE(f.score_home,0) = COALESCE(f.score_away,0) THEN 'VOID'
 								ELSE 'LOST'
 							END
-						ELSE 'LOST'
+						ELSE bl.status
 					END
 				WHEN f.status_short IN ('CANC','PSTP','ABD') THEN 'VOID'
 				ELSE bl.status

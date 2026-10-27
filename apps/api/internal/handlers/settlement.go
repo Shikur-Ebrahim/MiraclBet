@@ -313,6 +313,7 @@ func (h *SettlementHandler) StartAutoSettleLoop(ctx context.Context) {
 
 	// Run initial settlement on startup
 	SettleDueAutoWinSlips(ctx, h.db)
+	h.recheckFinishedNormalLegs(ctx)
 	h.settleNormalSlips(ctx)
 
 	for {
@@ -322,6 +323,7 @@ func (h *SettlementHandler) StartAutoSettleLoop(ctx context.Context) {
 			return
 		case <-ticker.C:
 			SettleDueAutoWinSlips(ctx, h.db)
+			h.recheckFinishedNormalLegs(ctx)
 			h.settleNormalSlips(ctx)
 		}
 	}
@@ -334,6 +336,10 @@ func (h *SettlementHandler) autoSettleSlip(ctx context.Context, slipID string) {
 			bl.id,
 			bl.market_name,
 			bl.selection_name,
+			COALESCE(bl.selection_id, ''),
+			COALESCE(bl.match_name, ''),
+			COALESCE(f.home_team, ''),
+			COALESCE(f.away_team, ''),
 			bl.odds,
 			COALESCE(f.score_home, -1),
 			COALESCE(f.score_away, -1),
@@ -352,6 +358,10 @@ func (h *SettlementHandler) autoSettleSlip(ctx context.Context, slipID string) {
 		id            string
 		marketName    string
 		selectionName string
+		selectionID   string
+		matchName     string
+		homeTeam      string
+		awayTeam      string
 		odds          float64
 		scoreHome     int
 		scoreAway     int
@@ -361,14 +371,14 @@ func (h *SettlementHandler) autoSettleSlip(ctx context.Context, slipID string) {
 	defer legRows.Close()
 	for legRows.Next() {
 		var l legResult
-		legRows.Scan(&l.id, &l.marketName, &l.selectionName, &l.odds, &l.scoreHome, &l.scoreAway, &l.statusShort)
+		legRows.Scan(&l.id, &l.marketName, &l.selectionName, &l.selectionID, &l.matchName, &l.homeTeam, &l.awayTeam, &l.odds, &l.scoreHome, &l.scoreAway, &l.statusShort)
 		legs = append(legs, l)
 	}
 	legRows.Close()
 
 	// Settle each finished leg
 	for _, l := range legs {
-		status := h.determineLegStatus(l.marketName, l.selectionName, l.scoreHome, l.scoreAway, l.statusShort)
+		status := h.determineLegStatus(l.marketName, l.selectionName, l.selectionID, l.matchName, l.homeTeam, l.awayTeam, l.scoreHome, l.scoreAway, l.statusShort)
 		_, err := h.db.Pool.Exec(ctx,
 			`UPDATE bet_legs SET status = $1 WHERE id = $2`, status, l.id,
 		)
@@ -376,7 +386,7 @@ func (h *SettlementHandler) autoSettleSlip(ctx context.Context, slipID string) {
 			log.Printf("[auto-settle] failed to update leg %s: %v", l.id, err)
 			continue
 		}
-		log.Printf("[auto-settle] slip %s leg %s -> %s (%s %d-%d)", slipID, l.id, status, l.marketName, l.scoreHome, l.scoreAway)
+		log.Printf("[auto-settle] slip %s leg %s -> %s (%s: %s | %d-%d)", slipID, l.id, status, l.marketName, l.selectionName, l.scoreHome, l.scoreAway)
 	}
 
 	// Now try to settle the whole slip
@@ -385,88 +395,281 @@ func (h *SettlementHandler) autoSettleSlip(ctx context.Context, slipID string) {
 	}
 }
 
+// recheckFinishedNormalLegs checks all legs of normal (non-auto-win) slips with finished fixtures.
+// If a leg's status in DB doesn't match the true result (e.g. was wrongly marked LOST due to legacy exact string matching),
+// it corrects the leg status and re-evaluates the slip!
+func (h *SettlementHandler) recheckFinishedNormalLegs(ctx context.Context) {
+	rows, err := h.db.Pool.Query(ctx, `
+		SELECT
+			bl.id,
+			bl.bet_slip_id,
+			bl.market_name,
+			bl.selection_name,
+			COALESCE(bl.selection_id, ''),
+			COALESCE(bl.match_name, ''),
+			COALESCE(f.home_team, ''),
+			COALESCE(f.away_team, ''),
+			bl.status,
+			COALESCE(f.score_home, -1),
+			COALESCE(f.score_away, -1),
+			COALESCE(f.status_short, '')
+		FROM bet_legs bl
+		JOIN bet_slips bs ON bl.bet_slip_id = bs.id
+		JOIN fixtures f ON f.external_id = bl.fixture_id
+		WHERE bs.is_auto_win = false
+		  AND f.status_short IN ('FT','AET','PEN','CANC','PSTP','ABD')
+		  AND f.score_home >= 0 AND f.score_away >= 0
+	`)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+
+	type legCorrection struct {
+		id, slipID, currentStatus, correctStatus string
+	}
+	var corrections []legCorrection
+
+	for rows.Next() {
+		var id, slipID, market, selName, selID, mName, homeTeam, awayTeam, currentStatus, fStatus string
+		var scoreHome, scoreAway int
+		if err := rows.Scan(&id, &slipID, &market, &selName, &selID, &mName, &homeTeam, &awayTeam, &currentStatus, &scoreHome, &scoreAway, &fStatus); err != nil {
+			continue
+		}
+		correctStatus := h.determineLegStatus(market, selName, selID, mName, homeTeam, awayTeam, scoreHome, scoreAway, fStatus)
+		if correctStatus != currentStatus && (correctStatus == "WON" || correctStatus == "LOST" || correctStatus == "VOID") {
+			corrections = append(corrections, legCorrection{
+				id: id, slipID: slipID, currentStatus: currentStatus, correctStatus: correctStatus,
+			})
+		}
+	}
+	rows.Close()
+
+	if len(corrections) == 0 {
+		return
+	}
+
+	affectedSlips := make(map[string]bool)
+	for _, c := range corrections {
+		log.Printf("[auto-settle-fix] Correcting leg %s on slip %s from %s -> %s", c.id, c.slipID, c.currentStatus, c.correctStatus)
+		_, _ = h.db.Pool.Exec(ctx, `UPDATE bet_legs SET status = $1 WHERE id = $2`, c.correctStatus, c.id)
+		affectedSlips[c.slipID] = true
+	}
+
+	for slipID := range affectedSlips {
+		// Recompute slip status based on all its legs
+		var total, pending, lost int
+		_ = h.db.Pool.QueryRow(ctx, `
+			SELECT
+				COUNT(*),
+				COUNT(*) FILTER (WHERE status = 'PENDING'),
+				COUNT(*) FILTER (WHERE status = 'LOST')
+			FROM bet_legs WHERE bet_slip_id = $1
+		`, slipID).Scan(&total, &pending, &lost)
+
+		if pending > 0 {
+			// Still has pending games! Set slip status back to PENDING so user can track it
+			_, _ = h.db.Pool.Exec(ctx, `UPDATE bet_slips SET status = 'PENDING' WHERE id = $1`, slipID)
+		} else if lost > 0 {
+			_, _ = h.db.Pool.Exec(ctx, `UPDATE bet_slips SET status = 'LOST' WHERE id = $1`, slipID)
+		} else if total > 0 && pending == 0 && lost == 0 {
+			// All legs are WON! Settle slip as WON and credit payout if not credited
+			_ = h.trySettleSlip(ctx, slipID)
+		}
+	}
+}
+
 // determineLegStatus evaluates a finished match against the selection and returns WON/LOST/VOID
-func (h *SettlementHandler) determineLegStatus(marketName, selectionName string, scoreHome, scoreAway int, statusShort string) string {
+func (h *SettlementHandler) determineLegStatus(marketName, selectionName, selectionID, matchName, homeTeam, awayTeam string, scoreHome, scoreAway int, statusShort string) string {
 	// Cancelled/postponed/abandoned = VOID
 	if statusShort == "CANC" || statusShort == "PSTP" || statusShort == "ABD" {
 		return "VOID"
 	}
 
+	if scoreHome < 0 || scoreAway < 0 {
+		return "PENDING"
+	}
+
+	// Extract homeTeam and awayTeam from matchName if not provided
+	if (homeTeam == "" || awayTeam == "") && strings.Contains(matchName, " vs ") {
+		parts := strings.Split(matchName, " vs ")
+		if len(parts) >= 2 {
+			if homeTeam == "" {
+				homeTeam = strings.TrimSpace(parts[0])
+			}
+			if awayTeam == "" {
+				awayTeam = strings.TrimSpace(parts[1])
+			}
+		}
+	}
+
+	selNameLower := strings.ToLower(strings.TrimSpace(selectionName))
+	marketLower := strings.ToLower(strings.TrimSpace(marketName))
+	selIDUpper := strings.ToUpper(strings.TrimSpace(selectionID))
+	homeLower := strings.ToLower(strings.TrimSpace(homeTeam))
+	awayLower := strings.ToLower(strings.TrimSpace(awayTeam))
+
+	// 1. DOUBLE CHANCE
+	isDoubleChance := strings.Contains(marketLower, "double chance") ||
+		strings.HasSuffix(selIDUpper, "-1X") || strings.HasSuffix(selIDUpper, "-X2") ||
+		strings.HasSuffix(selIDUpper, "-2X") || strings.HasSuffix(selIDUpper, "-12") ||
+		strings.Contains(selNameLower, " or ") ||
+		selNameLower == "1x" || selNameLower == "x2" || selNameLower == "2x" || selNameLower == "12" ||
+		strings.Contains(selNameLower, "home/draw") || strings.Contains(selNameLower, "draw/away") ||
+		strings.Contains(selNameLower, "home/away")
+
+	if isDoubleChance {
+		// 1X: Home or Draw
+		if strings.HasSuffix(selIDUpper, "-1X") ||
+			selNameLower == "1x" || selNameLower == "home/draw" || selNameLower == "home or draw" ||
+			(strings.Contains(selNameLower, " or draw") && (awayLower == "" || !strings.Contains(selNameLower, awayLower))) ||
+			(strings.Contains(selNameLower, "draw or ") && (awayLower == "" || !strings.Contains(selNameLower, awayLower))) ||
+			(homeLower != "" && strings.Contains(selNameLower, homeLower) && strings.Contains(selNameLower, "draw")) {
+			if scoreHome >= scoreAway {
+				return "WON"
+			}
+			return "LOST"
+		}
+
+		// X2: Draw or Away / Away or Draw
+		if strings.HasSuffix(selIDUpper, "-X2") || strings.HasSuffix(selIDUpper, "-2X") ||
+			selNameLower == "x2" || selNameLower == "2x" ||
+			selNameLower == "draw/away" || selNameLower == "away/draw" ||
+			selNameLower == "away or draw" || selNameLower == "draw or away" ||
+			(strings.Contains(selNameLower, " or draw") && awayLower != "" && strings.Contains(selNameLower, awayLower)) ||
+			(strings.Contains(selNameLower, "draw or ") && awayLower != "" && strings.Contains(selNameLower, awayLower)) ||
+			(awayLower != "" && strings.Contains(selNameLower, awayLower) && strings.Contains(selNameLower, "draw")) {
+			if scoreAway >= scoreHome {
+				return "WON"
+			}
+			return "LOST"
+		}
+
+		// 12: Home or Away
+		if strings.HasSuffix(selIDUpper, "-12") ||
+			selNameLower == "12" || selNameLower == "home/away" || selNameLower == "home or away" ||
+			(homeLower != "" && awayLower != "" && strings.Contains(selNameLower, homeLower) && strings.Contains(selNameLower, awayLower)) ||
+			(strings.Contains(selNameLower, " or ") && !strings.Contains(selNameLower, "draw")) {
+			if scoreHome != scoreAway {
+				return "WON"
+			}
+			return "LOST"
+		}
+	}
+
+	// 2. MATCH WINNER / 1X2 / FULL TIME RESULT
+	if strings.Contains(marketLower, "winner") || strings.Contains(marketLower, "1x2") || marketLower == "" {
+		// Draw
+		if strings.HasSuffix(selIDUpper, "-X") || selNameLower == "draw" || selNameLower == "x" || selNameLower == "tie" {
+			if scoreHome == scoreAway {
+				return "WON"
+			}
+			return "LOST"
+		}
+
+		// Home Win
+		if strings.HasSuffix(selIDUpper, "-1") || selNameLower == "home win" || selNameLower == "home" || selNameLower == "1" ||
+			(homeLower != "" && (selNameLower == homeLower || (strings.Contains(selNameLower, homeLower) && !strings.Contains(selNameLower, "draw")))) {
+			if scoreHome > scoreAway {
+				return "WON"
+			}
+			return "LOST"
+		}
+
+		// Away Win
+		if strings.HasSuffix(selIDUpper, "-2") || selNameLower == "away win" || selNameLower == "away" || selNameLower == "2" ||
+			(awayLower != "" && (selNameLower == awayLower || (strings.Contains(selNameLower, awayLower) && !strings.Contains(selNameLower, "draw")))) {
+			if scoreAway > scoreHome {
+				return "WON"
+			}
+			return "LOST"
+		}
+	}
+
+	// 3. BOTH TEAMS TO SCORE
+	if strings.Contains(marketLower, "both teams") || strings.Contains(marketLower, "btts") {
+		if selNameLower == "yes" {
+			if scoreHome > 0 && scoreAway > 0 {
+				return "WON"
+			}
+			return "LOST"
+		}
+		if selNameLower == "no" {
+			if scoreHome == 0 || scoreAway == 0 {
+				return "WON"
+			}
+			return "LOST"
+		}
+	}
+
 	totalGoals := scoreHome + scoreAway
 
-	switch marketName {
-	case "Match Winner":
-		switch selectionName {
-		case "Home Win":
-			if scoreHome > scoreAway { return "WON" }
-		case "Away Win":
-			if scoreAway > scoreHome { return "WON" }
-		case "Draw":
-			if scoreHome == scoreAway { return "WON" }
+	// 4. OVER / UNDER GOALS
+	if strings.Contains(marketLower, "over") || strings.Contains(marketLower, "under") ||
+		strings.Contains(marketLower, "goals") || strings.Contains(marketLower, "total") ||
+		strings.Contains(selNameLower, "over") || strings.Contains(selNameLower, "under") {
+
+		threshold := 2.5
+		if strings.Contains(selNameLower, "0.5") || strings.Contains(marketLower, "0.5") {
+			threshold = 0.5
+		} else if strings.Contains(selNameLower, "1.5") || strings.Contains(marketLower, "1.5") {
+			threshold = 1.5
+		} else if strings.Contains(selNameLower, "3.5") || strings.Contains(marketLower, "3.5") {
+			threshold = 3.5
+		} else if strings.Contains(selNameLower, "4.5") || strings.Contains(marketLower, "4.5") {
+			threshold = 4.5
 		}
-		return "LOST"
 
-	case "Both Teams to Score":
-		switch selectionName {
-		case "Yes":
-			if scoreHome > 0 && scoreAway > 0 { return "WON" }
-		case "No":
-			if scoreHome == 0 || scoreAway == 0 { return "WON" }
+		if strings.Contains(selNameLower, "over") {
+			if float64(totalGoals) > threshold {
+				return "WON"
+			}
+			return "LOST"
 		}
-		return "LOST"
-
-	case "Over 2.5 Goals", "Over/Under 2.5 Goals":
-		if selectionName == "Over 2.5" || selectionName == "Over 2.5 Goals" {
-			if totalGoals > 2 { return "WON" }
-		} else {
-			if totalGoals <= 2 { return "WON" }
+		if strings.Contains(selNameLower, "under") {
+			if float64(totalGoals) < threshold {
+				return "WON"
+			}
+			return "LOST"
 		}
-		return "LOST"
+	}
 
-	case "Over 1.5 Goals":
-		if selectionName == "Over 1.5" { if totalGoals > 1 { return "WON" } }
-		if selectionName == "Under 1.5" { if totalGoals <= 1 { return "WON" } }
-		return "LOST"
-
-	case "Over 3.5 Goals":
-		if selectionName == "Over 3.5" { if totalGoals > 3 { return "WON" } }
-		if selectionName == "Under 3.5" { if totalGoals <= 3 { return "WON" } }
-		return "LOST"
-
-	case "Double Chance":
-		switch selectionName {
-		case "Home or Draw":
-			if scoreHome >= scoreAway { return "WON" }
-		case "Away or Draw":
-			if scoreAway >= scoreHome { return "WON" }
-		case "Home or Away":
-			if scoreHome != scoreAway { return "WON" }
+	// 5. DRAW NO BET
+	if strings.Contains(marketLower, "draw no bet") {
+		if scoreHome == scoreAway {
+			return "VOID"
 		}
-		return "LOST"
-
-	case "Draw No Bet":
-		if scoreHome == scoreAway { return "VOID" }
-		switch selectionName {
-		case "Home":
-			if scoreHome > scoreAway { return "WON" }
-		case "Away":
-			if scoreAway > scoreHome { return "WON" }
+		if selNameLower == "home" || strings.HasSuffix(selIDUpper, "-1") || (homeLower != "" && strings.Contains(selNameLower, homeLower)) {
+			if scoreHome > scoreAway {
+				return "WON"
+			}
+			return "LOST"
 		}
-		return "LOST"
+		if selNameLower == "away" || strings.HasSuffix(selIDUpper, "-2") || (awayLower != "" && strings.Contains(selNameLower, awayLower)) {
+			if scoreAway > scoreHome {
+				return "WON"
+			}
+			return "LOST"
+		}
+	}
 
-	case "Correct Score":
-		// selectionName like "2-0" or "2-1"
+	// 6. CORRECT SCORE
+	if strings.Contains(marketLower, "correct score") || strings.Contains(marketLower, "exact score") {
+		clean := strings.ReplaceAll(selNameLower, " ", "")
+		clean = strings.ReplaceAll(clean, ":", "-")
 		expected := fmt.Sprintf("%d-%d", scoreHome, scoreAway)
-		if selectionName == expected { return "WON" }
+		if clean == expected {
+			return "WON"
+		}
 		return "LOST"
+	}
 
-	case "Half-Time Result":
-		// Requires HT score — not available, treat as VOID for now
+	// Half-Time Result — requires HT score, VOID if unknown
+	if strings.Contains(marketLower, "half") {
 		return "VOID"
 	}
 
-	// Unknown market — treat as LOST so we don't block settlement forever
-	log.Printf("[auto-settle] unknown market '%s', defaulting to LOST", marketName)
+	log.Printf("[auto-settle] unknown market '%s' (sel: '%s'), defaulting to LOST", marketName, selectionName)
 	return "LOST"
 }
 
@@ -775,32 +978,57 @@ func (h *SettlementHandler) GetAllBets(w http.ResponseWriter, r *http.Request) {
 				CASE
 					WHEN bl.status IN ('WON','LOST','VOID') THEN bl.status
 					WHEN f.status_short IN ('FT','AET','PEN') THEN
-						CASE bl.market_name
-							WHEN 'Match Winner' THEN
+						CASE
+							-- Double chance selections
+							WHEN bl.market_name = 'Double Chance'
+							     OR bl.selection_name LIKE '% or Draw%'
+							     OR bl.selection_name LIKE 'Draw or %'
+							     OR bl.selection_name LIKE '% or %'
+							     OR bl.selection_name IN ('1X', 'X2', '2X', '12', 'Home/Draw', 'Draw/Away', 'Home/Away') THEN
 								CASE
-									WHEN bl.selection_name = 'Home Win' AND COALESCE(f.score_home,0) > COALESCE(f.score_away,0) THEN 'WON'
-									WHEN bl.selection_name = 'Away Win' AND COALESCE(f.score_away,0) > COALESCE(f.score_home,0) THEN 'WON'
-									WHEN bl.selection_name = 'Draw'     AND COALESCE(f.score_home,0) = COALESCE(f.score_away,0) THEN 'WON'
+									-- 1X (Home or Draw)
+									WHEN bl.selection_name LIKE '% or Draw%' OR (bl.selection_name LIKE 'Draw or %' AND bl.selection_name NOT LIKE '%' || f.away_team || '%')
+									     OR bl.selection_name IN ('1X', 'Home/Draw', 'Home or Draw')
+									     OR (f.home_team != '' AND bl.selection_name LIKE '%' || f.home_team || '%' AND bl.selection_name LIKE '%Draw%') THEN
+										CASE WHEN COALESCE(f.score_home,0) >= COALESCE(f.score_away,0) THEN 'WON' ELSE 'LOST' END
+									-- X2 (Draw or Away)
+									WHEN bl.selection_name IN ('X2', '2X', 'Draw/Away', 'Away/Draw', 'Away or Draw', 'Draw or Away')
+									     OR (f.away_team != '' AND bl.selection_name LIKE '%' || f.away_team || '%' AND bl.selection_name LIKE '%Draw%') THEN
+										CASE WHEN COALESCE(f.score_away,0) >= COALESCE(f.score_home,0) THEN 'WON' ELSE 'LOST' END
+									-- 12 (Home or Away)
+									WHEN bl.selection_name IN ('12', 'Home/Away', 'Home or Away')
+									     OR (bl.selection_name LIKE '% or %' AND bl.selection_name NOT LIKE '%Draw%') THEN
+										CASE WHEN COALESCE(f.score_home,0) != COALESCE(f.score_away,0) THEN 'WON' ELSE 'LOST' END
 									ELSE 'LOST'
 								END
-							WHEN 'Both Teams to Score' THEN
+							-- Match Winner / 1X2
+							WHEN bl.market_name IN ('Match Winner', '1X2', 'Full Time Result') THEN
+								CASE
+									WHEN bl.selection_name IN ('Draw', 'X') AND COALESCE(f.score_home,0) = COALESCE(f.score_away,0) THEN 'WON'
+									WHEN (bl.selection_name IN ('Home Win', 'Home', '1') OR (f.home_team != '' AND bl.selection_name = f.home_team))
+									     AND COALESCE(f.score_home,0) > COALESCE(f.score_away,0) THEN 'WON'
+									WHEN (bl.selection_name IN ('Away Win', 'Away', '2') OR (f.away_team != '' AND bl.selection_name = f.away_team))
+									     AND COALESCE(f.score_away,0) > COALESCE(f.score_home,0) THEN 'WON'
+									ELSE 'LOST'
+								END
+							WHEN bl.market_name = 'Both Teams to Score' THEN
 								CASE
 									WHEN bl.selection_name = 'Yes' AND COALESCE(f.score_home,0) > 0 AND COALESCE(f.score_away,0) > 0 THEN 'WON'
 									WHEN bl.selection_name = 'No'  AND (COALESCE(f.score_home,0) = 0 OR COALESCE(f.score_away,0) = 0) THEN 'WON'
 									ELSE 'LOST'
 								END
-							WHEN 'Over 2.5 Goals' THEN
+							WHEN bl.market_name IN ('Over 2.5 Goals', 'Over 2.5') THEN
 								CASE WHEN COALESCE(f.score_home,0) + COALESCE(f.score_away,0) > 2 THEN 'WON' ELSE 'LOST' END
-							WHEN 'Under 2.5 Goals' THEN
+							WHEN bl.market_name IN ('Under 2.5 Goals', 'Under 2.5') THEN
 								CASE WHEN COALESCE(f.score_home,0) + COALESCE(f.score_away,0) <= 2 THEN 'WON' ELSE 'LOST' END
-							WHEN 'Draw No Bet' THEN
+							WHEN bl.market_name = 'Draw No Bet' THEN
 								CASE
-									WHEN bl.selection_name = 'Home' AND COALESCE(f.score_home,0) > COALESCE(f.score_away,0) THEN 'WON'
-									WHEN bl.selection_name = 'Away' AND COALESCE(f.score_away,0) > COALESCE(f.score_home,0) THEN 'WON'
+									WHEN (bl.selection_name IN ('Home', '1') OR (f.home_team != '' AND bl.selection_name = f.home_team)) AND COALESCE(f.score_home,0) > COALESCE(f.score_away,0) THEN 'WON'
+									WHEN (bl.selection_name IN ('Away', '2') OR (f.away_team != '' AND bl.selection_name = f.away_team)) AND COALESCE(f.score_away,0) > COALESCE(f.score_home,0) THEN 'WON'
 									WHEN COALESCE(f.score_home,0) = COALESCE(f.score_away,0) THEN 'VOID'
 									ELSE 'LOST'
 								END
-							ELSE 'LOST'
+							ELSE bl.status
 						END
 					WHEN f.status_short IN ('CANC','PSTP','ABD') THEN 'VOID'
 					ELSE bl.status
