@@ -5,7 +5,7 @@ import QRCode from 'react-qr-code';
 
 interface BetLeg {
   id: string;
-  fixture_id: string;
+  fixture_id?: string;
   match_name: string;
   market_name: string;
   selection_name: string;
@@ -28,19 +28,24 @@ interface BetSlip {
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://api.miraclbet.com:8443';
 
-function formatDate(iso: string) {
+function formatDate(iso?: string) {
+  if (!iso) return '';
   try {
     const d = new Date(iso);
-    return d.toLocaleString(undefined, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-  } catch { return iso; }
+    return isNaN(d.getTime()) ? iso : d.toLocaleString(undefined, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  } catch { return iso || ''; }
 }
 
-function parseMatch(matchName: string) {
+function parseMatch(matchName?: string) {
+  if (!matchName || typeof matchName !== 'string') {
+    return { home: 'Match', away: '' };
+  }
   const parts = matchName.split(' vs ');
   return { home: parts[0]?.trim() || matchName, away: parts[1]?.trim() || '' };
 }
 
-function TeamAvatar({ name, logoUrl, size = 30 }: { name: string; logoUrl?: string; size?: number }) {
+function TeamAvatar({ name, logoUrl, size = 30 }: { name?: string; logoUrl?: string; size?: number }) {
+  const safeName = (name && typeof name === 'string' && name.trim()) ? name.trim() : 'Team';
   if (logoUrl) {
     return (
       <div style={{
@@ -51,15 +56,16 @@ function TeamAvatar({ name, logoUrl, size = 30 }: { name: string; logoUrl?: stri
         boxShadow: '0 2px 5px rgba(0,0,0,0.3)', overflow: 'hidden'
       }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={logoUrl} alt={name} style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '50%' }} />
+        <img src={logoUrl} alt={safeName} style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '50%' }} />
       </div>
     );
   }
 
-  const words = name.trim().split(/\s+/);
-  const initials = words.length >= 2 ? words[0][0] + words[words.length - 1][0] : name.slice(0, 2);
+  const words = safeName.split(/\s+/);
+  const initials = words.length >= 2 ? (words[0][0] || '') + (words[words.length - 1][0] || '') : safeName.slice(0, 2);
   const colors = ['#EF4444', '#3B82F6', '#F5A623', '#10B981', '#8B5CF6', '#EC4899', '#06B6D4'];
-  const idx = (name.charCodeAt(0) + (name.charCodeAt(1) || 0)) % colors.length;
+  const charCode = safeName.charCodeAt(0) || 0;
+  const idx = Math.abs(charCode) % colors.length;
   
   return (
     <div style={{
@@ -70,26 +76,43 @@ function TeamAvatar({ name, logoUrl, size = 30 }: { name: string; logoUrl?: stri
       boxShadow: '0 2px 5px rgba(0,0,0,0.3)'
     }}>
       <span style={{ color: '#fff', fontWeight: 900, fontSize: size * 0.35, textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
-        {initials.toUpperCase()}
+        {(initials || 'T').toUpperCase()}
       </span>
     </div>
   );
 }
 
-const SLIP_STATUS: Record<string, { bg: string; text: string; label: string; icon: string }> = {
-  PENDING:   { bg: '#F5A623', text: '#fff', label: 'Open', icon: '⏳' },
-  WON:       { bg: '#19E66B', text: '#000', label: 'Won',  icon: '✅' },
-  LOST:      { bg: '#EF4444', text: '#fff', label: 'Lost', icon: '❌' },
-  CANCELLED: { bg: '#9CA3AF', text: '#fff', label: 'Void', icon: '🚫' },
-};
+class TicketErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error: any) {
+    console.error('Ticket render error:', error);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 14, background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 12, color: '#DC2626', fontSize: 13, marginBottom: 16 }}>
+          ⚠️ Ticket details temporarily unavailable.
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function BetTicket({ slip }: { slip: BetSlip }) {
   const [open, setOpen] = useState(false);
-  const isAccumulator = slip.legs.length > 1;
-  const totalCount = slip.legs.length;
-  const wonCount = slip.legs.filter(l => l.status === 'WON').length;
-  const isWon = slip.status === 'WON';
-  const isLost = slip.status === 'LOST';
+  const legs = Array.isArray(slip?.legs) ? slip.legs : [];
+  const isAccumulator = legs.length > 1;
+  const totalCount = legs.length;
+  const wonCount = legs.filter(l => l?.status === 'WON').length;
+  const isWon = slip?.status === 'WON';
+  const isLost = slip?.status === 'LOST';
 
   // Dynamic progress-aware badge
   let badgeLabel = 'Open';
@@ -114,6 +137,11 @@ function BetTicket({ slip }: { slip: BetSlip }) {
     badgeIcon = '⏳';
   }
 
+  const slipId = slip?.id || '';
+  const potentialPayout = typeof slip?.potential_payout === 'number' ? slip.potential_payout : 0;
+  const totalOdds = typeof slip?.total_odds === 'number' ? slip.total_odds : 0;
+  const stake = typeof slip?.stake === 'number' ? slip.stake : 0;
+
   return (
     <div style={{
       marginBottom: 20,
@@ -137,16 +165,16 @@ function BetTicket({ slip }: { slip: BetSlip }) {
           </div>
           <div>
             <div style={{ color: '#111827', fontWeight: 800, fontSize: 14 }}>
-              {isAccumulator ? `${slip.legs.length}-Fold Accumulator` : 'Single Bet'}
+              {isAccumulator ? `${legs.length}-Fold Accumulator` : 'Single Bet'}
             </div>
-            <div style={{ color: '#4B5563', fontSize: 11 }}>{formatDate(slip.created_at)}</div>
+            <div style={{ color: '#4B5563', fontSize: 11 }}>{formatDate(slip?.created_at)}</div>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ textAlign: 'right' }}>
             <div style={{ color: '#4B5563', fontSize: 10, textTransform: 'uppercase' }}>Payout</div>
-            <div style={{ color: slip.status === 'WON' ? '#059669' : '#d97706', fontWeight: 900, fontSize: 14 }}>
-              {slip.potential_payout.toFixed(2)}
+            <div style={{ color: isWon ? '#059669' : '#d97706', fontWeight: 900, fontSize: 14 }}>
+              {potentialPayout.toFixed(2)}
             </div>
           </div>
           <svg viewBox="0 0 24 24" style={{ width: 18, height: 18, color: '#9CA3AF', transform: open ? 'rotate(180deg)' : '', transition: 'transform 0.2s' }} fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -160,13 +188,15 @@ function BetTicket({ slip }: { slip: BetSlip }) {
         <div style={{ background: '#ffffff' }}>
           
           {/* List of Legs */}
-          {slip.legs.map((leg, i) => {
+          {legs.map((leg, i) => {
+            if (!leg) return null;
             const { home, away } = parseMatch(leg.match_name);
             const legWon = leg.status === 'WON';
             const legLost = leg.status === 'LOST';
+            const oddsVal = typeof leg.odds === 'number' ? leg.odds : 0;
             
             return (
-              <div key={leg.id} style={{ position: 'relative' }}>
+              <div key={leg.id || i} style={{ position: 'relative' }}>
                 {/* Receipt Cutout Effect (Side notches) */}
                 {i > 0 && (
                   <div style={{ position: 'absolute', top: -8, left: 0, right: 0, display: 'flex', justifyContent: 'space-between', zIndex: 2 }}>
@@ -177,7 +207,7 @@ function BetTicket({ slip }: { slip: BetSlip }) {
                 
                 <div style={{ 
                   padding: '16px 20px', 
-                  borderBottom: i < slip.legs.length - 1 ? '1px dashed #e5e7eb' : 'none',
+                  borderBottom: i < legs.length - 1 ? '1px dashed #e5e7eb' : 'none',
                 }}>
                   {/* Top: Sport / League */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -189,7 +219,7 @@ function BetTicket({ slip }: { slip: BetSlip }) {
                     </div>
                     {leg.kickoffAt && (
                       <span style={{ color: '#F5A623', fontSize: 11, fontWeight: 700 }}>
-                        {(() => { try { const d=new Date(leg.kickoffAt); return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')} ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`; } catch { return ''; } })()}
+                        {(() => { try { const d=new Date(leg.kickoffAt); return isNaN(d.getTime()) ? '' : `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')} ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`; } catch { return ''; } })()}
                       </span>
                     )}
                   </div>
@@ -209,7 +239,7 @@ function BetTicket({ slip }: { slip: BetSlip }) {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                     <div>
                       <div style={{ color: '#111827', fontWeight: 800, fontSize: 14, marginBottom: 4 }}>
-                        {leg.market_name}. {leg.selection_name}
+                        {leg.market_name || 'Match'}. {leg.selection_name || ''}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span style={{ color: '#4B5563', fontSize: 12 }}>Status:</span>
@@ -221,23 +251,27 @@ function BetTicket({ slip }: { slip: BetSlip }) {
                             return <span style={{ color: '#EF4444', fontSize: 12, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 4 }}>❌ Loss</span>;
                           }
                           if (leg.kickoffAt) {
-                            const ko = new Date(leg.kickoffAt).getTime();
-                            const ends = ko + 105 * 60 * 1000;
-                            const now = Date.now();
-                            if (now >= ko && now < ends) {
-                              return <span style={{ color: '#F5A623', fontSize: 12, fontWeight: 800 }}>⏳ Pending</span>;
-                            }
-                            if (now < ko) {
-                              const koStr = new Date(ko).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                              return <span style={{ color: '#6B7280', fontSize: 12, fontWeight: 700 }}>⏳ Starts ~{koStr}</span>;
-                            }
+                            try {
+                              const ko = new Date(leg.kickoffAt).getTime();
+                              if (!isNaN(ko)) {
+                                const ends = ko + 105 * 60 * 1000;
+                                const now = Date.now();
+                                if (now >= ko && now < ends) {
+                                  return <span style={{ color: '#F5A623', fontSize: 12, fontWeight: 800 }}>⏳ Pending</span>;
+                                }
+                                if (now < ko) {
+                                  const koStr = new Date(ko).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                  return <span style={{ color: '#6B7280', fontSize: 12, fontWeight: 700 }}>⏳ Starts ~{koStr}</span>;
+                                }
+                              }
+                            } catch {}
                           }
                           return <span style={{ color: '#D97706', fontSize: 12, fontWeight: 700 }}>⏳ Pending</span>;
                         })()}
                       </div>
                     </div>
                     <div style={{ color: '#111827', fontWeight: 900, fontSize: 18 }}>
-                      {leg.odds.toFixed(2)}
+                      {oddsVal.toFixed(2)}
                     </div>
                   </div>
                 </div>
@@ -249,26 +283,28 @@ function BetTicket({ slip }: { slip: BetSlip }) {
           <div style={{ background: '#ffffff', padding: '16px 20px', borderTop: '1px dashed #374151' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
               <span style={{ color: '#4B5563', fontSize: 12 }}>Total Odds</span>
-              <span style={{ color: '#111827', fontSize: 14, fontWeight: 800 }}>{slip.total_odds.toFixed(2)}</span>
+              <span style={{ color: '#111827', fontSize: 14, fontWeight: 800 }}>{totalOdds.toFixed(2)}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
               <span style={{ color: '#4B5563', fontSize: 12 }}>Stake</span>
-              <span style={{ color: '#111827', fontSize: 14, fontWeight: 800 }}>{slip.stake.toFixed(2)} Br</span>
+              <span style={{ color: '#111827', fontSize: 14, fontWeight: 800 }}>{stake.toFixed(2)} Br</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 12, borderTop: '1px solid #e5e7eb' }}>
               <span style={{ color: '#111827', fontSize: 13, fontWeight: 800 }}>Potential Payout</span>
-              <span style={{ color: '#d97706', fontSize: 16, fontWeight: 900 }}>{slip.potential_payout.toFixed(2)} Br</span>
+              <span style={{ color: '#d97706', fontSize: 16, fontWeight: 900 }}>{potentialPayout.toFixed(2)} Br</span>
             </div>
             
-                          {/* QR Code */}
+            {/* QR Code */}
+            {slipId && (
               <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <div style={{ padding: 8, background: '#fff', borderRadius: 8 }}>
-                  <QRCode value={`https://www.miraclbet.com/check?code=TICKET-${slip.id.toUpperCase()}`} size={130} level="H" style={{ display: "block" }} />
+                  <QRCode value={`https://www.miraclbet.com/check?code=TICKET-${slipId.toUpperCase()}`} size={130} level="H" style={{ display: "block" }} />
                 </div>
                 <div style={{ color: '#6B7280', fontSize: 10, letterSpacing: 2, marginTop: 8, fontFamily: 'monospace' }}>
-                  TICKET-{slip.id.slice(0, 12).toUpperCase()}
+                  TICKET-{slipId.slice(0, 12).toUpperCase()}
                 </div>
               </div>
+            )}
           </div>
           
         </div>
@@ -281,42 +317,67 @@ export default function MyBetsPage() {
   const [mounted, setMounted]     = useState(false);
   const [bets, setBets]           = useState<BetSlip[]>([]);
   const [loading, setLoading]     = useState(true);
-  const [user, setUser]           = useState<{ id: string; full_name: string } | null>(null);
+  const [user, setUser]           = useState<{ id: string; full_name?: string } | null>(null);
   const [tab, setTab]             = useState<'all' | 'pending' | 'settled'>('all');
 
   const fetchBets = useCallback(async (userId: string) => {
     setLoading(true);
     try {
-      const res = await fetch(`${API}/api/v1/bets?user_id=${userId}`, { cache: 'no-store' });
+      const res = await fetch(`${API}/api/v1/bets?user_id=${userId}&t=${Date.now()}`, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data)) setBets(data);
+        if (Array.isArray(data)) {
+          setBets(data.map(item => ({
+            ...item,
+            legs: Array.isArray(item.legs) ? item.legs : []
+          })));
+        }
       }
-    } catch {} finally { setLoading(false); }
+    } catch (e) {
+      console.error('Error fetching bets:', e);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
     setMounted(true);
-    const rawUser = localStorage.getItem('miraclbet_user');
-    if (rawUser) {
-      try {
+    try {
+      const rawUser = localStorage.getItem('miraclbet_user');
+      if (rawUser) {
         const u = JSON.parse(rawUser);
-        setUser(u);
-        fetchBets(u.id);
+        if (u && u.id) {
+          setUser(u);
+          fetchBets(u.id);
 
-        // Auto-refresh every 10 seconds to update match progress live
-        const interval = setInterval(() => {
-          fetch(`${API}/api/v1/bets?user_id=${u.id}`, { cache: 'no-store' })
-            .then(r => r.ok ? r.json() : null)
-            .then(data => { if (Array.isArray(data)) setBets(data); })
-            .catch(() => {});
-        }, 10000);
-        return () => clearInterval(interval);
-      } catch { setLoading(false); }
-    } else { setLoading(false); }
+          // Auto-refresh every 10 seconds to update match progress live
+          const interval = setInterval(() => {
+            fetch(`${API}/api/v1/bets?user_id=${u.id}&t=${Date.now()}`, { cache: 'no-store' })
+              .then(r => r.ok ? r.json() : null)
+              .then(data => {
+                if (Array.isArray(data)) {
+                  setBets(data.map(item => ({
+                    ...item,
+                    legs: Array.isArray(item.legs) ? item.legs : []
+                  })));
+                }
+              })
+              .catch(() => {});
+          }, 10000);
+          return () => clearInterval(interval);
+        } else {
+          setLoading(false);
+        }
+      } else {
+        setLoading(false);
+      }
+    } catch {
+      setLoading(false);
+    }
   }, [fetchBets]);
 
-  const filtered = bets.filter(b => {
+  const filtered = (Array.isArray(bets) ? bets : []).filter(b => {
+    if (!b) return false;
     if (tab === 'pending') return b.status === 'PENDING';
     if (tab === 'settled') return b.status !== 'PENDING';
     return true;
@@ -375,7 +436,11 @@ export default function MyBetsPage() {
           </div>
         ) : (
           <>
-            {filtered.map(slip => <BetTicket key={slip.id} slip={slip} />)}
+            {filtered.map(slip => (
+              <TicketErrorBoundary key={slip.id}>
+                <BetTicket slip={slip} />
+              </TicketErrorBoundary>
+            ))}
           </>
         )}
       </div>

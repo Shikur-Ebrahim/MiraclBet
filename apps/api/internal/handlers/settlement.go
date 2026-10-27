@@ -339,8 +339,8 @@ func (h *SettlementHandler) autoSettleSlip(ctx context.Context, slipID string) {
 			bl.selection_name,
 			COALESCE(bl.selection_id, ''),
 			COALESCE(bl.match_name, ''),
-			COALESCE(f.home_team, ''),
-			COALESCE(f.away_team, ''),
+			COALESCE(f.home_team_name, ''),
+			COALESCE(f.away_team_name, ''),
 			bl.odds,
 			COALESCE(f.score_home, -1),
 			COALESCE(f.score_away, -1),
@@ -408,8 +408,8 @@ func (h *SettlementHandler) recheckFinishedNormalLegs(ctx context.Context) {
 			bl.selection_name,
 			COALESCE(bl.selection_id, ''),
 			COALESCE(bl.match_name, ''),
-			COALESCE(f.home_team, ''),
-			COALESCE(f.away_team, ''),
+			COALESCE(f.home_team_name, ''),
+			COALESCE(f.away_team_name, ''),
 			bl.status,
 			COALESCE(f.score_home, -1),
 			COALESCE(f.score_away, -1),
@@ -1077,13 +1077,13 @@ func (h *SettlementHandler) GetAllBets(w http.ResponseWriter, r *http.Request) {
 							     OR bl.selection_name IN ('1X', 'X2', '2X', '12', 'Home/Draw', 'Draw/Away', 'Home/Away') THEN
 								CASE
 									-- 1X (Home or Draw)
-									WHEN bl.selection_name LIKE '% or Draw%' OR (bl.selection_name LIKE 'Draw or %' AND bl.selection_name NOT LIKE '%' || f.away_team || '%')
+									WHEN bl.selection_name LIKE '% or Draw%' OR (bl.selection_name LIKE 'Draw or %' AND bl.selection_name NOT LIKE '%' || f.away_team_name || '%')
 									     OR bl.selection_name IN ('1X', 'Home/Draw', 'Home or Draw')
-									     OR (f.home_team != '' AND bl.selection_name LIKE '%' || f.home_team || '%' AND bl.selection_name LIKE '%Draw%') THEN
+									     OR (f.home_team_name != '' AND bl.selection_name LIKE '%' || f.home_team_name || '%' AND bl.selection_name LIKE '%Draw%') THEN
 										CASE WHEN COALESCE(f.score_home,0) >= COALESCE(f.score_away,0) THEN 'WON' ELSE 'LOST' END
 									-- X2 (Draw or Away)
 									WHEN bl.selection_name IN ('X2', '2X', 'Draw/Away', 'Away/Draw', 'Away or Draw', 'Draw or Away')
-									     OR (f.away_team != '' AND bl.selection_name LIKE '%' || f.away_team || '%' AND bl.selection_name LIKE '%Draw%') THEN
+									     OR (f.away_team_name != '' AND bl.selection_name LIKE '%' || f.away_team_name || '%' AND bl.selection_name LIKE '%Draw%') THEN
 										CASE WHEN COALESCE(f.score_away,0) >= COALESCE(f.score_home,0) THEN 'WON' ELSE 'LOST' END
 									-- 12 (Home or Away)
 									WHEN bl.selection_name IN ('12', 'Home/Away', 'Home or Away')
@@ -1095,9 +1095,9 @@ func (h *SettlementHandler) GetAllBets(w http.ResponseWriter, r *http.Request) {
 							WHEN bl.market_name IN ('Match Winner', '1X2', 'Full Time Result') THEN
 								CASE
 									WHEN bl.selection_name IN ('Draw', 'X') AND COALESCE(f.score_home,0) = COALESCE(f.score_away,0) THEN 'WON'
-									WHEN (bl.selection_name IN ('Home Win', 'Home', '1') OR (f.home_team != '' AND bl.selection_name = f.home_team))
+									WHEN (bl.selection_name IN ('Home Win', 'Home', '1') OR (f.home_team_name != '' AND bl.selection_name = f.home_team_name))
 									     AND COALESCE(f.score_home,0) > COALESCE(f.score_away,0) THEN 'WON'
-									WHEN (bl.selection_name IN ('Away Win', 'Away', '2') OR (f.away_team != '' AND bl.selection_name = f.away_team))
+									WHEN (bl.selection_name IN ('Away Win', 'Away', '2') OR (f.away_team_name != '' AND bl.selection_name = f.away_team_name))
 									     AND COALESCE(f.score_away,0) > COALESCE(f.score_home,0) THEN 'WON'
 									ELSE 'LOST'
 								END
@@ -1113,8 +1113,8 @@ func (h *SettlementHandler) GetAllBets(w http.ResponseWriter, r *http.Request) {
 								CASE WHEN COALESCE(f.score_home,0) + COALESCE(f.score_away,0) <= 2 THEN 'WON' ELSE 'LOST' END
 							WHEN bl.market_name = 'Draw No Bet' THEN
 								CASE
-									WHEN (bl.selection_name IN ('Home', '1') OR (f.home_team != '' AND bl.selection_name = f.home_team)) AND COALESCE(f.score_home,0) > COALESCE(f.score_away,0) THEN 'WON'
-									WHEN (bl.selection_name IN ('Away', '2') OR (f.away_team != '' AND bl.selection_name = f.away_team)) AND COALESCE(f.score_away,0) > COALESCE(f.score_home,0) THEN 'WON'
+									WHEN (bl.selection_name IN ('Home', '1') OR (f.home_team_name != '' AND bl.selection_name = f.home_team_name)) AND COALESCE(f.score_home,0) > COALESCE(f.score_away,0) THEN 'WON'
+									WHEN (bl.selection_name IN ('Away', '2') OR (f.away_team_name != '' AND bl.selection_name = f.away_team_name)) AND COALESCE(f.score_away,0) > COALESCE(f.score_home,0) THEN 'WON'
 									WHEN COALESCE(f.score_home,0) = COALESCE(f.score_away,0) THEN 'VOID'
 									ELSE 'LOST'
 								END
